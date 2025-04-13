@@ -9,9 +9,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.pillora.pillora.navigation.Screen
+import com.pillora.pillora.data.FirestoreRepository
+import kotlinx.coroutines.launch
 
 @Composable
 fun FirestoreScreen(navController: NavController) {
+
+
+
     Column(
         modifier = Modifier
             .fillMaxSize()
