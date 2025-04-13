@@ -29,6 +29,8 @@ firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version =
 firebase-analytics-ktx = { group = "com.google.firebase", name = "firebase-analytics-ktx" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" }
 firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version = "2.8.9" }
+
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

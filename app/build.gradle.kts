@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.pillora.pillora"
-        minSdk = 21
+        minSdk = 23
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -61,4 +61,6 @@ dependencies {
     implementation(libs.firebase.analytics.ktx)
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
+    implementation(libs.androidx.navigation.compose)
+
 }
