@@ -12,10 +12,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.pillora.pillora.ui.theme.PilloraTheme
+import com.google.firebase.analytics.ktx.analytics
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.analytics.FirebaseAnalytics
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val analytics = Firebase.analytics
+        analytics.logEvent(FirebaseAnalytics.Event.APP_OPEN, null)
         enableEdgeToEdge()
         setContent {
             PilloraTheme {
