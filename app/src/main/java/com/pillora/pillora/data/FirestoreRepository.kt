@@ -31,4 +31,21 @@ class FirestoreRepository {
             emptyList()
         }
     }
+
+    suspend fun deleteUser(documentId: String) {
+        try {
+            db.collection("users").document(documentId).delete().await()
+            Log.d("Firestore", "Usuário $documentId excluído com sucesso")
+        } catch (e: Exception) {
+            Log.e("Firestore", "Erro ao excluir usuário: ${e.message}")
+        }
+    }
+
+    suspend fun getUsersWithId(): List<Pair<String, Map<String, Any>>> {
+        val snapshot = db.collection("users").get().await()
+        return snapshot.documents.map { doc ->
+            Pair(doc.id, doc.data ?: emptyMap())
+        }
+    }
+
 }
