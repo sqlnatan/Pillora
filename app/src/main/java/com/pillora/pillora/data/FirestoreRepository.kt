@@ -3,6 +3,7 @@ package com.pillora.pillora.data
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import android.util.Log
+import androidx.compose.runtime.rememberCoroutineScope
 
 class FirestoreRepository {
 
