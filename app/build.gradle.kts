@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.google.services)
+    alias(libs.plugins.google.gms.googleServices)
 }
 
 android {
@@ -65,4 +65,6 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.androidx.datastore)
     implementation(libs.kotlinx.coroutines.android)
+
+
 }

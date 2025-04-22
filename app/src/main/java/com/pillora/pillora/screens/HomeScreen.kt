@@ -26,5 +26,11 @@ fun HomeScreen(navController: NavController) {
         }) {
             Text("Ir para Firestore")
         }
+        Button(onClick = {
+            navController.navigate(Screen.MedicineForm.route)
+        }) {
+            Text("Cadastrar Medicamento")
+        }
+
     }
 }

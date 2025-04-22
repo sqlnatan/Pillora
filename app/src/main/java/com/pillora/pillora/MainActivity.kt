@@ -9,10 +9,13 @@ import com.pillora.pillora.navigation.AppNavigation // <-- importa aqui
 import com.google.firebase.analytics.ktx.analytics
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.FirebaseApp
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebaseApp.initializeApp(this)
         val analytics = Firebase.analytics
         analytics.logEvent(FirebaseAnalytics.Event.APP_OPEN, null)
         enableEdgeToEdge()

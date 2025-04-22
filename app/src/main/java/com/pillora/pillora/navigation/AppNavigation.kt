@@ -10,6 +10,8 @@ import androidx.navigation.compose.rememberNavController
 import com.pillora.pillora.screens.HomeScreen
 import com.pillora.pillora.screens.FirestoreScreen
 import com.pillora.pillora.screens.TermsScreen
+import com.pillora.pillora.screens.MedicineFormScreen
+
 
 @Composable
 fun AppNavigation() {
@@ -31,6 +33,8 @@ fun AppNavigation() {
         composable("home") {
             HomeScreen(navController = navController)
         }
-        // adicione aqui os outros composables do app
+        composable("medicine_form") {
+            MedicineFormScreen(navController = navController)
+        }// adicione aqui os outros composables do app
     }
 }
