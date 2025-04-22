@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.pillora.pillora.model.Medicine
 import com.pillora.pillora.repository.MedicineRepository
+import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,6 +42,9 @@ fun MedicineFormScreen(navController: NavController) {
     var timesPerDay by remember { mutableStateOf("1") }
     var intervalHours by remember { mutableStateOf("") }
     var startTime by remember { mutableStateOf("") }
+
+    var showFutureDateDialog by remember { mutableStateOf(false) }
+    var medicineToSave by remember { mutableStateOf<Medicine?>(null) }
 
     Scaffold(
         topBar = {
@@ -218,8 +222,51 @@ fun MedicineFormScreen(navController: NavController) {
                 modifier = Modifier.fillMaxWidth()
             )
 
+            if (showFutureDateDialog && medicineToSave != null) {
+                AlertDialog(
+                    onDismissRequest = { showFutureDateDialog = false },
+                    title = { Text("Data futura selecionada") },
+                    text = { Text("Você selecionou uma data no futuro (${medicineToSave!!.startDate}). Deseja continuar?") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showFutureDateDialog = false
+                            MedicineRepository.saveMedicine(
+                                medicine = medicineToSave!!,
+                                onSuccess = {
+                                    Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
+                                    navController.popBackStack()
+                                },
+                                onError = {
+                                    Toast.makeText(context, "Erro ao salvar: ${it.message}", Toast.LENGTH_LONG).show()
+                                }
+                            )
+                        }) {
+                            Text("Sim")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showFutureDateDialog = false }) {
+                            Text("Cancelar")
+                        }
+                    }
+                )
+            }
+
             Button(
                 onClick = {
+                    val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                    val today = Calendar.getInstance().time
+                    val selectedDate = try {
+                        sdf.parse(startDate)
+                    } catch (e: Exception) {
+                        null
+                    }
+
+                    if (selectedDate == null) {
+                        Toast.makeText(context, "Data de início inválida.", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
                     val medicine = Medicine(
                         name = name,
                         dose = dose,
@@ -234,16 +281,21 @@ fun MedicineFormScreen(navController: NavController) {
                         notes = notes
                     )
 
-                    MedicineRepository.saveMedicine(
-                        medicine = medicine,
-                        onSuccess = {
-                            Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
-                            navController.popBackStack()
-                        },
-                        onError = {
-                            Toast.makeText(context, "Erro ao salvar: ${it.message}", Toast.LENGTH_LONG).show()
-                        }
-                    )
+                    if (selectedDate.after(today)) {
+                        medicineToSave = medicine
+                        showFutureDateDialog = true
+                    } else {
+                        MedicineRepository.saveMedicine(
+                            medicine = medicine,
+                            onSuccess = {
+                                Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
+                                navController.popBackStack()
+                            },
+                            onError = {
+                                Toast.makeText(context, "Erro ao salvar: ${it.message}", Toast.LENGTH_LONG).show()
+                            }
+                        )
+                    }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -253,7 +305,6 @@ fun MedicineFormScreen(navController: NavController) {
     }
 }
 
-// Classe separada para formatar a data automaticamente como DD/MM/AAAA
 class DateVisualTransformation : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val trimmed = if (text.text.length >= 8) text.text.substring(0..7) else text.text
