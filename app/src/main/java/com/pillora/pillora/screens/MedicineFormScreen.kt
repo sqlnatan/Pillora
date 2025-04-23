@@ -12,16 +12,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.OffsetMapping
-import androidx.compose.ui.text.input.TransformedText
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.pillora.pillora.model.Medicine
 import com.pillora.pillora.repository.MedicineRepository
+import com.pillora.pillora.utils.DateMask
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -74,25 +71,20 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                 medicineId = medicineId,
                 onSuccess = { medicine ->
                     if (medicine != null) {
-                        // Preencher os campos com os dados do medicamento
                         name = medicine.name
                         dose = medicine.dose
                         doseUnit = medicine.doseUnit ?: "Cápsula"
                         frequencyType.value = medicine.frequencyType
                         startDate = medicine.startDate
-
                         isContinuousMedication = medicine.duration == -1
                         duration = if (medicine.duration == -1) "" else medicine.duration.toString()
-
                         notes = medicine.notes
 
                         if (medicine.frequencyType == "vezes_dia") {
                             timesPerDay = medicine.timesPerDay.toString()
-                            // Carregar horários
                             horarios.clear()
                             medicine.horarios?.let { schedules ->
                                 horarios.addAll(schedules)
-                                // Se não houver horários suficientes, adicionar horários padrão
                                 val count = timesPerDay.toIntOrNull() ?: 0
                                 if (horarios.size < count) {
                                     repeat(count - horarios.size) { horarios.add("00:00") }
@@ -106,13 +98,11 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                     isLoading = false
                 },
                 onError = { exception ->
-                    // Mostrar mensagem de erro
                     Toast.makeText(context, "Erro ao carregar medicamento: ${exception.message}", Toast.LENGTH_LONG).show()
                     isLoading = false
                 }
             )
         } else {
-            // Inicializar horários quando a tela é carregada para novo medicamento
             if ((timesPerDay.toIntOrNull() ?: 0) > 0) {
                 val count = timesPerDay.toIntOrNull() ?: 1
                 if (horarios.isEmpty()) {
@@ -305,7 +295,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
 
                             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                            // Sempre mostrar os horários, mesmo quando timesPerDay é 1
                             if (horarios.isNotEmpty()) {
                                 Text(
                                     "Defina os horários:",
@@ -363,7 +352,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             }
                         }
                     }
-
                 } else {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -419,14 +407,17 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                 OutlinedTextField(
                     value = startDate,
                     onValueChange = { input ->
-                        if (input.length <= 10) {
-                            val formatted = formatDateInput(input)
-                            startDate = formatted
-                            startDateError = ""
+                        val maskedDate = DateMask.mask(input)
+                        if (maskedDate.length <= DateMask.MAX_LENGTH) {
+                            startDate = maskedDate
+                            startDateError = if (maskedDate.length == 10 && !DateMask.isValid(maskedDate)) {
+                                "Data inválida"
+                            } else {
+                                ""
+                            }
                         }
                     },
                     label = { Text("Data de início (dd/mm/aaaa)") },
-                    visualTransformation = DateVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     isError = startDateError.isNotEmpty(),
@@ -508,7 +499,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             TextButton(onClick = {
                                 showFutureDateDialog = false
                                 if (isEditing && medicineId != null) {
-                                    // Atualizar medicamento existente
                                     MedicineRepository.updateMedicine(
                                         medicineId = medicineId,
                                         medicine = medicineToSave!!,
@@ -521,7 +511,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                         }
                                     )
                                 } else {
-                                    // Salvar novo medicamento
                                     MedicineRepository.saveMedicine(
                                         medicine = medicineToSave!!,
                                         onSuccess = {
@@ -547,7 +536,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
 
                 Button(
                     onClick = {
-                        // Validar todos os campos
                         var isValid = true
 
                         if (name.isBlank()) {
@@ -578,13 +566,11 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             }
                         }
 
-                        // Validar data
-                        validateDate(startDate) { valid, error ->
-                            startDateError = if (!valid) error else ""
-                            isValid = isValid && valid
+                        if (startDate.length != 10 || !DateMask.isValid(startDate)) {
+                            startDateError = "Data inválida"
+                            isValid = false
                         }
 
-                        // Validar duração se não for medicamento contínuo
                         if (!isContinuousMedication && (duration.isBlank() || duration.toIntOrNull() == null)) {
                             durationError = "Duração é obrigatória"
                             isValid = false
@@ -594,7 +580,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             return@Button
                         }
 
-                        // Criar objeto Medicine
                         val medicine = Medicine(
                             name = name,
                             dose = dose,
@@ -609,7 +594,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             notes = notes
                         )
 
-                        // Verificar se a data é futura
                         val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
                         val today = Calendar.getInstance().time
                         val selectedDate = try {
@@ -619,13 +603,10 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                         }
 
                         if (selectedDate != null && selectedDate.after(today)) {
-                            // Mostrar diálogo de confirmação
                             showFutureDateDialog = true
                             medicineToSave = medicine
                         } else {
-                            // Salvar ou atualizar medicamento
                             if (isEditing && medicineId != null) {
-                                // Atualizar medicamento existente
                                 MedicineRepository.updateMedicine(
                                     medicineId = medicineId,
                                     medicine = medicine,
@@ -638,7 +619,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                     }
                                 )
                             } else {
-                                // Salvar novo medicamento
                                 MedicineRepository.saveMedicine(
                                     medicine = medicine,
                                     onSuccess = {
@@ -661,17 +641,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
     }
 }
 
-// Função para formatar a entrada de data
-private fun formatDateInput(input: String): String {
-    val digitsOnly = input.filter { it.isDigit() }
-    return when {
-        digitsOnly.length <= 2 -> digitsOnly
-        digitsOnly.length <= 4 -> "${digitsOnly.substring(0, 2)}/${digitsOnly.substring(2)}"
-        else -> "${digitsOnly.substring(0, 2)}/${digitsOnly.substring(2, 4)}/${digitsOnly.substring(4, minOf(8, digitsOnly.length))}"
-    }
-}
-
-// Função para formatar a string de data
 private fun formatDateString(date: String): String {
     val parts = date.split("/")
     if (parts.size < 3) return date
@@ -681,80 +650,4 @@ private fun formatDateString(date: String): String {
     val year = parts[2].padStart(4, '0')
 
     return "$day/$month/$year"
-}
-
-// Função para validar a data
-private fun validateDate(date: String, callback: (Boolean, String) -> Unit) {
-    if (date.isBlank()) {
-        callback(false, "Data é obrigatória")
-        return
-    }
-
-    val parts = date.split("/")
-    if (parts.size != 3) {
-        callback(false, "Formato de data inválido")
-        return
-    }
-
-    val day = parts[0].toIntOrNull()
-    val month = parts[1].toIntOrNull()
-    val year = parts[2].toIntOrNull()
-
-    if (day == null || month == null || year == null) {
-        callback(false, "Data inválida")
-        return
-    }
-
-    if (year < 2000 || year > 2100) {
-        callback(false, "Ano inválido")
-        return
-    }
-
-    if (month < 1 || month > 12) {
-        callback(false, "Mês inválido")
-        return
-    }
-
-    val maxDays = when (month) {
-        2 -> if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) 29 else 28
-        4, 6, 9, 11 -> 30
-        else -> 31
-    }
-
-    if (day < 1 || day > maxDays) {
-        callback(false, "Dia inválido para o mês selecionado")
-        return
-    }
-
-    callback(true, "")
-}
-
-// Transformação visual para formatar a data durante a digitação
-class DateVisualTransformation : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText {
-        val trimmed = if (text.text.length >= 8) text.text.substring(0..7) else text.text
-        var output = ""
-        for (i in trimmed.indices) {
-            output += trimmed[i]
-            if (i == 1 || i == 3) output += "/"
-        }
-
-        val offsetMapping = object : OffsetMapping {
-            override fun originalToTransformed(offset: Int): Int {
-                if (offset <= 1) return offset
-                if (offset <= 3) return offset + 1
-                if (offset <= 8) return offset + 2
-                return 10
-            }
-
-            override fun transformedToOriginal(offset: Int): Int {
-                if (offset <= 2) return offset
-                if (offset <= 5) return offset - 1
-                if (offset <= 10) return offset - 2
-                return 8
-            }
-        }
-
-        return TransformedText(AnnotatedString(output), offsetMapping)
-    }
 }
