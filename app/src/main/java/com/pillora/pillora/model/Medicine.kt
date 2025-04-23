@@ -10,6 +10,6 @@ data class Medicine(
     val intervalHours: Int? = null, // só se for "a_cada_x_horas"
     val startTime: String? = null, // só se for "a_cada_x_horas"
     val startDate: String = "",
-    val duration: Int = 0,
+    val duration: Int = 0, // -1 significa medicamento contínuo (sem tempo definido)
     val notes: String = ""
 )

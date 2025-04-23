@@ -4,13 +4,16 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.pillora.pillora.screens.HomeScreen
 import com.pillora.pillora.screens.FirestoreScreen
 import com.pillora.pillora.screens.TermsScreen
 import com.pillora.pillora.screens.MedicineFormScreen
+import com.pillora.pillora.screens.MedicineListScreen
 
 
 @Composable
@@ -33,8 +36,27 @@ fun AppNavigation() {
         composable("home") {
             HomeScreen(navController = navController)
         }
-        composable("medicine_form") {
-            MedicineFormScreen(navController = navController)
-        }// adicione aqui os outros composables do app
+        composable("medicine_list") {
+            MedicineListScreen(navController = navController)
+        }
+        composable(
+            route = "medicine_form?medicineId={medicineId}",
+            arguments = listOf(
+                navArgument("medicineId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val medicineId = backStackEntry.arguments?.getString("medicineId")
+            MedicineFormScreen(
+                navController = navController,
+                medicineId = medicineId
+            )
+        }
+        composable("firestore") {
+            FirestoreScreen(navController = navController)
+        }
     }
 }
