@@ -3,12 +3,49 @@ package com.pillora.pillora.screens
 import android.app.TimePickerDialog
 import android.widget.TimePicker
 import android.widget.Toast
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -18,9 +55,13 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.pillora.pillora.model.Medicine
 import com.pillora.pillora.repository.MedicineRepository
+import com.pillora.pillora.ui.components.DateTextField
 import com.pillora.pillora.utils.DateMask
+import java.util.Calendar
+import java.util.Locale
+import java.util.Date
 import java.text.SimpleDateFormat
-import java.util.*
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -404,31 +445,23 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                     }
                 }
 
-                OutlinedTextField(
+                // Campo de data com a nova implementação
+                DateTextField(
                     value = startDate,
-                    onValueChange = { input ->
-                        val maskedDate = DateMask.mask(input)
-                        if (maskedDate.length <= DateMask.MAX_LENGTH) {
-                            startDate = maskedDate
-                            startDateError = if (maskedDate.length == 10 && !DateMask.isValid(maskedDate)) {
-                                "Data inválida"
-                            } else {
-                                ""
-                            }
+                    onValueChange = { maskedDate ->
+                        startDate = maskedDate
+
+                        // Validação em tempo real
+                        startDateError = if (maskedDate.length == 10 && !DateMask.isValid(maskedDate)) {
+                            "Data inválida"
+                        } else {
+                            ""
                         }
                     },
-                    label = { Text("Data de início (dd/mm/aaaa)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
+                    label = "Data de início (DD/MM/AAAA)",
                     isError = startDateError.isNotEmpty(),
-                    supportingText = {
-                        if (startDateError.isNotEmpty()) {
-                            Text(
-                                text = startDateError,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
+                    errorMessage = startDateError,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 Row(
@@ -490,7 +523,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                         title = { Text("Data futura selecionada") },
                         text = {
                             Column {
-                                Text("Você selecionou uma data no futuro (${formatDateString(startDate)}).")
+                                Text("Você selecionou uma data no futuro (${startDate}).")
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text("Deseja continuar com esta data?")
                             }
@@ -594,15 +627,8 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             notes = notes
                         )
 
-                        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                        val today = Calendar.getInstance().time
-                        val selectedDate = try {
-                            sdf.parse(formatDateString(startDate))
-                        } catch (e: Exception) {
-                            null
-                        }
-
-                        if (selectedDate != null && selectedDate.after(today)) {
+                        // Verifica se a data é futura
+                        if (startDate.length == 10 && DateMask.isFutureDate(startDate)) {
                             showFutureDateDialog = true
                             medicineToSave = medicine
                         } else {
@@ -639,15 +665,4 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
             }
         }
     }
-}
-
-private fun formatDateString(date: String): String {
-    val parts = date.split("/")
-    if (parts.size < 3) return date
-
-    val day = parts[0].padStart(2, '0')
-    val month = parts[1].padStart(2, '0')
-    val year = parts[2].padStart(4, '0')
-
-    return "$day/$month/$year"
 }
