@@ -78,7 +78,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                         name = medicine.name
                         dose = medicine.dose
                         doseUnit = medicine.doseUnit ?: "Cápsula"
-                        frequencyType.value = medicine.frequencyType ?: "vezes_dia"
+                        frequencyType.value = medicine.frequencyType
                         startDate = medicine.startDate
 
                         isContinuousMedication = medicine.duration == -1

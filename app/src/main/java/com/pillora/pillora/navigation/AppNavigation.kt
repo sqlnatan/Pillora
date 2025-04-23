@@ -10,7 +10,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pillora.pillora.screens.HomeScreen
-import com.pillora.pillora.screens.FirestoreScreen
 import com.pillora.pillora.screens.TermsScreen
 import com.pillora.pillora.screens.MedicineFormScreen
 import com.pillora.pillora.screens.MedicineListScreen
@@ -55,8 +54,6 @@ fun AppNavigation() {
                 medicineId = medicineId
             )
         }
-        composable("firestore") {
-            FirestoreScreen(navController = navController)
-        }
+
     }
 }
