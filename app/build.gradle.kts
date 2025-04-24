@@ -63,8 +63,7 @@ dependencies {
     implementation(libs.firebase.firestore.ktx)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.firebase.firestore)
-    implementation(libs.androidx.datastore)
     implementation(libs.kotlinx.coroutines.android)
-
-
+    implementation(libs.material.icons.extended)
+    implementation(libs.androidx.datastore.preferences.v1115)
 }

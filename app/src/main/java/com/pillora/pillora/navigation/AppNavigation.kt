@@ -9,11 +9,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.pillora.pillora.screens.AuthScreen
 import com.pillora.pillora.screens.HomeScreen
-import com.pillora.pillora.screens.TermsScreen
 import com.pillora.pillora.screens.MedicineFormScreen
 import com.pillora.pillora.screens.MedicineListScreen
-
+import com.pillora.pillora.screens.SplashScreen
+import com.pillora.pillora.screens.TermsScreen
+import com.pillora.pillora.repository.AuthRepository
 
 @Composable
 fun AppNavigation() {
@@ -26,18 +28,37 @@ fun AppNavigation() {
         prefs.getBoolean("accepted_terms", false)
     }
 
-    val startDestination = if (acceptedTerms) "home" else "terms"
+    // Start with splash screen, which will handle navigation logic
+    NavHost(navController = navController, startDestination = "splash") {
+        // Splash screen - will check terms and authentication status
+        composable("splash") {
+            SplashScreen(
+                navController = navController,
+                acceptedTerms = acceptedTerms
+            )
+        }
 
-    NavHost(navController = navController, startDestination = startDestination) {
+        // Terms screen
         composable("terms") {
             TermsScreen(navController = navController)
         }
+
+        // Authentication screen
+        composable("auth") {
+            AuthScreen(navController = navController)
+        }
+
+        // Home screen
         composable("home") {
             HomeScreen(navController = navController)
         }
+
+        // Medicine list screen
         composable("medicine_list") {
             MedicineListScreen(navController = navController)
         }
+
+        // Medicine form screen
         composable(
             route = "medicine_form?medicineId={medicineId}",
             arguments = listOf(
@@ -54,6 +75,5 @@ fun AppNavigation() {
                 medicineId = medicineId
             )
         }
-
     }
 }

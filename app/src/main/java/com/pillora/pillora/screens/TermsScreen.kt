@@ -1,27 +1,37 @@
 package com.pillora.pillora.screens
 
 import android.content.Context
-import android.content.SharedPreferences
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import androidx.navigation.NavController
-import com.pillora.pillora.navigation.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TermsScreen(navController: NavController) {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("pillora_prefs", Context.MODE_PRIVATE)
-    val editor = prefs.edit()
 
     Scaffold(
         topBar = {
@@ -58,9 +68,13 @@ fun TermsScreen(navController: NavController) {
 
             Button(
                 onClick = {
-                    editor.putBoolean("accepted_terms", true).apply()
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Terms.route) { inclusive = true }
+                    // Grava aceite dos termos usando KTX
+                    prefs.edit {
+                        putBoolean("accepted_terms", true)
+                    }
+                    // Navega para a tela de autenticação e remove esta do back-stack
+                    navController.navigate("auth") {
+                        popUpTo("terms") { inclusive = true }
                     }
                 },
                 modifier = Modifier.align(Alignment.CenterHorizontally)

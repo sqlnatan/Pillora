@@ -2,7 +2,6 @@ package com.pillora.pillora.utils
 
 import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 
 /**
@@ -69,19 +68,4 @@ object DateValidator {
         return "${dateStr.substring(0, 2)}/${dateStr.substring(2, 4)}/${dateStr.substring(4, 8)}"
     }
 
-    /**
-     * Converte uma string de dígitos para um objeto Date
-     * @param dateStr String contendo apenas dígitos (8 caracteres para DD/MM/AAAA)
-     * @return Date ou null se inválido
-     */
-    fun parseDate(dateStr: String): Date? {
-        if (dateStr.length != 8) return null
-
-        return try {
-            val formattedDate = formatDateString(dateStr)
-            dateFormat.parse(formattedDate)
-        } catch (e: Exception) {
-            null
-        }
-    }
 }
