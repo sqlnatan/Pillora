@@ -26,18 +26,18 @@ fun DateTextField(
         OutlinedTextField(
             value = value,
             onValueChange = { input ->
-                // Filtra apenas dígitos e aplica a máscara
+                // Filtra apenas dígitos
                 val digitsOnly = input.filter { it.isDigit() }
-                if (digitsOnly.length <= 8) {  // Limita a 8 dígitos (DD/MM/AAAA)
-                    val maskedDate = DateMask.mask(digitsOnly)
-                    onValueChange(maskedDate)
+                if (digitsOnly.length <= 8) {
+                    onValueChange(digitsOnly)
                 }
             },
             label = { Text(label) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             isError = isError,
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            visualTransformation = DateMask.maskVisualTransformation() // ✅ AGORA AQUI!
         )
 
         if (isError && errorMessage != null) {

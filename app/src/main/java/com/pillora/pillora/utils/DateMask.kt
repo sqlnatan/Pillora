@@ -1,121 +1,57 @@
 package com.pillora.pillora.utils
 
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 
-/**
- * Utilitário para formatação e validação de datas no formato DD/MM/AAAA
- */
 object DateMask {
-    const val MAX_LENGTH = 10 // DD/MM/AAAA
+    private const val DATE_MASK = "##/##/####"
 
-    /**
-     * Aplica a máscara de data (DD/MM/AAAA) à string de entrada
-     * @param text String contendo dígitos ou já parcialmente formatada
-     * @return String formatada com a máscara de data
-     */
     fun mask(text: String): String {
-        // Remove caracteres não numéricos
-        val digitsOnly = text.filter { it.isDigit() }
-
-        // Limita a 8 dígitos (DD/MM/AAAA)
-        val limitedDigits = digitsOnly.take(8)
-
-        return buildString {
-            limitedDigits.forEachIndexed { index, char ->
-                append(char)
-                // Adiciona barras após o segundo e quarto dígitos
-                if (index == 1 && limitedDigits.length > 2) {
-                    append('/')
-                } else if (index == 3 && limitedDigits.length > 4) {
-                    append('/')
+        val maskedText = StringBuilder()
+        var textIndex = 0
+        for (maskChar in DATE_MASK) {
+            if (maskChar == '#') {
+                if (textIndex < text.length) {
+                    maskedText.append(text[textIndex])
+                    textIndex++
+                } else {
+                    break // Sai do loop se não houver mais caracteres na entrada
                 }
+            } else {
+                maskedText.append(maskChar)
             }
         }
+        return maskedText.toString()
     }
 
-    /**
-     * Verifica se a data formatada é válida
-     * @param date String no formato DD/MM/AAAA
-     * @return Boolean indicando se a data é válida
-     */
-    fun isValid(date: String): Boolean {
-        if (date.length != 10) return false
+    fun maskVisualTransformation() = object : VisualTransformation {
+        override fun filter(text: AnnotatedString): TransformedText {
+            val maskedText = mask(text.text)
 
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-        dateFormat.isLenient = false // Força validação estrita
+            val offsetMapping = object : OffsetMapping {
+                override fun originalToTransformed(offset: Int): Int {
+                    if (offset <= 0) return 0
+                    if(offset <= 2) return offset + if (offset == 2) 1 else 0
+                    if(offset <= 4) return offset + 1
+                    if(offset <= 8) return offset + 2
 
-        return try {
-            dateFormat.parse(date)
-            true
-        } catch (e: Exception) {
-            false
-        }
-    }
+                    return maskedText.length
+                }
 
-    /**
-     * Verifica se a data é futura
-     * @param date String no formato DD/MM/AAAA
-     * @return Boolean indicando se a data é futura
-     */
-    fun isFutureDate(date: String): Boolean {
-        if (!isValid(date)) return false
+                override fun transformedToOriginal(offset: Int): Int {
+                    if (offset <= 0) return 0
+                    if(offset <= 2) return offset
+                    if(offset <= 3) return offset - 1
+                    if(offset <= 5) return offset - 1
+                    if(offset <= 10) return offset -2
 
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                    return maskedText.length
+                }
+            }
 
-        try {
-            val parsedDate = dateFormat.parse(date) ?: return false
-            val today = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.time
-
-            return parsedDate.after(today)
-        } catch (e: Exception) {
-            return false
-        }
-    }
-
-    /**
-     * Formata uma data para exibição
-     * @param date String no formato DD/MM/AAAA
-     * @return String formatada para exibição
-     */
-    fun formatForDisplay(date: String): String {
-        if (date.length != 10) return date
-
-        return try {
-            val parts = date.split("/")
-            if (parts.size < 3) return date
-
-            val day = parts[0].padStart(2, '0')
-            val month = parts[1].padStart(2, '0')
-            val year = parts[2].padStart(4, '0')
-
-            "$day/$month/$year"
-        } catch (e: Exception) {
-            date
-        }
-    }
-
-    /**
-     * Converte uma string de data para um objeto Date
-     * @param date String no formato DD/MM/AAAA
-     * @return Date ou null se inválido
-     */
-    fun toDate(date: String): Date? {
-        if (!isValid(date)) return null
-
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-
-        return try {
-            dateFormat.parse(date)
-        } catch (e: Exception) {
-            null
+            return TransformedText(AnnotatedString(maskedText), offsetMapping)
         }
     }
 }

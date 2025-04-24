@@ -56,12 +56,10 @@ import androidx.navigation.NavController
 import com.pillora.pillora.model.Medicine
 import com.pillora.pillora.repository.MedicineRepository
 import com.pillora.pillora.ui.components.DateTextField
-import com.pillora.pillora.utils.DateMask
 import java.util.Calendar
 import java.util.Locale
-import java.util.Date
-import java.text.SimpleDateFormat
-
+import com.pillora.pillora.utils.isFutureDate
+import com.pillora.pillora.utils.DateValidator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -192,7 +190,10 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                     }
                 )
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     OutlinedTextField(
                         value = dose,
                         onValueChange = {
@@ -288,7 +289,11 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                                 timesPerDay = (currentValue - 1).toString()
                                                 val count = timesPerDay.toIntOrNull() ?: 0
                                                 if (horarios.size > count) {
-                                                    repeat(horarios.size - count) { horarios.removeAt(horarios.lastIndex) }
+                                                    repeat(horarios.size - count) {
+                                                        horarios.removeAt(
+                                                            horarios.lastIndex
+                                                        )
+                                                    }
                                                 }
                                                 if (selectedTabIndex >= count) {
                                                     selectedTabIndex = count - 1
@@ -373,7 +378,12 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                             TimePickerDialog(
                                                 context,
                                                 { _: TimePicker, selectedHour: Int, selectedMinute: Int ->
-                                                    val time = String.format(Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute)
+                                                    val time = String.format(
+                                                        Locale.getDefault(),
+                                                        "%02d:%02d",
+                                                        selectedHour,
+                                                        selectedMinute
+                                                    )
                                                     horarios[selectedTabIndex] = time
                                                 },
                                                 hour, minute, true
@@ -402,7 +412,8 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             value = intervalHours,
                             onValueChange = {
                                 intervalHours = it.filter { c -> c.isDigit() }
-                                intervalHoursError = if (intervalHours.isBlank()) "Intervalo é obrigatório" else ""
+                                intervalHoursError =
+                                    if (intervalHours.isBlank()) "Intervalo é obrigatório" else ""
                             },
                             label = { Text("Intervalo (em horas)") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -428,7 +439,12 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             TimePickerDialog(
                                 context,
                                 { _: TimePicker, selectedHour: Int, selectedMinute: Int ->
-                                    startTime = String.format(Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute)
+                                    startTime = String.format(
+                                        Locale.getDefault(),
+                                        "%02d:%02d",
+                                        selectedHour,
+                                        selectedMinute
+                                    )
                                     startTimeError = ""
                                 },
                                 hour, minute, true
@@ -452,8 +468,14 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                         startDate = maskedDate
 
                         // Validação em tempo real
-                        startDateError = if (maskedDate.length == 10 && !DateMask.isValid(maskedDate)) {
-                            "Data inválida"
+                        val (isDateValid, errorMessage) = DateValidator.validateDate(
+                            maskedDate.replace(
+                                "/",
+                                ""
+                            )
+                        )
+                        startDateError = if (!isDateValid) {
+                            errorMessage ?: "Data inválida"
                         } else {
                             ""
                         }
@@ -536,22 +558,38 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                         medicineId = medicineId,
                                         medicine = medicineToSave!!,
                                         onSuccess = {
-                                            Toast.makeText(context, "Medicamento atualizado com sucesso!", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                context,
+                                                "Medicamento atualizado com sucesso!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                             navController.popBackStack()
                                         },
                                         onError = {
-                                            Toast.makeText(context, "Erro ao atualizar: ${it.message}", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(
+                                                context,
+                                                "Erro ao atualizar: ${it.message}",
+                                                Toast.LENGTH_LONG
+                                            ).show()
                                         }
                                     )
                                 } else {
                                     MedicineRepository.saveMedicine(
                                         medicine = medicineToSave!!,
                                         onSuccess = {
-                                            Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                context,
+                                                "Medicamento salvo com sucesso!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                             navController.popBackStack()
                                         },
                                         onError = {
-                                            Toast.makeText(context, "Erro ao salvar: ${it.message}", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(
+                                                context,
+                                                "Erro ao salvar: ${it.message}",
+                                                Toast.LENGTH_LONG
+                                            ).show()
                                         }
                                     )
                                 }
@@ -599,8 +637,14 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             }
                         }
 
-                        if (startDate.length != 10 || !DateMask.isValid(startDate)) {
-                            startDateError = "Data inválida"
+                        val (isDateValid, errorMessage) = DateValidator.validateDate(
+                            startDate.replace(
+                                "/",
+                                ""
+                            )
+                        )
+                        if (!isDateValid) {
+                            startDateError = errorMessage ?: "Data inválida"
                             isValid = false
                         }
 
@@ -618,51 +662,69 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             dose = dose,
                             doseUnit = doseUnit,
                             frequencyType = frequencyType.value,
-                            timesPerDay = if (frequencyType.value == "vezes_dia") timesPerDay.toIntOrNull() ?: 0 else null,
-                            intervalHours = if (frequencyType.value == "a_cada_x_horas") intervalHours.toIntOrNull() ?: 0 else null,
+                            timesPerDay = if (frequencyType.value == "vezes_dia") timesPerDay.toIntOrNull()
+                                ?: 0 else null,
+                            intervalHours = if (frequencyType.value == "a_cada_x_horas") intervalHours.toIntOrNull()
+                                ?: 0 else null,
                             startTime = if (frequencyType.value == "a_cada_x_horas") startTime else null,
                             horarios = if (frequencyType.value == "vezes_dia") horarios.toList() else null,
                             startDate = startDate,
-                            duration = if (isContinuousMedication) -1 else duration.toIntOrNull() ?: 0,
+                            duration = if (isContinuousMedication) -1 else duration.toIntOrNull()
+                                ?: 0,
                             notes = notes
                         )
 
                         // Verifica se a data é futura
-                        if (startDate.length == 10 && DateMask.isFutureDate(startDate)) {
-                            showFutureDateDialog = true
-                            medicineToSave = medicine
-                        } else {
-                            if (isEditing && medicineId != null) {
-                                MedicineRepository.updateMedicine(
-                                    medicineId = medicineId,
-                                    medicine = medicine,
-                                    onSuccess = {
-                                        Toast.makeText(context, "Medicamento atualizado com sucesso!", Toast.LENGTH_SHORT).show()
-                                        navController.popBackStack()
-                                    },
-                                    onError = {
-                                        Toast.makeText(context, "Erro ao atualizar: ${it.message}", Toast.LENGTH_LONG).show()
-                                    }
-                                )
+                        val date = DateValidator.parseDate(startDate.replace("/", ""))
+                        if (date != null) {
+                            if (date.isFutureDate()) {
+                                showFutureDateDialog = true
+                                medicineToSave = medicine
                             } else {
-                                MedicineRepository.saveMedicine(
-                                    medicine = medicine,
-                                    onSuccess = {
-                                        Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
-                                        navController.popBackStack()
-                                    },
-                                    onError = {
-                                        Toast.makeText(context, "Erro ao salvar: ${it.message}", Toast.LENGTH_LONG).show()
-                                    }
-                                )
+                                if (isEditing && medicineId != null) {
+                                    MedicineRepository.updateMedicine(
+                                        medicineId = medicineId,
+                                        medicine = medicine,
+                                        onSuccess = {
+                                            Toast.makeText(
+                                                context,
+                                                "Medicamento atualizado com sucesso!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            navController.popBackStack()
+                                        },
+                                        onError = {
+                                            Toast.makeText(
+                                                context,
+                                                "Erro ao atualizar: ${it.message}",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    )
+                                } else {
+                                    MedicineRepository.saveMedicine(
+                                        medicine = medicine,
+                                        onSuccess = {
+                                            Toast.makeText(
+                                                context,
+                                                "Medicamento salvo com sucesso!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            navController.popBackStack()
+                                        },
+                                        onError = {
+                                            Toast.makeText(
+                                                context,
+                                                "Erro ao salvar: ${it.message}",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    )
+                                }
                             }
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
-                ) {
+                ){
                     Text(if (isEditing) "Atualizar Medicamento" else "Salvar Medicamento")
                 }
-            }
-        }
-    }
-}
