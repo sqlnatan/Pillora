@@ -56,10 +56,9 @@ import androidx.navigation.NavController
 import com.pillora.pillora.model.Medicine
 import com.pillora.pillora.repository.MedicineRepository
 import com.pillora.pillora.ui.components.DateTextField
+import com.pillora.pillora.utils.DateValidator
 import java.util.Calendar
 import java.util.Locale
-import com.pillora.pillora.utils.isFutureDate
-import com.pillora.pillora.utils.DateValidator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,6 +100,8 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
     var medicineToSave by remember { mutableStateOf<Medicine?>(null) }
     var isEditing by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(medicineId != null) }
+    // Adicionar estado para controlar o carregamento durante o salvamento
+    var isSaving by remember { mutableStateOf(false) }
 
     // Carregar dados do medicamento se estiver editando
     LaunchedEffect(medicineId) {
@@ -137,11 +138,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                     isLoading = false
                 },
                 onError = { exception ->
-                    Toast.makeText(
-                        context,
-                        "Erro ao carregar medicamento: ${exception.message}",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(context, "Erro ao carregar medicamento: ${exception.message}", Toast.LENGTH_LONG).show()
                     isLoading = false
                 }
             )
@@ -194,10 +191,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                     }
                 )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = dose,
                         onValueChange = {
@@ -293,11 +287,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                                 timesPerDay = (currentValue - 1).toString()
                                                 val count = timesPerDay.toIntOrNull() ?: 0
                                                 if (horarios.size > count) {
-                                                    repeat(horarios.size - count) {
-                                                        horarios.removeAt(
-                                                            horarios.lastIndex
-                                                        )
-                                                    }
+                                                    repeat(horarios.size - count) { horarios.removeAt(horarios.lastIndex) }
                                                 }
                                                 if (selectedTabIndex >= count) {
                                                     selectedTabIndex = count - 1
@@ -382,12 +372,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                             TimePickerDialog(
                                                 context,
                                                 { _: TimePicker, selectedHour: Int, selectedMinute: Int ->
-                                                    val time = String.format(
-                                                        Locale.getDefault(),
-                                                        "%02d:%02d",
-                                                        selectedHour,
-                                                        selectedMinute
-                                                    )
+                                                    val time = String.format(Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute)
                                                     horarios[selectedTabIndex] = time
                                                 },
                                                 hour, minute, true
@@ -416,8 +401,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             value = intervalHours,
                             onValueChange = {
                                 intervalHours = it.filter { c -> c.isDigit() }
-                                intervalHoursError =
-                                    if (intervalHours.isBlank()) "Intervalo é obrigatório" else ""
+                                intervalHoursError = if (intervalHours.isBlank()) "Intervalo é obrigatório" else ""
                             },
                             label = { Text("Intervalo (em horas)") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -443,12 +427,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             TimePickerDialog(
                                 context,
                                 { _: TimePicker, selectedHour: Int, selectedMinute: Int ->
-                                    startTime = String.format(
-                                        Locale.getDefault(),
-                                        "%02d:%02d",
-                                        selectedHour,
-                                        selectedMinute
-                                    )
+                                    startTime = String.format(Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute)
                                     startTimeError = ""
                                 },
                                 hour, minute, true
@@ -468,23 +447,11 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                 // Campo de data com a nova implementação
                 DateTextField(
                     value = startDate,
-                    onValueChange = { maskedDate ->
-                        startDate = maskedDate
-
-                        // Validação em tempo real
-                        val (isDateValid, errorMessage) = DateValidator.validateDate(
-                            maskedDate.replace(
-                                "/",
-                                ""
-                            )
-                        )
-                        startDateError = if (!isDateValid) {
-                            errorMessage ?: "Data inválida"
-                        } else {
-                            ""
-                        }
+                    onValueChange = { newDate ->
+                        startDate = newDate
+                        startDateError = ""
                     },
-                    label = "Data de início (DD/MM/AAAA)",
+                    label = "Data de Início (DD/MM/AAAA)",
                     isError = startDateError.isNotEmpty(),
                     errorMessage = startDateError,
                     modifier = Modifier.fillMaxWidth()
@@ -549,60 +516,63 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                         title = { Text("Data futura selecionada") },
                         text = {
                             Column {
-                                Text("Você selecionou uma data no futuro (${startDate}).")
+                                Text("Você selecionou uma data no futuro (${DateValidator.formatDateString(startDate)}).")
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text("Deseja continuar com esta data?")
                             }
                         },
                         confirmButton = {
-                            TextButton(onClick = {
-                                showFutureDateDialog = false
-                                if (isEditing && medicineId != null) {
-                                    MedicineRepository.updateMedicine(
-                                        medicineId = medicineId,
-                                        medicine = medicineToSave!!,
-                                        onSuccess = {
-                                            Toast.makeText(
-                                                context,
-                                                "Medicamento atualizado com sucesso!",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                            navController.popBackStack()
-                                        },
-                                        onError = {
-                                            Toast.makeText(
-                                                context,
-                                                "Erro ao atualizar: ${it.message}",
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                        }
+                            TextButton(
+                                onClick = {
+                                    showFutureDateDialog = false
+                                    // Definir isSaving como true antes de salvar
+                                    isSaving = true
+                                    if (isEditing && medicineId != null) {
+                                        MedicineRepository.updateMedicine(
+                                            medicineId = medicineId,
+                                            medicine = medicineToSave!!,
+                                            onSuccess = {
+                                                isSaving = false // Finaliza o carregamento
+                                                Toast.makeText(context, "Medicamento atualizado com sucesso!", Toast.LENGTH_SHORT).show()
+                                                navController.popBackStack()
+                                            },
+                                            onError = { exception ->
+                                                isSaving = false // Finaliza o carregamento mesmo em caso de erro
+                                                Toast.makeText(context, "Erro ao atualizar: ${exception.message}", Toast.LENGTH_LONG).show()
+                                            }
+                                        )
+                                    } else {
+                                        MedicineRepository.saveMedicine(
+                                            medicine = medicineToSave!!,
+                                            onSuccess = {
+                                                isSaving = false // Finaliza o carregamento
+                                                Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
+                                                navController.popBackStack()
+                                            },
+                                            onError = { exception ->
+                                                isSaving = false // Finaliza o carregamento mesmo em caso de erro
+                                                Toast.makeText(context, "Erro ao salvar: ${exception.message}", Toast.LENGTH_LONG).show()
+                                            }
+                                        )
+                                    }
+                                },
+                                enabled = !isSaving // Desabilita o botão durante o salvamento
+                            ) {
+                                if (isSaving) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp
                                     )
-                                } else {
-                                    MedicineRepository.saveMedicine(
-                                        medicine = medicineToSave!!,
-                                        onSuccess = {
-                                            Toast.makeText(
-                                                context,
-                                                "Medicamento salvo com sucesso!",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                            navController.popBackStack()
-                                        },
-                                        onError = {
-                                            Toast.makeText(
-                                                context,
-                                                "Erro ao salvar: ${it.message}",
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                        }
-                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
                                 }
-                            }) {
                                 Text("Sim, continuar")
                             }
                         },
                         dismissButton = {
-                            TextButton(onClick = { showFutureDateDialog = false }) {
+                            TextButton(
+                                onClick = { showFutureDateDialog = false },
+                                enabled = !isSaving // Desabilita o botão durante o salvamento
+                            ) {
                                 Text("Não, ajustar data")
                             }
                         }
@@ -616,11 +586,15 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                         if (name.isBlank()) {
                             nameError = "Nome do medicamento é obrigatório"
                             isValid = false
+                        } else {
+                            nameError = ""
                         }
 
                         if (dose.isBlank()) {
                             doseError = "Dose é obrigatória"
                             isValid = false
+                        } else {
+                            doseError = ""
                         }
 
                         if (frequencyType.value == "vezes_dia") {
@@ -628,109 +602,156 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             if (timesValue == null || timesValue <= 0) {
                                 timesPerDayError = "Número de vezes inválido"
                                 isValid = false
+                            } else {
+                                timesPerDayError = ""
                             }
                         } else {
                             if (intervalHours.isBlank() || intervalHours.toIntOrNull() == null) {
                                 intervalHoursError = "Intervalo é obrigatório"
                                 isValid = false
+                            } else {
+                                intervalHoursError = ""
                             }
 
                             if (startTime.isBlank()) {
                                 startTimeError = "Horário inicial é obrigatório"
                                 isValid = false
+                            } else {
+                                startTimeError = ""
                             }
                         }
 
-                        val (isDateValid, errorMessage) = DateValidator.validateDate(
-                            startDate.replace(
-                                "/",
-                                ""
-                            )
-                        )
-                        if (!isDateValid) {
-                            startDateError = errorMessage ?: "Data inválida"
+                        // Validação de data
+                        if (startDate.length == 8) {
+                            val (isValidDate, message) = DateValidator.validateDate(startDate)
+                            if (!isValidDate) {
+                                startDateError = message ?: "Data inválida"
+                                isValid = false
+                            } else {
+                                startDateError = ""
+                            }
+                        } else {
+                            startDateError = "Data incompleta. Use o formato DD/MM/AAAA"
                             isValid = false
                         }
 
                         if (!isContinuousMedication && (duration.isBlank() || duration.toIntOrNull() == null)) {
                             durationError = "Duração é obrigatória"
                             isValid = false
+                        } else {
+                            durationError = ""
                         }
 
-                        if (!isValid) {
+                        if (!isValid || isSaving) {
                             return@Button
                         }
+
+                        val formattedDate = DateValidator.formatDateString(startDate)
 
                         val medicine = Medicine(
                             name = name,
                             dose = dose,
                             doseUnit = doseUnit,
                             frequencyType = frequencyType.value,
-                            timesPerDay = if (frequencyType.value == "vezes_dia") timesPerDay.toIntOrNull()
-                                ?: 0 else null,
-                            intervalHours = if (frequencyType.value == "a_cada_x_horas") intervalHours.toIntOrNull()
-                                ?: 0 else null,
+                            timesPerDay = if (frequencyType.value == "vezes_dia") timesPerDay.toIntOrNull() ?: 0 else null,
+                            intervalHours = if (frequencyType.value == "a_cada_x_horas") intervalHours.toIntOrNull() ?: 0 else null,
                             startTime = if (frequencyType.value == "a_cada_x_horas") startTime else null,
                             horarios = if (frequencyType.value == "vezes_dia") horarios.toList() else null,
-                            startDate = startDate,
-                            duration = if (isContinuousMedication) -1 else duration.toIntOrNull()
-                                ?: 0,
+                            startDate = formattedDate,
+                            duration = if (isContinuousMedication) -1 else duration.toIntOrNull() ?: 0,
                             notes = notes
                         )
 
+                        medicineToSave = medicine
+
                         // Verifica se a data é futura
-                        val date = DateValidator.parseDate(startDate.replace("/", ""))
-                        if (date != null) {
-                            if (date.isFutureDate()) {
+                        if (startDate.length == 8) {
+                            val (dateIsValid, message) = DateValidator.validateDate(startDate)
+                            if (dateIsValid && message != null && message.contains("futuro")) {
                                 showFutureDateDialog = true
-                                medicineToSave = medicine
                             } else {
+                                // Definir isSaving como true antes de salvar
+                                isSaving = true
                                 if (isEditing && medicineId != null) {
                                     MedicineRepository.updateMedicine(
                                         medicineId = medicineId,
                                         medicine = medicine,
                                         onSuccess = {
-                                            Toast.makeText(
-                                                context,
-                                                "Medicamento atualizado com sucesso!",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
+                                            isSaving = false // Finaliza o carregamento
+                                            Toast.makeText(context, "Medicamento atualizado com sucesso!", Toast.LENGTH_SHORT).show()
                                             navController.popBackStack()
                                         },
-                                        onError = {
-                                            Toast.makeText(
-                                                context,
-                                                "Erro ao atualizar: ${it.message}",
-                                                Toast.LENGTH_LONG
-                                            ).show()
+                                        onError = { exception ->
+                                            isSaving = false // Finaliza o carregamento mesmo em caso de erro
+                                            Toast.makeText(context, "Erro ao atualizar: ${exception.message}", Toast.LENGTH_LONG).show()
                                         }
                                     )
                                 } else {
                                     MedicineRepository.saveMedicine(
                                         medicine = medicine,
                                         onSuccess = {
-                                            Toast.makeText(
-                                                context,
-                                                "Medicamento salvo com sucesso!",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
+                                            isSaving = false // Finaliza o carregamento
+                                            Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
                                             navController.popBackStack()
                                         },
-                                        onError = {
-                                            Toast.makeText(
-                                                context,
-                                                "Erro ao salvar: ${it.message}",
-                                                Toast.LENGTH_LONG
-                                            ).show()
+                                        onError = { exception ->
+                                            isSaving = false // Finaliza o carregamento mesmo em caso de erro
+                                            Toast.makeText(context, "Erro ao salvar: ${exception.message}", Toast.LENGTH_LONG).show()
                                         }
                                     )
                                 }
                             }
+                        } else {
+                            // Definir isSaving como true antes de salvar
+                            isSaving = true
+                            if (isEditing && medicineId != null) {
+                                MedicineRepository.updateMedicine(
+                                    medicineId = medicineId,
+                                    medicine = medicine,
+                                    onSuccess = {
+                                        isSaving = false // Finaliza o carregamento
+                                        Toast.makeText(context, "Medicamento atualizado com sucesso!", Toast.LENGTH_SHORT).show()
+                                        navController.popBackStack()
+                                    },
+                                    onError = { exception ->
+                                        isSaving = false // Finaliza o carregamento mesmo em caso de erro
+                                        Toast.makeText(context, "Erro ao atualizar: ${exception.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                )
+                            } else {
+                                MedicineRepository.saveMedicine(
+                                    medicine = medicine,
+                                    onSuccess = {
+                                        isSaving = false // Finaliza o carregamento
+                                        Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
+                                        navController.popBackStack()
+                                    },
+                                    onError = { exception ->
+                                        isSaving = false // Finaliza o carregamento mesmo em caso de erro
+                                        Toast.makeText(context, "Erro ao salvar: ${exception.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                )
+                            }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving // Desabilita o botão durante o salvamento
                 ) {
-                    Text(if (isEditing) "Atualizar Medicamento" else "Salvar Medicamento")
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        if (isSaving) {
+                            // Mostra um indicador de carregamento no botão
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(if (isEditing) "Atualizar Medicamento" else "Salvar Medicamento")
+                    }
                 }
             }
         }

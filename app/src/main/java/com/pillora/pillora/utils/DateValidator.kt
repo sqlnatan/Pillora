@@ -63,7 +63,7 @@ object DateValidator {
      * @param dateStr String contendo apenas dígitos (8 caracteres)
      * @return String formatada como DD/MM/AAAA ou string vazia se inválida
      */
-    private fun formatDateString(dateStr: String): String {
+    fun formatDateString(dateStr: String): String {
         if (dateStr.length != 8) return ""
 
         return "${dateStr.substring(0, 2)}/${dateStr.substring(2, 4)}/${dateStr.substring(4, 8)}"
