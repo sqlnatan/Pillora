@@ -137,7 +137,11 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                     isLoading = false
                 },
                 onError = { exception ->
-                    Toast.makeText(context, "Erro ao carregar medicamento: ${exception.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        context,
+                        "Erro ao carregar medicamento: ${exception.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
                     isLoading = false
                 }
             )
@@ -725,6 +729,10 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
-                ){
+                ) {
                     Text(if (isEditing) "Atualizar Medicamento" else "Salvar Medicamento")
                 }
+            }
+        }
+    }
+}
