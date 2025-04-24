@@ -1,26 +1,40 @@
 package com.pillora.pillora.data
 
 import android.content.Context
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.preferencesDataStore
+import android.content.SharedPreferences
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import androidx.datastore.preferences.core.Preferences
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import androidx.core.content.edit
 
-private val Context.dataStore by preferencesDataStore(name = "user_prefs")
+/**
+ * Classe para gerenciar preferências do usuário usando SharedPreferences
+ * como alternativa ao DataStore que está causando problemas de importação
+ */
+class UserPreferences(context: Context) {
+    private val sharedPreferences: SharedPreferences = context.getSharedPreferences(
+        "user_prefs", Context.MODE_PRIVATE
+    )
 
-class UserPreferences(private val context: Context) {
+    private val _acceptedTermsFlow = MutableStateFlow(getAcceptedTermsFromPrefs())
+    val acceptedTerms: Flow<Boolean> = _acceptedTermsFlow.asStateFlow()
+
     companion object {
-        val ACCEPTED_TERMS = booleanPreferencesKey("accepted_terms")
+        private const val KEY_ACCEPTED_TERMS = "accepted_terms"
     }
 
-    val acceptedTerms: Flow<Boolean> = context.dataStore.data
-        .map { it[ACCEPTED_TERMS] ?: false }
+    /**
+     * Obtém o valor atual de aceitação dos termos
+     */
+    private fun getAcceptedTermsFromPrefs(): Boolean {
+        return sharedPreferences.getBoolean(KEY_ACCEPTED_TERMS, false)
+    }
 
-    suspend fun setAcceptedTerms(accepted: Boolean) {
-        context.dataStore.edit { prefs ->
-            prefs[ACCEPTED_TERMS] = accepted
-        }
+    /**
+     * Define se o usuário aceitou os termos
+     */
+    fun setAcceptedTerms(accepted: Boolean) {
+        sharedPreferences.edit { putBoolean(KEY_ACCEPTED_TERMS, accepted) }
+        _acceptedTermsFlow.value = accepted
     }
 }

@@ -65,5 +65,6 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.material.icons.extended)
-    implementation(libs.androidx.datastore.preferences.v1115)
+    implementation(libs.datastore.preferences)
+    implementation(libs.androidx.core.ktx)
 }
