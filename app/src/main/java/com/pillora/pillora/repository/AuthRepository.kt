@@ -1,29 +1,48 @@
 package com.pillora.pillora.repository
 
+import androidx.activity.ComponentActivity
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
-import kotlinx.coroutines.tasks.await
+import com.google.firebase.auth.OAuthProvider
 
 /**
  * Repositório para gerenciar operações de autenticação com Firebase Auth
  */
 object AuthRepository {
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
+    var onGoogleSignInSuccess: (() -> Unit)? = null
+    var onGoogleSignInError: ((Exception) -> Unit)? = null
 
     /**
-     * Obtém o usuário atualmente autenticado
-     * @return FirebaseUser? - Usuário atual ou null se não estiver autenticado
+     * Inicia o processo de login com Google
+     * @param activity ComponentActivity - Atividade atual
+     * @param onSuccess Function0<Unit> - Callback de sucesso
+     * @param onError Function1<Exception, Unit> - Callback de erro
      */
-    fun getCurrentUser(): FirebaseUser? {
-        return auth.currentUser
-    }
+    fun signInWithGoogle(
+        activity: ComponentActivity,
+        webClientId: String, // Mantido para compatibilidade com a interface
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        onGoogleSignInSuccess = onSuccess
+        onGoogleSignInError = onError
 
-    /**
-     * Verifica se o usuário está autenticado
-     * @return Boolean - true se estiver autenticado, false caso contrário
-     */
-    fun isUserAuthenticated(): Boolean {
-        return auth.currentUser != null
+        // Usando o OAuthProvider do Firebase para autenticação Google
+        val provider = OAuthProvider.newBuilder("google.com")
+
+        // Opcional: configurar escopo para acesso a dados do Google
+        provider.addCustomParameter("prompt", "select_account")
+
+        // Iniciar o fluxo de autenticação
+        auth.startActivityForSignInWithProvider(activity, provider.build())
+            .addOnSuccessListener {
+                // Autenticação bem-sucedida
+                onGoogleSignInSuccess?.invoke()
+            }
+            .addOnFailureListener { exception ->
+                // Autenticação falhou
+                onGoogleSignInError?.invoke(exception)
+            }
     }
 
     /**
@@ -82,22 +101,15 @@ object AuthRepository {
      * Realiza logout do usuário atual
      */
     fun signOut() {
+        // Desconectar do Firebase
         auth.signOut()
     }
 
     /**
-     * Obtém o ID do usuário atual
-     * @return String? - ID do usuário ou null se não estiver autenticado
+     * Verifica se o usuário está autenticado
+     * @return Boolean - true se estiver autenticado, false caso contrário
      */
-    fun getCurrentUserId(): String? {
-        return auth.currentUser?.uid
-    }
-
-    /**
-     * Obtém o email do usuário atual
-     * @return String? - Email do usuário ou null se não estiver autenticado
-     */
-    fun getCurrentUserEmail(): String? {
-        return auth.currentUser?.email
+    fun isUserAuthenticated(): Boolean {
+        return auth.currentUser != null
     }
 }

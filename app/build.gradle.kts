@@ -67,4 +67,5 @@ dependencies {
     implementation(libs.material.icons.extended)
     implementation(libs.datastore.preferences)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.play.services.auth)
 }

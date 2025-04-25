@@ -12,7 +12,20 @@
           "package_name": "com.pillora.pillora"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "426649307737-pnpoav5qn0squ8gp78hpp8mlb62k6cvk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pillora.pillora",
+            "certificate_hash": "26d93b37494dd1ebcdacaa0ea7695ecd0b0ae480"
+          }
+        },
+        {
+          "client_id": "426649307737-na96tus1vjtdb49imu5gpum40sgnsgf7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyC1v-ef9XgAqvBPwA09y7rYGGO6KUiR6g8"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "426649307737-na96tus1vjtdb49imu5gpum40sgnsgf7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
