@@ -11,5 +11,10 @@ data class Medicine(
     val startTime: String? = null, // só se for "a_cada_x_horas"
     val startDate: String = "",
     val duration: Int = 0, // -1 significa medicamento contínuo (sem tempo definido)
-    val notes: String = ""
+    val notes: String = "",
+
+    // Novos campos para rastreamento de estoque
+    val trackStock: Boolean = false, // Flag para indicar se o usuário deseja ser alertado quando o medicamento estiver acabando
+    val stockQuantity: Double = 0.0, // Quantidade atual em estoque
+    val stockUnit: String = "Unidades" // Unidade de medida do estoque (Unidades, ml, etc.)
 )

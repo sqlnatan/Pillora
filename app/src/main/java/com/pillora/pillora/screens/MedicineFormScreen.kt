@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -29,6 +31,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -51,15 +55,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.pillora.pillora.model.Medicine
 import com.pillora.pillora.repository.MedicineRepository
 import com.pillora.pillora.ui.components.DateTextField
 import com.pillora.pillora.utils.DateValidator
 import java.util.Calendar
 import java.util.Locale
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MedicineFormScreen(navController: NavController, medicineId: String? = null) {
@@ -82,6 +87,14 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
     var durationError by remember { mutableStateOf("") }
     var isContinuousMedication by remember { mutableStateOf(false) }
 
+    // Novos estados para rastreamento de estoque
+    var trackStock by remember { mutableStateOf(false) }
+    var stockQuantity by remember { mutableStateOf("") }
+    var stockQuantityError by remember { mutableStateOf("") }
+    var stockUnit by remember { mutableStateOf("Unidades") }
+    val stockUnitOptions = listOf("Unidades", "ml", "Outra")
+    var stockUnitExpanded by remember { mutableStateOf(false) }
+
     var notes by remember { mutableStateOf("") }
     val context = LocalContext.current
     val horarios = remember { mutableStateListOf<String>() }
@@ -102,7 +115,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
     var isLoading by remember { mutableStateOf(medicineId != null) }
     // Adicionar estado para controlar o carregamento durante o salvamento
     var isSaving by remember { mutableStateOf(false) }
-
     // Carregar dados do medicamento se estiver editando
     LaunchedEffect(medicineId) {
         if (medicineId != null) {
@@ -119,6 +131,11 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                         isContinuousMedication = medicine.duration == -1
                         duration = if (medicine.duration == -1) "" else medicine.duration.toString()
                         notes = medicine.notes
+
+                        // Carregar dados de rastreamento de estoque
+                        trackStock = medicine.trackStock
+                        stockQuantity = if (medicine.stockQuantity > 0) medicine.stockQuantity.toString() else ""
+                        stockUnit = medicine.stockUnit
 
                         if (medicine.frequencyType == "vezes_dia") {
                             timesPerDay = medicine.timesPerDay.toString()
@@ -151,386 +168,614 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
             }
         }
     }
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isEditing) "Editar Medicamento" else "Cadastro de Medicamento") }
+                title = { Text(if (isEditing) "Editar Medicamento" else "Cadastro de Medicamento") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                    }
+                }
             )
         }
     ) { padding ->
-        Column(
+        // Usamos um Box para garantir que o conteúdo de carregamento seja centralizado corretamente
+        Box(
             modifier = Modifier
-                .padding(padding)
-                .padding(16.dp)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(padding)
         ) {
             if (isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = {
-                        name = it
-                        nameError = if (it.isBlank()) "Nome do medicamento é obrigatório" else ""
-                    },
-                    label = { Text("Nome do medicamento") },
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = nameError.isNotEmpty(),
-                    supportingText = {
-                        if (nameError.isNotEmpty()) {
-                            Text(
-                                text = nameError,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                )
+                // Usamos um Column com scroll para garantir que todo o conteúdo seja acessível
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Adicionamos um espaçamento no topo para melhorar a aparência
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
-                        value = dose,
+                        value = name,
                         onValueChange = {
-                            dose = it
-                            doseError = if (it.isBlank()) "Dose é obrigatória" else ""
+                            name = it
+                            nameError = if (it.isBlank()) "Nome do medicamento é obrigatório" else ""
                         },
-                        label = { Text("Dose") },
-                        modifier = Modifier.weight(1f),
-                        isError = doseError.isNotEmpty(),
+                        label = { Text("Nome do medicamento") },
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = nameError.isNotEmpty(),
                         supportingText = {
-                            if (doseError.isNotEmpty()) {
+                            if (nameError.isNotEmpty()) {
                                 Text(
-                                    text = doseError,
+                                    text = nameError,
                                     color = MaterialTheme.colorScheme.error
                                 )
                             }
                         }
                     )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = dose,
+                            onValueChange = {
+                                dose = it
+                                doseError = if (it.isBlank()) "Dose é obrigatória" else ""
+                            },
+                            label = { Text("Dose") },
+                            modifier = Modifier.weight(1f),
+                            isError = doseError.isNotEmpty(),
+                            supportingText = {
+                                if (doseError.isNotEmpty()) {
+                                    Text(
+                                        text = doseError,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        )
 
-                    Box {
-                        OutlinedButton(onClick = { expanded = true }) {
-                            Text(doseUnit)
-                        }
-                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                            doseOptions.forEach { option ->
-                                DropdownMenuItem(text = { Text(option) }, onClick = {
-                                    doseUnit = option
-                                    expanded = false
-                                })
+                        Box {
+                            OutlinedButton(
+                                onClick = { expanded = true },
+                                modifier = Modifier.align(Alignment.BottomStart)
+                            ) {
+                                Text(doseUnit)
+                            }
+                            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                                doseOptions.forEach { option ->
+                                    DropdownMenuItem(text = { Text(option) }, onClick = {
+                                        doseUnit = option
+                                        expanded = false
+                                    })
+                                }
                             }
                         }
                     }
-                }
 
-                val selectedColor = MaterialTheme.colorScheme.primary
-                val unselectedColor = MaterialTheme.colorScheme.surfaceVariant
+                    val selectedColor = MaterialTheme.colorScheme.primary
+                    val unselectedColor = MaterialTheme.colorScheme.surfaceVariant
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = {
-                            frequencyType.value = "vezes_dia"
-                            intervalHours = ""
-                            intervalHoursError = ""
-                            startTime = ""
-                            startTimeError = ""
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (frequencyType.value == "vezes_dia") selectedColor else unselectedColor
-                        )
-                    ) { Text("Vezes ao dia") }
-
-                    Button(
-                        onClick = {
-                            frequencyType.value = "a_cada_x_horas"
-                            timesPerDay = "1"
-                            timesPerDayError = ""
-                            horarios.clear()
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (frequencyType.value == "a_cada_x_horas") selectedColor else unselectedColor
-                        )
-                    ) { Text("A cada X horas") }
-                }
-
-                if (frequencyType.value == "vezes_dia") {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        Button(
+                            onClick = {
+                                frequencyType.value = "vezes_dia"
+                                intervalHours = ""
+                                intervalHoursError = ""
+                                startTime = ""
+                                startTimeError = ""
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (frequencyType.value == "vezes_dia") selectedColor else unselectedColor
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Vezes ao dia") }
+
+                        Button(
+                            onClick = {
+                                frequencyType.value = "a_cada_x_horas"
+                                timesPerDay = "1"
+                                timesPerDayError = ""
+                                horarios.clear()
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (frequencyType.value == "a_cada_x_horas") selectedColor else unselectedColor
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) { Text("A cada X horas") }
+                    }
+                    if (frequencyType.value == "vezes_dia") {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text(
-                                    "Vezes ao dia:",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Button(
-                                        onClick = {
-                                            val currentValue = timesPerDay.toIntOrNull() ?: 1
-                                            if (currentValue > 1) {
-                                                timesPerDay = (currentValue - 1).toString()
-                                                val count = timesPerDay.toIntOrNull() ?: 0
-                                                if (horarios.size > count) {
-                                                    repeat(horarios.size - count) { horarios.removeAt(horarios.lastIndex) }
-                                                }
-                                                if (selectedTabIndex >= count) {
-                                                    selectedTabIndex = count - 1
-                                                }
-                                                timesPerDayError = ""
-                                            }
-                                        },
-                                        modifier = Modifier.size(40.dp),
-                                        contentPadding = PaddingValues(0.dp)
-                                    ) {
-                                        Text("-", style = MaterialTheme.typography.titleLarge)
-                                    }
-
-                                    Text(
-                                        text = timesPerDay,
-                                        modifier = Modifier.width(40.dp),
-                                        textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.titleLarge
-                                    )
-
-                                    Button(
-                                        onClick = {
-                                            val currentValue = timesPerDay.toIntOrNull() ?: 0
-                                            timesPerDay = (currentValue + 1).toString()
-                                            val count = timesPerDay.toIntOrNull() ?: 0
-                                            if (horarios.size < count) {
-                                                repeat(count - horarios.size) { horarios.add("00:00") }
-                                            }
-                                            timesPerDayError = ""
-                                        },
-                                        modifier = Modifier.size(40.dp),
-                                        contentPadding = PaddingValues(0.dp)
-                                    ) {
-                                        Text("+", style = MaterialTheme.typography.titleLarge)
-                                    }
-                                }
-                            }
-
-                            if (timesPerDayError.isNotEmpty()) {
-                                Text(
-                                    text = timesPerDayError,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                            if (horarios.isNotEmpty()) {
-                                Text(
-                                    "Defina os horários:",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.padding(bottom = 8.dp)
-                                )
-
-                                TabRow(selectedTabIndex = selectedTabIndex) {
-                                    horarios.forEachIndexed { index, _ ->
-                                        Tab(
-                                            selected = selectedTabIndex == index,
-                                            onClick = { selectedTabIndex = index },
-                                            text = { Text("Horário ${index + 1}") }
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(
-                                        "Horário ${selectedTabIndex + 1}:",
-                                        style = MaterialTheme.typography.bodyLarge
+                                        "Vezes ao dia:",
+                                        style = MaterialTheme.typography.titleMedium
                                     )
 
-                                    OutlinedButton(
-                                        onClick = {
-                                            val cal = Calendar.getInstance()
-                                            val hour = cal.get(Calendar.HOUR_OF_DAY)
-                                            val minute = cal.get(Calendar.MINUTE)
-                                            TimePickerDialog(
-                                                context,
-                                                { _: TimePicker, selectedHour: Int, selectedMinute: Int ->
-                                                    val time = String.format(Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute)
-                                                    horarios[selectedTabIndex] = time
-                                                },
-                                                hour, minute, true
-                                            ).show()
-                                        }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(horarios[selectedTabIndex])
+                                        Button(
+                                            onClick = {
+                                                val currentValue = timesPerDay.toIntOrNull() ?: 1
+                                                if (currentValue > 1) {
+                                                    timesPerDay = (currentValue - 1).toString()
+                                                    val count = timesPerDay.toIntOrNull() ?: 0
+                                                    if (horarios.size > count) {
+                                                        repeat(horarios.size - count) { horarios.removeAt(horarios.lastIndex) }
+                                                    }
+                                                    if (selectedTabIndex >= count) {
+                                                        selectedTabIndex = count - 1
+                                                    }
+                                                    timesPerDayError = ""
+                                                }
+                                            },
+                                            modifier = Modifier.size(40.dp),
+                                            contentPadding = PaddingValues(0.dp)
+                                        ) {
+                                            Text("-", style = MaterialTheme.typography.titleLarge)
+                                        }
+
+                                        Text(
+                                            text = timesPerDay,
+                                            modifier = Modifier.width(40.dp),
+                                            textAlign = TextAlign.Center,
+                                            style = MaterialTheme.typography.titleLarge
+                                        )
+
+                                        Button(
+                                            onClick = {
+                                                val currentValue = timesPerDay.toIntOrNull() ?: 0
+                                                timesPerDay = (currentValue + 1).toString()
+                                                val count = timesPerDay.toIntOrNull() ?: 0
+                                                if (horarios.size < count) {
+                                                    repeat(count - horarios.size) { horarios.add("00:00") }
+                                                }
+                                                timesPerDayError = ""
+                                            },
+                                            modifier = Modifier.size(40.dp),
+                                            contentPadding = PaddingValues(0.dp)
+                                        ) {
+                                            Text("+", style = MaterialTheme.typography.titleLarge)
+                                        }
                                     }
                                 }
+                                if (timesPerDayError.isNotEmpty()) {
+                                    Text(
+                                        text = timesPerDayError,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                                Text(
-                                    "Resumo dos horários: ${horarios.joinToString(", ")}",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                if (horarios.isNotEmpty()) {
+                                    Text(
+                                        "Defina os horários:",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    )
+
+                                    TabRow(selectedTabIndex = selectedTabIndex) {
+                                        horarios.forEachIndexed { index, _ ->
+                                            Tab(
+                                                selected = selectedTabIndex == index,
+                                                onClick = { selectedTabIndex = index },
+                                                text = { Text("Horário ${index + 1}") }
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            "Horário ${selectedTabIndex + 1}:",
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+
+                                        OutlinedButton(
+                                            onClick = {
+                                                val cal = Calendar.getInstance()
+                                                val hour = cal.get(Calendar.HOUR_OF_DAY)
+                                                val minute = cal.get(Calendar.MINUTE)
+                                                TimePickerDialog(
+                                                    context,
+                                                    { _: TimePicker, selectedHour: Int, selectedMinute: Int ->
+                                                        val time = String.format(Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute)
+                                                        horarios[selectedTabIndex] = time
+                                                    },
+                                                    hour, minute, true
+                                                ).show()
+                                            }
+                                        ) {
+                                            Text(horarios[selectedTabIndex])
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Text(
+                                        "Resumo dos horários: ${horarios.joinToString(", ")}",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
                             }
                         }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = intervalHours,
+                                onValueChange = {
+                                    intervalHours = it.filter { c -> c.isDigit() }
+                                    intervalHoursError = if (intervalHours.isBlank()) "Intervalo é obrigatório" else ""
+                                },
+                                label = { Text("Intervalo (em horas)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth(),
+                                isError = intervalHoursError.isNotEmpty(),
+                                supportingText = {
+                                    if (intervalHoursError.isNotEmpty()) {
+                                        Text(
+                                            text = intervalHoursError,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                }
+                            )
+                        }
+
+                        Text("Horário inicial: ${startTime.ifEmpty { "--:--" }}")
+                        Button(
+                            onClick = {
+                                val cal = Calendar.getInstance()
+                                val hour = cal.get(Calendar.HOUR_OF_DAY)
+                                val minute = cal.get(Calendar.MINUTE)
+                                TimePickerDialog(
+                                    context,
+                                    { _: TimePicker, selectedHour: Int, selectedMinute: Int ->
+                                        startTime = String.format(Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute)
+                                        startTimeError = ""
+                                    },
+                                    hour, minute, true
+                                ).show()
+                            }
+                        ) {
+                            Text("Selecionar horário inicial")
+                        }
+                        if (startTimeError.isNotEmpty()) {
+                            Text(
+                                text = startTimeError,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
-                } else {
+                    // Campo de data com a nova implementação
+                    DateTextField(
+                        value = startDate,
+                        onValueChange = { newDate ->
+                            startDate = newDate
+                            startDateError = ""
+                        },
+                        label = "Data de Início (DD/MM/AAAA)",
+                        isError = startDateError.isNotEmpty(),
+                        errorMessage = startDateError,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
+                        Checkbox(
+                            checked = isContinuousMedication,
+                            onCheckedChange = { checked ->
+                                isContinuousMedication = checked
+                                if (checked) {
+                                    duration = ""
+                                    durationError = ""
+                                }
+                            }
+                        )
+                        Text("Medicamento contínuo (sem tempo definido)")
+                    }
+
+                    if (!isContinuousMedication) {
                         OutlinedTextField(
-                            value = intervalHours,
+                            value = duration,
                             onValueChange = {
-                                intervalHours = it.filter { c -> c.isDigit() }
-                                intervalHoursError = if (intervalHours.isBlank()) "Intervalo é obrigatório" else ""
+                                duration = it.filter { c -> c.isDigit() }
+                                durationError = if (duration.isBlank()) "Duração é obrigatória" else ""
                             },
-                            label = { Text("Intervalo (em horas)") },
+                            label = { Text("Duração (em dias)") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
-                            isError = intervalHoursError.isNotEmpty(),
+                            isError = durationError.isNotEmpty(),
                             supportingText = {
-                                if (intervalHoursError.isNotEmpty()) {
+                                if (durationError.isNotEmpty()) {
                                     Text(
-                                        text = intervalHoursError,
+                                        text = durationError,
                                         color = MaterialTheme.colorScheme.error
                                     )
                                 }
                             }
                         )
-                    }
-
-                    Text("Horário inicial: ${startTime.ifEmpty { "--:--" }}")
-                    Button(
-                        onClick = {
-                            val cal = Calendar.getInstance()
-                            val hour = cal.get(Calendar.HOUR_OF_DAY)
-                            val minute = cal.get(Calendar.MINUTE)
-                            TimePickerDialog(
-                                context,
-                                { _: TimePicker, selectedHour: Int, selectedMinute: Int ->
-                                    startTime = String.format(Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute)
-                                    startTimeError = ""
-                                },
-                                hour, minute, true
-                            ).show()
-                        }
-                    ) {
-                        Text("Selecionar horário inicial")
-                    }
-                    if (startTimeError.isNotEmpty()) {
+                    } else {
                         Text(
-                            text = startTimeError,
-                            color = MaterialTheme.colorScheme.error
+                            text = "Duração: --",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
-                }
+                    // Seção de rastreamento de estoque
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Checkbox(
+                            checked = trackStock,
+                            onCheckedChange = { checked ->
+                                trackStock = checked
+                                if (!checked) {
+                                    stockQuantity = ""
+                                    stockQuantityError = ""
+                                }
+                            }
+                        )
+                        Text("Avisar quando estiver acabando")
+                    }
 
-                // Campo de data com a nova implementação
-                DateTextField(
-                    value = startDate,
-                    onValueChange = { newDate ->
-                        startDate = newDate
-                        startDateError = ""
-                    },
-                    label = "Data de Início (DD/MM/AAAA)",
-                    isError = startDateError.isNotEmpty(),
-                    errorMessage = startDateError,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    if (trackStock) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    "Informações de estoque",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Checkbox(
-                        checked = isContinuousMedication,
-                        onCheckedChange = { checked ->
-                            isContinuousMedication = checked
-                            if (checked) {
-                                duration = ""
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedTextField(
+                                        value = stockQuantity,
+                                        onValueChange = {
+                                            // Aceitar apenas números e ponto decimal
+                                            stockQuantity = it.filter { c -> c.isDigit() || c == '.' }
+                                            stockQuantityError = if (stockQuantity.isBlank()) "Quantidade é obrigatória" else ""
+                                        },
+                                        label = { Text("Quantidade em estoque") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.weight(1f),
+                                        isError = stockQuantityError.isNotEmpty(),
+                                        supportingText = {
+                                            if (stockQuantityError.isNotEmpty()) {
+                                                Text(
+                                                    text = stockQuantityError,
+                                                    color = MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                        }
+                                    )
+                                    Box {
+                                        OutlinedButton(onClick = { stockUnitExpanded = true }) {
+                                            Text(stockUnit)
+                                        }
+                                        DropdownMenu(expanded = stockUnitExpanded, onDismissRequest = { stockUnitExpanded = false }) {
+                                            stockUnitOptions.forEach { option ->
+                                                DropdownMenuItem(text = { Text(option) }, onClick = {
+                                                    stockUnit = option
+                                                    stockUnitExpanded = false
+                                                })
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = notes,
+                        onValueChange = { notes = it },
+                        label = { Text("Observações (opcional)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2
+                    )
+
+                    if (showFutureDateDialog && medicineToSave != null) {
+                        AlertDialog(
+                            onDismissRequest = { showFutureDateDialog = false },
+                            title = { Text("Data futura selecionada") },
+                            text = {
+                                Column {
+                                    Text("Você selecionou uma data no futuro (${DateValidator.formatDateString(startDate)}).")
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("Deseja continuar com esta data?")
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        showFutureDateDialog = false
+                                        // Definir isSaving como true antes de salvar
+                                        isSaving = true
+                                        if (isEditing && medicineId != null) {
+                                            MedicineRepository.updateMedicine(
+                                                medicineId = medicineId,
+                                                medicine = medicineToSave!!,
+                                                onSuccess = {
+                                                    isSaving = false // Finaliza o carregamento
+                                                    Toast.makeText(context, "Medicamento atualizado com sucesso!", Toast.LENGTH_SHORT).show()
+                                                    navController.popBackStack()
+                                                },
+                                                onError = { exception ->
+                                                    isSaving = false // Finaliza o carregamento mesmo em caso de erro
+                                                    Toast.makeText(context, "Erro ao atualizar: ${exception.message}", Toast.LENGTH_LONG).show()
+                                                }
+                                            )
+                                        } else {
+                                            MedicineRepository.saveMedicine(
+                                                medicine = medicineToSave!!,
+                                                onSuccess = {
+                                                    isSaving = false // Finaliza o carregamento
+                                                    Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
+                                                    navController.popBackStack()
+                                                },
+                                                onError = { exception ->
+                                                    isSaving = false // Finaliza o carregamento mesmo em caso de erro
+                                                    Toast.makeText(context, "Erro ao salvar: ${exception.message}", Toast.LENGTH_LONG).show()
+                                                }
+                                            )
+                                        }
+                                    }
+                                ) {
+                                    Text("Continuar")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(
+                                    onClick = { showFutureDateDialog = false }
+                                ) {
+                                    Text("Cancelar")
+                                }
+                            }
+                        )
+                    }
+                    // Botão de salvar
+                    Button(
+                        onClick = {
+                            var isValid = true
+
+                            if (name.isBlank()) {
+                                nameError = "Nome do medicamento é obrigatório"
+                                isValid = false
+                            } else {
+                                nameError = ""
+                            }
+
+                            if (dose.isBlank()) {
+                                doseError = "Dose é obrigatória"
+                                isValid = false
+                            } else {
+                                doseError = ""
+                            }
+
+                            if (frequencyType.value == "vezes_dia") {
+                                val timesValue = timesPerDay.toIntOrNull()
+                                if (timesValue == null || timesValue <= 0) {
+                                    timesPerDayError = "Número de vezes inválido"
+                                    isValid = false
+                                } else {
+                                    timesPerDayError = ""
+                                }
+                            } else {
+                                if (intervalHours.isBlank() || intervalHours.toIntOrNull() == null) {
+                                    intervalHoursError = "Intervalo é obrigatório"
+                                    isValid = false
+                                } else {
+                                    intervalHoursError = ""
+                                }
+
+                                if (startTime.isBlank()) {
+                                    startTimeError = "Horário inicial é obrigatório"
+                                    isValid = false
+                                } else {
+                                    startTimeError = ""
+                                }
+                            }
+
+                            // Validação de data
+                            if (startDate.length == 8) {
+                                val (isValidDate, message) = DateValidator.validateDate(startDate)
+                                if (!isValidDate) {
+                                    startDateError = message ?: "Data inválida"
+                                    isValid = false
+                                } else {
+                                    startDateError = ""
+                                }
+                            } else {
+                                startDateError = "Data incompleta. Use o formato DD/MM/AAAA"
+                                isValid = false
+                            }
+
+                            if (!isContinuousMedication && (duration.isBlank() || duration.toIntOrNull() == null)) {
+                                durationError = "Duração é obrigatória"
+                                isValid = false
+                            } else {
                                 durationError = ""
                             }
-                        }
-                    )
-                    Text("Medicamento contínuo (sem tempo definido)")
-                }
 
-                if (!isContinuousMedication) {
-                    OutlinedTextField(
-                        value = duration,
-                        onValueChange = {
-                            duration = it.filter { c -> c.isDigit() }
-                            durationError = if (duration.isBlank()) "Duração é obrigatória" else ""
-                        },
-                        label = { Text("Duração (em dias)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                        isError = durationError.isNotEmpty(),
-                        supportingText = {
-                            if (durationError.isNotEmpty()) {
-                                Text(
-                                    text = durationError,
-                                    color = MaterialTheme.colorScheme.error
+                            // Validação dos campos de rastreamento de estoque
+                            if (trackStock && stockQuantity.isBlank()) {
+                                stockQuantityError = "Quantidade em estoque é obrigatória"
+                                isValid = false
+                            } else {
+                                stockQuantityError = ""
+                            }
+
+                            if (isValid) {
+                                val medicine = Medicine(
+                                    name = name,
+                                    dose = dose,
+                                    doseUnit = doseUnit,
+                                    frequencyType = frequencyType.value,
+                                    timesPerDay = if (frequencyType.value == "vezes_dia") timesPerDay.toIntOrNull() else null,
+                                    horarios = if (frequencyType.value == "vezes_dia") horarios.toList() else null,
+                                    intervalHours = if (frequencyType.value == "intervalo") intervalHours.toIntOrNull() else null,
+                                    startTime = if (frequencyType.value == "intervalo") startTime else null,
+                                    startDate = startDate,
+                                    duration = if (isContinuousMedication) -1 else duration.toIntOrNull() ?: 0,
+                                    notes = notes,
+                                    // Novos campos de rastreamento de estoque
+                                    trackStock = trackStock,
+                                    stockQuantity = if (trackStock && stockQuantity.isNotBlank()) stockQuantity.toDoubleOrNull() ?: 0.0 else 0.0,
+                                    stockUnit = if (trackStock) stockUnit else "Unidades"
                                 )
-                            }
-                        }
-                    )
-                } else {
-                    Text(
-                        text = "Duração: --",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
 
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Observações (opcional)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2
-                )
-
-                if (showFutureDateDialog && medicineToSave != null) {
-                    AlertDialog(
-                        onDismissRequest = { showFutureDateDialog = false },
-                        title = { Text("Data futura selecionada") },
-                        text = {
-                            Column {
-                                Text("Você selecionou uma data no futuro (${DateValidator.formatDateString(startDate)}).")
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("Deseja continuar com esta data?")
-                            }
-                        },
-                        confirmButton = {
-                            TextButton(
-                                onClick = {
-                                    showFutureDateDialog = false
+                                // Verificar se a data é futura
+                                val (_, message) = DateValidator.validateDate(startDate)
+                                if (message != null && message.contains("futuro")) {
+                                    medicineToSave = medicine
+                                    showFutureDateDialog = true
+                                } else {
                                     // Definir isSaving como true antes de salvar
                                     isSaving = true
                                     if (isEditing && medicineId != null) {
                                         MedicineRepository.updateMedicine(
                                             medicineId = medicineId,
-                                            medicine = medicineToSave!!,
+                                            medicine = medicine,
                                             onSuccess = {
                                                 isSaving = false // Finaliza o carregamento
                                                 Toast.makeText(context, "Medicamento atualizado com sucesso!", Toast.LENGTH_SHORT).show()
@@ -543,7 +788,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                         )
                                     } else {
                                         MedicineRepository.saveMedicine(
-                                            medicine = medicineToSave!!,
+                                            medicine = medicine,
                                             onSuccess = {
                                                 isSaving = false // Finaliza o carregamento
                                                 Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
@@ -555,194 +800,13 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                             }
                                         )
                                     }
-                                },
-                                enabled = !isSaving // Desabilita o botão durante o salvamento
-                            ) {
-                                if (isSaving) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
                                 }
-                                Text("Sim, continuar")
                             }
                         },
-                        dismissButton = {
-                            TextButton(
-                                onClick = { showFutureDateDialog = false },
-                                enabled = !isSaving // Desabilita o botão durante o salvamento
-                            ) {
-                                Text("Não, ajustar data")
-                            }
-                        }
-                    )
-                }
-
-                Button(
-                    onClick = {
-                        var isValid = true
-
-                        if (name.isBlank()) {
-                            nameError = "Nome do medicamento é obrigatório"
-                            isValid = false
-                        } else {
-                            nameError = ""
-                        }
-
-                        if (dose.isBlank()) {
-                            doseError = "Dose é obrigatória"
-                            isValid = false
-                        } else {
-                            doseError = ""
-                        }
-
-                        if (frequencyType.value == "vezes_dia") {
-                            val timesValue = timesPerDay.toIntOrNull()
-                            if (timesValue == null || timesValue <= 0) {
-                                timesPerDayError = "Número de vezes inválido"
-                                isValid = false
-                            } else {
-                                timesPerDayError = ""
-                            }
-                        } else {
-                            if (intervalHours.isBlank() || intervalHours.toIntOrNull() == null) {
-                                intervalHoursError = "Intervalo é obrigatório"
-                                isValid = false
-                            } else {
-                                intervalHoursError = ""
-                            }
-
-                            if (startTime.isBlank()) {
-                                startTimeError = "Horário inicial é obrigatório"
-                                isValid = false
-                            } else {
-                                startTimeError = ""
-                            }
-                        }
-
-                        // Validação de data
-                        if (startDate.length == 8) {
-                            val (isValidDate, message) = DateValidator.validateDate(startDate)
-                            if (!isValidDate) {
-                                startDateError = message ?: "Data inválida"
-                                isValid = false
-                            } else {
-                                startDateError = ""
-                            }
-                        } else {
-                            startDateError = "Data incompleta. Use o formato DD/MM/AAAA"
-                            isValid = false
-                        }
-
-                        if (!isContinuousMedication && (duration.isBlank() || duration.toIntOrNull() == null)) {
-                            durationError = "Duração é obrigatória"
-                            isValid = false
-                        } else {
-                            durationError = ""
-                        }
-
-                        if (!isValid || isSaving) {
-                            return@Button
-                        }
-
-                        val formattedDate = DateValidator.formatDateString(startDate)
-
-                        val medicine = Medicine(
-                            name = name,
-                            dose = dose,
-                            doseUnit = doseUnit,
-                            frequencyType = frequencyType.value,
-                            timesPerDay = if (frequencyType.value == "vezes_dia") timesPerDay.toIntOrNull() ?: 0 else null,
-                            intervalHours = if (frequencyType.value == "a_cada_x_horas") intervalHours.toIntOrNull() ?: 0 else null,
-                            startTime = if (frequencyType.value == "a_cada_x_horas") startTime else null,
-                            horarios = if (frequencyType.value == "vezes_dia") horarios.toList() else null,
-                            startDate = formattedDate,
-                            duration = if (isContinuousMedication) -1 else duration.toIntOrNull() ?: 0,
-                            notes = notes
-                        )
-
-                        medicineToSave = medicine
-
-                        // Verifica se a data é futura
-                        if (startDate.length == 8) {
-                            val (dateIsValid, message) = DateValidator.validateDate(startDate)
-                            if (dateIsValid && message != null && message.contains("futuro")) {
-                                showFutureDateDialog = true
-                            } else {
-                                // Definir isSaving como true antes de salvar
-                                isSaving = true
-                                if (isEditing && medicineId != null) {
-                                    MedicineRepository.updateMedicine(
-                                        medicineId = medicineId,
-                                        medicine = medicine,
-                                        onSuccess = {
-                                            isSaving = false // Finaliza o carregamento
-                                            Toast.makeText(context, "Medicamento atualizado com sucesso!", Toast.LENGTH_SHORT).show()
-                                            navController.popBackStack()
-                                        },
-                                        onError = { exception ->
-                                            isSaving = false // Finaliza o carregamento mesmo em caso de erro
-                                            Toast.makeText(context, "Erro ao atualizar: ${exception.message}", Toast.LENGTH_LONG).show()
-                                        }
-                                    )
-                                } else {
-                                    MedicineRepository.saveMedicine(
-                                        medicine = medicine,
-                                        onSuccess = {
-                                            isSaving = false // Finaliza o carregamento
-                                            Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
-                                            navController.popBackStack()
-                                        },
-                                        onError = { exception ->
-                                            isSaving = false // Finaliza o carregamento mesmo em caso de erro
-                                            Toast.makeText(context, "Erro ao salvar: ${exception.message}", Toast.LENGTH_LONG).show()
-                                        }
-                                    )
-                                }
-                            }
-                        } else {
-                            // Definir isSaving como true antes de salvar
-                            isSaving = true
-                            if (isEditing && medicineId != null) {
-                                MedicineRepository.updateMedicine(
-                                    medicineId = medicineId,
-                                    medicine = medicine,
-                                    onSuccess = {
-                                        isSaving = false // Finaliza o carregamento
-                                        Toast.makeText(context, "Medicamento atualizado com sucesso!", Toast.LENGTH_SHORT).show()
-                                        navController.popBackStack()
-                                    },
-                                    onError = { exception ->
-                                        isSaving = false // Finaliza o carregamento mesmo em caso de erro
-                                        Toast.makeText(context, "Erro ao atualizar: ${exception.message}", Toast.LENGTH_LONG).show()
-                                    }
-                                )
-                            } else {
-                                MedicineRepository.saveMedicine(
-                                    medicine = medicine,
-                                    onSuccess = {
-                                        isSaving = false // Finaliza o carregamento
-                                        Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
-                                        navController.popBackStack()
-                                    },
-                                    onError = { exception ->
-                                        isSaving = false // Finaliza o carregamento mesmo em caso de erro
-                                        Toast.makeText(context, "Erro ao salvar: ${exception.message}", Toast.LENGTH_LONG).show()
-                                    }
-                                )
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isSaving // Desabilita o botão durante o salvamento
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isSaving
                     ) {
                         if (isSaving) {
-                            // Mostra um indicador de carregamento no botão
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
                                 color = MaterialTheme.colorScheme.onPrimary,
@@ -750,10 +814,17 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                         }
-                        Text(if (isEditing) "Atualizar Medicamento" else "Salvar Medicamento")
+                        Text(if (isEditing) "Atualizar" else "Salvar")
                     }
                 }
             }
         }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun MedicineFormScreenPreview() {
+    val navController = rememberNavController()
+    MedicineFormScreen(navController = navController)
 }

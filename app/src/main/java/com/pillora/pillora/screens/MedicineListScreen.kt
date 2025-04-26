@@ -13,12 +13,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.pillora.pillora.model.Medicine
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.MedicineRepository
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,10 +95,19 @@ fun MedicineListScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Medicamentos") },
-                actions = {
+                title = {
+                    Column {
+                        Text("Medicamentos")
+                        // Contador de medicamentos
+                        Text(
+                            text = "${medicines.size} ${if (medicines.size == 1) "medicamento" else "medicamentos"}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                },
+                navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.Add, contentDescription = "Voltar")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
                     }
                 }
             )
@@ -249,6 +261,15 @@ fun MedicineItem(
                 style = MaterialTheme.typography.bodyMedium
             )
 
+            // Mostrar informações de estoque se estiver rastreando
+            if (medicine.trackStock) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Estoque: ${medicine.stockQuantity} ${medicine.stockUnit}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
             if (medicine.notes.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -284,4 +305,11 @@ private fun deleteMedicine(
         onSuccess = onSuccess,
         onError = onError
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun MedicineListScreenPreview() {
+    val navController = rememberNavController()
+    MedicineListScreen(navController = navController)
 }
