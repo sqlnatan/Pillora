@@ -65,6 +65,9 @@ import com.pillora.pillora.ui.components.DateTextField
 import com.pillora.pillora.utils.DateValidator
 import java.util.Calendar
 import java.util.Locale
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MedicineFormScreen(navController: NavController, medicineId: String? = null) {
@@ -116,58 +119,66 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
     // Adicionar estado para controlar o carregamento durante o salvamento
     var isSaving by remember { mutableStateOf(false) }
     // Carregar dados do medicamento se estiver editando
+    // Carregar dados do medicamento se estiver editando
     LaunchedEffect(medicineId) {
         if (medicineId != null) {
             isEditing = true
-            MedicineRepository.getMedicineById(
-                medicineId = medicineId,
-                onSuccess = { medicine ->
-                    if (medicine != null) {
-                        name = medicine.name
-                        dose = medicine.dose
-                        doseUnit = medicine.doseUnit ?: "Cápsula"
-                        frequencyType.value = medicine.frequencyType
-                        startDate = medicine.startDate
-                        isContinuousMedication = medicine.duration == -1
-                        duration = if (medicine.duration == -1) "" else medicine.duration.toString()
-                        notes = medicine.notes
+            try {
+                MedicineRepository.getMedicineById(
+                    medicineId = medicineId,
+                    onSuccess = { medicine ->
+                        if (medicine != null) {
+                            name = medicine.name
+                            dose = medicine.dose
+                            doseUnit = medicine.doseUnit ?: "Cápsula"
+                            frequencyType.value = medicine.frequencyType
+                            startDate = medicine.startDate
+                            isContinuousMedication = medicine.duration == -1
+                            duration = if (medicine.duration == -1) "" else medicine.duration.toString()
+                            notes = medicine.notes
 
-                        // Carregar dados de rastreamento de estoque
-                        trackStock = medicine.trackStock
-                        stockQuantity = if (medicine.stockQuantity > 0) medicine.stockQuantity.toString() else ""
-                        stockUnit = medicine.stockUnit
+                            // Carregar dados de rastreamento de estoque
+                            trackStock = medicine.trackStock
+                            stockQuantity = if (medicine.stockQuantity > 0) medicine.stockQuantity.toString() else ""
+                            stockUnit = medicine.stockUnit
 
-                        if (medicine.frequencyType == "vezes_dia") {
-                            timesPerDay = medicine.timesPerDay.toString()
-                            horarios.clear()
-                            medicine.horarios?.let { schedules ->
-                                horarios.addAll(schedules)
+                            if (medicine.frequencyType == "vezes_dia") {
+                                timesPerDay = medicine.timesPerDay.toString()
+                                horarios.clear()
+                                medicine.horarios?.let { schedules ->
+                                    horarios.addAll(schedules)
+                                }
                                 val count = timesPerDay.toIntOrNull() ?: 0
                                 if (horarios.size < count) {
                                     repeat(count - horarios.size) { horarios.add("00:00") }
                                 }
+                            } else {
+                                intervalHours = medicine.intervalHours.toString()
+                                startTime = medicine.startTime ?: ""
                             }
                         } else {
-                            intervalHours = medicine.intervalHours.toString()
-                            startTime = medicine.startTime ?: ""
+                            // Medicamento não encontrado
+                            Toast.makeText(context, "Medicamento não encontrado", Toast.LENGTH_LONG).show()
+                            navController.popBackStack() // Voltar para a tela anterior
                         }
+                        isLoading = false
+                    },
+                    onError = { exception ->
+                        // Tratar o erro
+                        Toast.makeText(context, "Erro ao carregar medicamento: ${exception.message}", Toast.LENGTH_LONG).show()
+                        navController.popBackStack() // Voltar para a tela anterior
+                        isLoading = false
                     }
-                    isLoading = false
-                },
-                onError = { exception ->
-                    Toast.makeText(context, "Erro ao carregar medicamento: ${exception.message}", Toast.LENGTH_LONG).show()
-                    isLoading = false
-                }
-            )
-        } else {
-            if ((timesPerDay.toIntOrNull() ?: 0) > 0) {
-                val count = timesPerDay.toIntOrNull() ?: 1
-                if (horarios.isEmpty()) {
-                    repeat(count) { horarios.add("00:00") }
-                }
+                )
+            } catch (e: Exception) {
+                // Capturar qualquer exceção não tratada
+                Toast.makeText(context, "Erro inesperado: ${e.message}", Toast.LENGTH_LONG).show()
+                navController.popBackStack() // Voltar para a tela anterior
+                isLoading = false
             }
         }
     }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -746,23 +757,30 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             }
 
                             if (isValid) {
+                                val currentUserId = Firebase.auth.currentUser?.uid ?: ""
+                                // Dentro da função que cria o objeto Medicine para salvar
                                 val medicine = Medicine(
+                                    id = if (isEditing) medicineId else null,
+                                    userId = currentUserId, // Certifique-se de que este campo foi adicionado
                                     name = name,
                                     dose = dose,
                                     doseUnit = doseUnit,
                                     frequencyType = frequencyType.value,
-                                    timesPerDay = if (frequencyType.value == "vezes_dia") timesPerDay.toIntOrNull() else null,
-                                    horarios = if (frequencyType.value == "vezes_dia") horarios.toList() else null,
-                                    intervalHours = if (frequencyType.value == "intervalo") intervalHours.toIntOrNull() else null,
-                                    startTime = if (frequencyType.value == "intervalo") startTime else null,
                                     startDate = startDate,
                                     duration = if (isContinuousMedication) -1 else duration.toIntOrNull() ?: 0,
+                                    timesPerDay = if (frequencyType.value == "vezes_dia") timesPerDay.toIntOrNull() ?: 1 else 0,
+                                    horarios = if (frequencyType.value == "vezes_dia") horarios.toList() else null,
+                                    // Aqui está a correção:
+                                    intervalHours = if (frequencyType.value == "intervalo" || frequencyType.value == "a_cada_x_horas")
+                                        intervalHours.toIntOrNull() ?: 0
+                                    else 0,
+                                    startTime = if (frequencyType.value == "intervalo" || frequencyType.value == "a_cada_x_horas") startTime else null,
                                     notes = notes,
-                                    // Novos campos de rastreamento de estoque
                                     trackStock = trackStock,
-                                    stockQuantity = if (trackStock && stockQuantity.isNotBlank()) stockQuantity.toDoubleOrNull() ?: 0.0 else 0.0,
-                                    stockUnit = if (trackStock) stockUnit else "Unidades"
+                                    stockQuantity = if (trackStock) (stockQuantity.toDoubleOrNull() ?: 0.0) else 0.0,
+                                    stockUnit = stockUnit
                                 )
+
 
                                 // Verificar se a data é futura
                                 val (_, message) = DateValidator.validateDate(startDate)

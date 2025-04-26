@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -22,6 +23,7 @@ import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.MedicineRepository
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,6 +34,7 @@ fun MedicineListScreen(navController: NavController) {
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var medicineToDelete by remember { mutableStateOf<Pair<String, Medicine>?>(null) }
+    val context = LocalContext.current
 
     // Carregar medicamentos ao iniciar a tela
     LaunchedEffect(Unit) {
@@ -178,8 +181,16 @@ fun MedicineListScreen(navController: NavController) {
                         MedicineItem(
                             medicine = medicine,
                             onEditClick = {
-                                // Navegar para a tela de edição com o ID do medicamento
-                                navController.navigate("${Screen.MedicineForm.route}/$id")
+                                try {
+                                    // Como sua rota é definida sem parâmetros, precisamos passar o ID como argumento de navegação
+                                    navController.navigate(Screen.MedicineForm.route + "?id=$id")
+                                } catch (e: Exception) {
+                                    Toast.makeText(
+                                        context,
+                                        "Erro ao abrir tela de edição: ${e.message}",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
                             },
                             onDeleteClick = {
                                 medicineToDelete = Pair(id, medicine)

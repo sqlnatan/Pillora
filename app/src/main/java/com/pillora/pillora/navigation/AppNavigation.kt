@@ -59,21 +59,19 @@ fun AppNavigation() {
         }
 
         // Medicine form screen
+
         composable(
-            route = "medicine_form?medicineId={medicineId}",
+            route = Screen.MedicineForm.route + "?id={id}",
             arguments = listOf(
-                navArgument("medicineId") {
+                navArgument("id") {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
                 }
             )
         ) { backStackEntry ->
-            val medicineId = backStackEntry.arguments?.getString("medicineId")
-            MedicineFormScreen(
-                navController = navController,
-                medicineId = medicineId
-            )
+            val medicineId = backStackEntry.arguments?.getString("id")
+            MedicineFormScreen(navController = navController, medicineId = medicineId)
         }
     }
 }

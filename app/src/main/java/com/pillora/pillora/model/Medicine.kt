@@ -1,6 +1,8 @@
 package com.pillora.pillora.model
 
 data class Medicine(
+    val id: String? = null,
+    val userId: String? = null, // Novo campo para armazenar o ID do usuário
     val name: String = "",
     val dose: String = "",
     val doseUnit: String? = null, // "Cápsula" ou "ml"
