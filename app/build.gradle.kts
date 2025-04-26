@@ -68,4 +68,6 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.androidx.core.ktx)
     implementation(libs.play.services.auth)
+    implementation(libs.androidx.splashscreen)
+
 }
