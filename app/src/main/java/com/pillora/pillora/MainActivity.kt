@@ -14,6 +14,7 @@ import com.google.firebase.FirebaseApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(R.style.Theme_Pillora)
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
         val analytics = Firebase.analytics

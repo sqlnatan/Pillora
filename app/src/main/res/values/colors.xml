@@ -7,4 +7,6 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <!-- Adicionada cor para o fundo da splash screen -->
+    <color name="splash_background_color">#FF6200EE</color> <!-- Usando a cor purple_500 como base -->
 </resources>

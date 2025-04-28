@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Pillora" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Tema completamente personalizado para a tela de splash -->
+    <style name="Theme.Pillora.Splash" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:statusBarColor">@color/splash_background_color</item>
+        <item name="android:navigationBarColor">@color/splash_background_color</item>
+    </style>
 </resources>
