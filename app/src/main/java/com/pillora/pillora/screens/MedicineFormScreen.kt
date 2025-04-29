@@ -81,7 +81,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
     var doseError by remember { mutableStateOf("") }
 
     var doseUnit by remember { mutableStateOf("Cápsula") }
-    val doseOptions = listOf("Cápsula", "ml")
+    val doseOptions = listOf("Cápsula", "ml", "Outros")
     var expanded by remember { mutableStateOf(false) }
 
     val frequencyType = remember { mutableStateOf("vezes_dia") }
@@ -250,6 +250,11 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                     Text(
                                         text = doseError,
                                         color = MaterialTheme.colorScheme.error
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Para frações, use números decimais (ex: 0.5 para meio, 0.25 para 1/4).",
+                                        style = MaterialTheme.typography.bodySmall
                                     )
                                 }
                             }
