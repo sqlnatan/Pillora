@@ -313,6 +313,17 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                 intervalHoursError = ""
                                 startTime = ""
                                 startTimeError = ""
+                                // Correção: Garante que a lista de horários seja preenchida se estiver vazia
+                                val currentTimes = timesPerDay.toIntOrNull() ?: 1
+                                if (horarios.isEmpty() && currentTimes >= 1) {
+                                    // Adiciona horários padrão até atingir a contagem de timesPerDay
+                                    horarios.clear() // Limpa antes de adicionar para garantir a contagem correta
+                                    repeat(currentTimes) { horarios.add("00:00") }
+                                    // Garante que o índice da aba selecionada seja válido
+                                    if (selectedTabIndex >= currentTimes) {
+                                        selectedTabIndex = currentTimes - 1
+                                    }
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (frequencyType.value == "vezes_dia") selectedColor else unselectedColor
