@@ -23,6 +23,7 @@ import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.MedicineRepository
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import android.util.Log // Manter Log para caso seja necessário no futuro
 import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -245,6 +246,32 @@ fun MedicineItem(
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
+    // Lógica para calcular a data final
+    val finalDateText = if (medicine.duration > 0 && medicine.startDate.isNotEmpty()) {
+        // Log comentado, mas mantido para referência futura
+        // Log.d("MedicineItem", "Calculando data final para ${medicine.name}. StartDate recebida: '${medicine.startDate}'")
+        try {
+            // CORREÇÃO: Usar o formato correto "ddMMyyyy" para parse
+            val parseFormat = SimpleDateFormat("ddMMyyyy", Locale.getDefault())
+            parseFormat.isLenient = false // Restaurar validação estrita
+
+            val startDateCalendar = Calendar.getInstance()
+            startDateCalendar.time = parseFormat.parse(medicine.startDate) ?: throw IllegalArgumentException("Data de início nula após parse")
+
+            startDateCalendar.add(Calendar.DAY_OF_YEAR, medicine.duration - 1)
+
+            // Usar o formato "dd/MM/yyyy" para exibição amigável
+            val displayFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+            "Último dia: ${displayFormat.format(startDateCalendar.time)}"
+        } catch (e: Exception) {
+            // Log comentado, mas mantido para referência futura
+            // Log.e("MedicineItem", "Erro ao calcular data final para ${medicine.name}", e)
+            "Último dia indisponível (Erro: ${e.message})"
+        }
+    } else {
+        null
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -330,6 +357,15 @@ fun MedicineItem(
                 style = MaterialTheme.typography.bodyMedium
             )
 
+            // Adicionar a data final aqui, se calculada
+            finalDateText?.let {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
             // Mostrar informações de estoque se estiver rastreando
             if (medicine.trackStock) {
                 Spacer(modifier = Modifier.height(4.dp))
@@ -382,3 +418,4 @@ fun MedicineListScreenPreview() {
     val navController = rememberNavController()
     MedicineListScreen(navController = navController)
 }
+
