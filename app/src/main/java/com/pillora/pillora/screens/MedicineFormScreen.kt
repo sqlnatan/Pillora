@@ -238,12 +238,29 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                     ) {
                         OutlinedTextField(
                             value = dose,
-                            onValueChange = {
-                                dose = it
-                                doseError = if (it.isBlank()) "Dose é obrigatória" else ""
+                            onValueChange = { newValue ->
+                                val filteredValue = if (doseUnit == "Cápsula" || doseUnit == "ml") {
+                                    // Allow digits, one decimal point (either '.' or ',')
+                                    val decimalFiltered = newValue.filter { it.isDigit() || it == '.' || it == ',' }
+                                    val standardized = decimalFiltered.replace(',', '.') // Use '.' as standard
+                                    val parts = standardized.split('.')
+                                    if (parts.size <= 2) { // Allow 0 or 1 decimal point
+                                        standardized
+                                    } else {
+                                        // If more than one '.', keep only the first one
+                                        parts[0] + "." + parts.drop(1).joinToString("")
+                                    }
+                                } else {
+                                    newValue // Allow any text for "Outros"
+                                }
+                                dose = filteredValue
+                                doseError = if (filteredValue.isBlank()) "Dose é obrigatória" else ""
                             },
                             label = { Text("Dose") },
                             modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = if (doseUnit == "Cápsula" || doseUnit == "ml") KeyboardType.Decimal else KeyboardType.Text
+                            ),
                             isError = doseError.isNotEmpty(),
                             supportingText = {
                                 if (doseError.isNotEmpty()) {
@@ -251,7 +268,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                         text = doseError,
                                         color = MaterialTheme.colorScheme.error
                                     )
-                                } else {
+                                } else if (doseUnit == "Cápsula") { // Mostrar instrução apenas para Cápsula
                                     Text(
                                         text = "Para frações, use números decimais (ex: 0.5 para meio, 0.25 para 1/4).",
                                         style = MaterialTheme.typography.bodySmall

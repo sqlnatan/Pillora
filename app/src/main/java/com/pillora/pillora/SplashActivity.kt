@@ -1,25 +1,33 @@
 package com.pillora.pillora
 
-import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
+// Removido Handler e Looper pois não são mais necessários com a API SplashScreen
 import androidx.activity.ComponentActivity
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen // Importar a classe necessária
 
-@SuppressLint("CustomSplashScreen") // Suprime aviso sobre API de splash do Android 12
+// A anotação @SuppressLint foi removida pois estamos usando a API corretamente
 class SplashActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 1. Chamar installSplashScreen() ANTES de super.onCreate() e setContentView()
+        // Isso conecta a Activity ao tema definido (incluindo o de values-v31)
+        installSplashScreen() // Chamada direta sem atribuir à variável
+
         super.onCreate(savedInstanceState)
 
-        // Define o layout simples que criaremos a seguir
-        setContentView(R.layout.activity_splash)
+        // 2. (Opcional) Manter a splash screen visível por mais tempo se necessário
+        // Para usar isso, volte a ter: val splashScreen = installSplashScreen()
+        // E então use: splashScreen.setKeepOnScreenCondition { /* sua condição aqui */ true }
 
-        // Aguarda um curto período e inicia a MainActivity
-        Handler(Looper.getMainLooper()).postDelayed({
-            startActivity(Intent(this, MainActivity::class.java))
-            finish() // Finaliza a SplashActivity para não voltar a ela
-        }, 1000) // Tempo em milissegundos (1 segundo)
+        // 3. Iniciar a MainActivity diretamente
+        startActivity(Intent(this, MainActivity::class.java))
+
+        // 4. Finalizar a SplashActivity
+        finish()
+
+        // 5. Remover setContentView e Handler.postDelayed
+        // O layout activity_splash.xml não é mais necessário aqui
     }
 }
+

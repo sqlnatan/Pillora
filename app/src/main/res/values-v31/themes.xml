@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema base para Android 12+ -->
+    <style name="Theme.Pillora.AppStarting" parent="Theme.SplashScreen">
+        <!-- Cor de fundo da splash screen -->
+        <item name="windowSplashScreenBackground">@color/splash_background_color</item>
+
+        <!-- Ícone da splash screen (substitui o robô do Android) -->
+        <!-- Use @drawable/app_logo se quiser usar o logo específico ou @mipmap/ic_launcher para o ícone do app -->
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+
+        <!-- Tema a ser aplicado após a splash screen -->
+        <item name="postSplashScreenTheme">@style/Theme.Pillora</item>
+
+        <!-- Opcional: Cor da barra de status e navegação durante a splash screen -->
+        <item name="android:statusBarColor">@color/splash_background_color</item>
+        <item name="android:navigationBarColor">@color/splash_background_color</item>
+    </style>
+</resources>
