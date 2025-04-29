@@ -1,5 +1,7 @@
 package com.pillora.pillora.screens
 
+
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -7,7 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
+// Import colorResource
+import androidx.compose.ui.res.colorResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -24,10 +27,14 @@ fun SplashScreen(
     navController: NavController,
     acceptedTerms: Boolean
 ) {
+    // Use colorResource to get the splash background color
+    val backgroundColor = colorResource(id = R.color.splash_background_color)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            // Apply the background color here
+            .background(backgroundColor),
         contentAlignment = Alignment.Center
     ) {
         // Logo
@@ -37,7 +44,7 @@ fun SplashScreen(
             modifier = Modifier.size(150.dp)
         )
 
-        // Loading indicator
+        // Loading indicator (mantido conforme original)
         CircularProgressIndicator(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -69,3 +76,4 @@ fun SplashScreen(
         }
     }
 }
+

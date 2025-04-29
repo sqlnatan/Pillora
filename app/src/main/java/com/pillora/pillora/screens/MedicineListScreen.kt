@@ -24,6 +24,12 @@ import com.pillora.pillora.repository.MedicineRepository
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import android.widget.Toast
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+
+// Importar a função calculateAllTimes do MedicineFormScreen em vez de duplicá-la
+// A função será definida apenas no MedicineFormScreen.kt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -204,6 +210,35 @@ fun MedicineListScreen(navController: NavController) {
     }
 }
 
+// Função auxiliar para calcular horários (simplificada para uso no MedicineItem)
+private fun calculateTimesForDisplay(startTime: String, intervalHours: Int): String {
+    if (startTime.isEmpty() || intervalHours <= 0) return startTime
+
+    val times = mutableListOf<String>()
+    val format = SimpleDateFormat("HH:mm", Locale.getDefault())
+
+    try {
+        val date = format.parse(startTime) ?: return startTime
+        val calendar = Calendar.getInstance()
+        calendar.time = date
+
+        // Adicionar o horário inicial
+        times.add(format.format(calendar.time))
+
+        // Calcular horários subsequentes em um período de 24 horas
+        for (i in 1 until (24 / intervalHours) + 1) {
+            calendar.add(Calendar.HOUR_OF_DAY, intervalHours)
+            // Parar se já passou de 24h
+            if (i > 1 && calendar.get(Calendar.HOUR_OF_DAY) < intervalHours) break
+            times.add(format.format(calendar.time))
+        }
+    } catch (e: Exception) {
+        return startTime
+    }
+
+    return times.joinToString(", ")
+}
+
 @Composable
 fun MedicineItem(
     medicine: Medicine,
@@ -224,11 +259,34 @@ fun MedicineItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = medicine.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = medicine.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    // Exibir horários logo abaixo do nome do medicamento
+                    if (medicine.frequencyType == "vezes_dia" && !medicine.horarios.isNullOrEmpty()) {
+                        // Exibir horários para frequência "vezes ao dia"
+                        Text(
+                            text = "Horários: ${medicine.horarios.joinToString(", ")}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold // Negrito conforme solicitado
+                        )
+                    } else if (medicine.frequencyType == "a_cada_x_horas" &&
+                        !medicine.startTime.isNullOrEmpty() &&
+                        medicine.intervalHours != null &&
+                        medicine.intervalHours > 0) {
+                        // Calcular e exibir horários para frequência "a cada X horas"
+                        val timesDisplay = calculateTimesForDisplay(medicine.startTime, medicine.intervalHours)
+                        Text(
+                            text = "Horários: $timesDisplay",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold // Negrito conforme solicitado
+                        )
+                    }
+                }
 
                 Row {
                     IconButton(onClick = onEditClick) {

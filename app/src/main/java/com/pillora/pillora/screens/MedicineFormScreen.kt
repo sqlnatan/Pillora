@@ -67,8 +67,11 @@ import java.util.Calendar
 import java.util.Locale
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
+import java.text.SimpleDateFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
+
+
 @Composable
 fun MedicineFormScreen(navController: NavController, medicineId: String? = null) {
     var name by remember { mutableStateOf("") }
@@ -95,7 +98,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
     var stockQuantity by remember { mutableStateOf("") }
     var stockQuantityError by remember { mutableStateOf("") }
     var stockUnit by remember { mutableStateOf("Unidades") }
-    val stockUnitOptions = listOf("Unidades", "ml", "Outra")
+    val stockUnitOptions = listOf("Unidades", "ml")
     var stockUnitExpanded by remember { mutableStateOf(false) }
 
     var notes by remember { mutableStateOf("") }
@@ -487,6 +490,26 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             )
                         }
                     }
+
+                    // Exibir horários calculados
+                    val interval = intervalHours.toIntOrNull() ?: 0
+                    if (startTime.isNotEmpty() && interval > 0) {
+                        // Chame a função calculateAllTimes que você adicionou ao arquivo
+                        val calculatedTimes = calculateAllTimes(startTime, interval)
+                        if (calculatedTimes.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Horários calculados:", style = MaterialTheme.typography.titleMedium)
+                            // Exibe cada horário calculado em uma nova linha
+                            calculatedTimes.forEach { time ->
+                                Text(
+                                    text = time,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(start = 8.dp, top = 4.dp) // Adiciona um leve recuo
+                                )
+                            }
+                        }
+                    }
+
                     // Campo de data com a nova implementação
                     DateTextField(
                         value = startDate,
@@ -838,6 +861,45 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
             }
         }
     }
+}
+
+fun calculateAllTimes(startTime: String, intervalHours: Int): List<String> {
+    if (startTime.isEmpty() || intervalHours <= 0) return emptyList()
+
+    val times = mutableListOf<String>()
+    // Formato de hora HH:mm
+    val format = SimpleDateFormat("HH:mm", Locale.getDefault()) // Use Locale.getDefault()
+
+    try {
+        val date = format.parse(startTime)
+            ?: return listOf(startTime) // Retorna apenas o horário inicial se falhar
+        val calendar = Calendar.getInstance()
+        calendar.time = date
+
+        // Adiciona o horário inicial primeiro
+        times.add(format.format(calendar.time))
+
+        // Calcula os horários subsequentes em um período de 24 horas
+        val startHour = calendar.get(Calendar.HOUR_OF_DAY)
+
+        while (true) {
+            calendar.add(Calendar.HOUR_OF_DAY, intervalHours)
+            val nextHour = calendar.get(Calendar.HOUR_OF_DAY)
+            // Para se já passou de 24h e voltou para antes do horário inicial
+            // Ou se o intervalo for >= 24h e já adicionamos o primeiro horário
+            if ((nextHour <= startHour && times.size > 1) || (intervalHours >= 24 && times.size >= 1)) break
+            times.add(format.format(calendar.time))
+            // Verificação básica para evitar loops infinitos com intervalos muito pequenos
+            if (times.size > (24 / intervalHours.coerceAtLeast(1)) + 2) break // Adicionado +2 para segurança
+        }
+    } catch (e: Exception) {
+        // Trata erro de parsing, retornando apenas o horário inicial
+        println("Erro ao calcular horários: ") // Log do erro
+        e.printStackTrace() // Imprime o stack trace para depuração
+        return listOf(startTime)
+    }
+
+    return times.distinct() // Garante horários únicos
 }
 
 @Preview(showBackground = true)
