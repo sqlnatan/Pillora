@@ -10,27 +10,61 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember // Adicionado
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+// import androidx.compose.ui.graphics.vector.ImageVector // Removido, não mais necessário por HomeMenuItem
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.AuthRepository
+import com.pillora.pillora.viewmodel.HomeViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(
+    navController: NavController,
+    viewModel: HomeViewModel = viewModel() // Injetar ViewModel
+) {
+    // Observar os estados do ViewModel
+    val medicinesToday by viewModel.medicinesToday.collectAsState()
+    val stockAlerts by viewModel.stockAlerts.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Mostrar Snackbar em caso de erro
+    LaunchedEffect(error) {
+        error?.let {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = it,
+                    duration = SnackbarDuration.Short
+                )
+            }
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Pillora") },
                 actions = {
+                    IconButton(onClick = { navController.navigate(Screen.Settings.route) }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Configurações")
+                    }
                     IconButton(onClick = {
-                        // Desloga do Firebase Auth
                         AuthRepository.signOut()
-                        // Navega para a tela de autenticação e limpa a pilha
                         navController.navigate("auth") {
                             popUpTo(Screen.Home.route) { inclusive = true }
                         }
@@ -44,144 +78,125 @@ fun HomeScreen(navController: NavController) {
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "Bem-vindo ao Pillora",
-                style = MaterialTheme.typography.headlineMedium,
-                textAlign = TextAlign.Center
-            )
-
-            Text(
-                text = "Selecione uma opção abaixo para testar as funcionalidades",
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Seção de Medicamentos
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Bem-vindo ao Pillora",
+                    style = MaterialTheme.typography.headlineMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Card "Medicamentos de Hoje"
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
-                    Text(
-                        text = "Medicamentos",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                    HomeMenuItem(
-                        icon = Icons.AutoMirrored.Filled.List,
-                        title = "Lista de Medicamentos",
-                        description = "Visualize, edite e exclua medicamentos",
-                        onClick = { navController.navigate(Screen.MedicineList.route) }
-                    )
-
-                    HomeMenuItem(
-                        icon = Icons.Default.Add,
-                        title = "Cadastrar Medicamento",
-                        description = "Adicione um novo medicamento",
-                        onClick = { navController.navigate(Screen.MedicineForm.route) }
-                    )
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        // Linha do Título com Botões
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Medicamentos de Hoje", style = MaterialTheme.typography.titleLarge)
+                            Spacer(Modifier.weight(1f)) // Empurra os botões para a direita
+                            IconButton(onClick = { navController.navigate(Screen.MedicineForm.route) }) {
+                                Icon(Icons.Default.AddCircleOutline, contentDescription = "Cadastrar Medicamento")
+                            }
+                            IconButton(onClick = { navController.navigate(Screen.MedicineList.route) }) {
+                                Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Ver Lista de Medicamentos")
+                            }
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        if (medicinesToday.isNotEmpty()) {
+                            medicinesToday.forEach { med ->
+                                // TODO: Criar um Composable melhor para exibir o item
+                                Text(
+                                    text = "${med.name} - ${med.dose} ${med.doseUnit ?: ""} - ${med.horarios?.joinToString() ?: med.startTime ?: "N/A"}",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+                        } else {
+                            Text("Nenhum medicamento agendado para hoje.", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
                 }
+
+                // Card "Consultas Médicas"
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Consultas Médicas", style = MaterialTheme.typography.titleLarge)
+                            Spacer(Modifier.weight(1f))
+                            IconButton(onClick = { navController.navigate(Screen.ConsultationForm.route) }) {
+                                Icon(Icons.Default.AddCircleOutline, contentDescription = "Adicionar Consulta")
+                            }
+                            IconButton(onClick = { navController.navigate(Screen.ConsultationList.route) }) {
+                                Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Ver Lista de Consultas")
+                            }
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        // TODO: Optionally display next upcoming consultation here (requires HomeViewModel update)
+                        Text("Acesse a lista para ver ou adicionar consultas.", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+
+                // Card "Alertas"
+                if (stockAlerts.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Alertas de Estoque",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.5f))
+                            stockAlerts.forEach { med ->
+                                Text(
+                                    text = "${med.name}: Estoque baixo (${med.stockQuantity} ${med.stockUnit})",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+                        }
+                    }
+                }
+
+                // Card "Acesso Rápido" REMOVIDO
+
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Seção de Testes
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Outras Funcionalidades",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                    HomeMenuItem(
-                        icon = Icons.Default.Storage,
-                        title = "Firestore",
-                        description = "Teste de conexão com o Firestore",
-                        onClick = { navController.navigate(Screen.Firestore.route) }
-                    )
-
-                    HomeMenuItem(
-                        icon = Icons.Default.Description,
-                        title = "Termos de Uso",
-                        description = "Visualize os termos de uso",
-                        onClick = { navController.navigate(Screen.Terms.route) }
-                    )
-                }
+            // Indicador de carregamento centralizado
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
 
-@Composable
-fun HomeMenuItem(
-    icon: ImageVector,
-    title: String,
-    description: String,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick,
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(32.dp)
-            )
+// HomeMenuItem REMOVIDO
 
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
-    }
-}

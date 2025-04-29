@@ -17,9 +17,11 @@ import com.pillora.pillora.screens.AuthScreen
 import com.pillora.pillora.screens.HomeScreen
 import com.pillora.pillora.screens.MedicineFormScreen
 import com.pillora.pillora.screens.MedicineListScreen
-// Removido import SplashScreen
+import com.pillora.pillora.screens.SettingsScreen // Importar SettingsScreen
 import com.pillora.pillora.screens.TermsScreen
 import com.pillora.pillora.repository.AuthRepository
+import com.pillora.pillora.screens.ConsultationFormScreen // Import ConsultationFormScreen
+import com.pillora.pillora.screens.ConsultationListScreen // Import ConsultationListScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -52,11 +54,6 @@ fun AppNavigation() {
     if (startRoute != null) {
         NavHost(navController = navController, startDestination = startRoute!!) {
             // Remover a rota "splash" - A SplashActivity nativa cuida da transição inicial
-            /*
-            composable("splash") {
-                // Este Composable não é mais necessário
-            }
-            */
 
             // Terms screen
             composable(Screen.Terms.route) {
@@ -92,10 +89,34 @@ fun AppNavigation() {
                 val medicineId = backStackEntry.arguments?.getString("id")
                 MedicineFormScreen(navController = navController, medicineId = medicineId)
             }
+
+            // Settings screen (Nova rota adicionada)
+            composable(Screen.Settings.route) {
+                SettingsScreen(navController = navController)
+            }
+
+            // Consultation list screen
+            composable(Screen.ConsultationList.route) {
+                ConsultationListScreen(navController = navController)
+            }
+
+            // Consultation form screen (handles both add and edit)
+            composable(
+                route = Screen.ConsultationForm.route + "?id={id}", // Optional ID for editing
+                arguments = listOf(
+                    navArgument("id") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val consultationId = backStackEntry.arguments?.getString("id")
+                ConsultationFormScreen(navController = navController, consultationId = consultationId)
+            }
         }
     } else {
         // Opcional: Mostrar um indicador de carregamento ou tela vazia enquanto determina a rota inicial
-        // Ex: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         // No entanto, a SplashActivity nativa já deve estar cobrindo este tempo.
     }
 }
