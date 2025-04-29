@@ -103,7 +103,11 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
 
     var notes by remember { mutableStateOf("") }
     val context = LocalContext.current
-    val horarios = remember { mutableStateListOf<String>() }
+    val horarios = remember { mutableStateListOf<String>().apply {
+        if (medicineId == null) { // Se for novo medicamento, adiciona um horário inicial
+            add("00:00")
+        }
+    } }
     var selectedTabIndex by remember { mutableIntStateOf(0) }
 
     var timesPerDay by remember { mutableStateOf("1") }
