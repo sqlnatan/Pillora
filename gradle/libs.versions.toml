@@ -18,7 +18,8 @@ splashscreen = "1.0.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
-androidx-ui-text = { module = "androidx.compose.ui:ui-text" }
+
+androidx-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "compose" }
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
