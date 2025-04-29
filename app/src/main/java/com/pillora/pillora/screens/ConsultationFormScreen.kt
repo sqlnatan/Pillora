@@ -21,6 +21,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.viewmodel.ConsultationViewModel
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.text.KeyboardOptions
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
