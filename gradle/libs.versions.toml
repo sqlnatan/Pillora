@@ -7,10 +7,10 @@ junitVersion = "1.2.1"
 espressoCore = "3.6.1"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.10.1"
-composeBom = "2025.04.01"
+composeBom = "2024.05.00" # Updated to stable BOM
 coroutines = "1.8.0"
 firebase-bom = "33.13.0"
-compose = "1.7.8"
+# compose = "1.7.8" # Removed explicit compose version
 datastore = "1.1.0"
 play-services-auth = "21.3.0"
 splashscreen = "1.0.1"
@@ -19,29 +19,29 @@ splashscreen = "1.0.1"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 
-androidx-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "compose" }
+androidx-ui-text = { group = "androidx.compose.ui", name = "ui-text" } # Removed version.ref, BOM manages this
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
-androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
-androidx-ui = { group = "androidx.compose.ui", name = "ui" }
-androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
-androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
-androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
-androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
-androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
-androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" } # This platform dependency imports the BOM
+androidx-ui = { group = "androidx.compose.ui", name = "ui" } # Version managed by BOM
+androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" } # Version managed by BOM
+androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" } # Version managed by BOM
+androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" } # Version managed by BOM
+androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" } # Version managed by BOM
+androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" } # Version managed by BOM
+androidx-material3 = { group = "androidx.compose.material3", name = "material3" } # Version managed by BOM
 firebase-analytics-ktx = { group = "com.google.firebase", name = "firebase-analytics-ktx" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" }
 firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
-androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version = "2.8.9" }
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version = "2.8.9" } # Consider using BOM for navigation too if available
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
-firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebase-bom" }
-firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "compose" }
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebase-bom" } # This platform dependency imports the Firebase BOM
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore-ktx" } # Version managed by Firebase BOM
+material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" } # Removed version.ref, BOM manages this
 play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "play-services-auth" }
 androidx-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
 
@@ -51,3 +51,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 google-gms-googleServices = { id = "com.google.gms.google-services", version = "4.4.2" }
+

@@ -14,16 +14,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType // Keep KeyboardType import if needed elsewhere, otherwise remove if unused
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.viewmodel.ConsultationViewModel
 import kotlinx.coroutines.launch
-import androidx.compose.ui.text.input.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
-
-
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -113,7 +111,7 @@ fun ConsultationFormScreen(
                     label = { Text("Especialidade*") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardOptions = androidx.compose.ui.text.input.KeyboardOptions( // Fully qualified name
+                    keyboardOptions = KeyboardOptions( // Removed fully qualified name
                         capitalization = KeyboardCapitalization.Words
                     )
                 )
@@ -124,7 +122,7 @@ fun ConsultationFormScreen(
                     label = { Text("Nome do Médico") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardOptions = androidx.compose.ui.text.input.KeyboardOptions( // Fully qualified name
+                    keyboardOptions = KeyboardOptions( // Removed fully qualified name
                         capitalization = KeyboardCapitalization.Words
                     )
                 )
@@ -164,7 +162,7 @@ fun ConsultationFormScreen(
                     label = { Text("Local (Clínica/Endereço)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardOptions = androidx.compose.ui.text.input.KeyboardOptions( // Fully qualified name
+                    keyboardOptions = KeyboardOptions( // Removed fully qualified name
                         capitalization = KeyboardCapitalization.Sentences
                     )
                 )
@@ -174,7 +172,7 @@ fun ConsultationFormScreen(
                     onValueChange = viewModel::onObservationsChange,
                     label = { Text("Observações (Preparo, levar exames, etc.)") },
                     modifier = Modifier.fillMaxWidth().height(120.dp),
-                    keyboardOptions = androidx.compose.ui.text.input.KeyboardOptions( // Fully qualified name
+                    keyboardOptions = KeyboardOptions( // Removed fully qualified name
                         capitalization = KeyboardCapitalization.Sentences
                     )
                 )
