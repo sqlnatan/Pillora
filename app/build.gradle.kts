@@ -39,13 +39,13 @@ android {
         compose = true
     }
     composeOptions {
-        // kotlinCompilerExtensionVersion = "..." // Usually not needed with Kotlin 2.0+ plugin
+        // kotlinCompilerExtensionVersion = "1.5.13" // Removed explicit version
     }
 }
 
 dependencies {
 
-    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.ktx) // Keep only one instance
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
@@ -70,8 +70,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.material.icons.extended)
     implementation(libs.datastore.preferences)
-    implementation(libs.androidx.core.ktx)
     implementation(libs.play.services.auth)
     implementation(libs.androidx.splashscreen)
 
 }
+

@@ -3,6 +3,7 @@ package com.pillora.pillora.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions // Corrected import path
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -15,8 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType // Keep KeyboardType import if needed elsewhere, otherwise remove if unused
+// import androidx.compose.ui.text.input.KeyboardOptions // Removed incorrect import
+// import androidx.compose.ui.text.input.KeyboardType // Keep KeyboardType import if needed elsewhere, otherwise remove if unused
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -111,7 +112,7 @@ fun ConsultationFormScreen(
                     label = { Text("Especialidade*") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions( // Removed fully qualified name
+                    keyboardOptions = KeyboardOptions( // Uses the corrected import
                         capitalization = KeyboardCapitalization.Words
                     )
                 )
@@ -122,7 +123,7 @@ fun ConsultationFormScreen(
                     label = { Text("Nome do Médico") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions( // Removed fully qualified name
+                    keyboardOptions = KeyboardOptions( // Uses the corrected import
                         capitalization = KeyboardCapitalization.Words
                     )
                 )
@@ -162,7 +163,7 @@ fun ConsultationFormScreen(
                     label = { Text("Local (Clínica/Endereço)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions( // Removed fully qualified name
+                    keyboardOptions = KeyboardOptions( // Uses the corrected import
                         capitalization = KeyboardCapitalization.Sentences
                     )
                 )
@@ -172,7 +173,7 @@ fun ConsultationFormScreen(
                     onValueChange = viewModel::onObservationsChange,
                     label = { Text("Observações (Preparo, levar exames, etc.)") },
                     modifier = Modifier.fillMaxWidth().height(120.dp),
-                    keyboardOptions = KeyboardOptions( // Removed fully qualified name
+                    keyboardOptions = KeyboardOptions( // Uses the corrected import
                         capitalization = KeyboardCapitalization.Sentences
                     )
                 )
