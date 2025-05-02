@@ -4,8 +4,11 @@ import android.annotation.SuppressLint // Add import
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-// import com.google.firebase.firestore.Query // Removed unused import
+import com.google.firebase.firestore.ListenerRegistration
 import com.pillora.pillora.model.Consultation
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 
 @SuppressLint("StaticFieldLeak") // Suppress warning for Firebase context in object
 object ConsultationRepository {
@@ -15,12 +18,15 @@ object ConsultationRepository {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
+    private val currentUserId: String?
+        get() = auth.currentUser?.uid
+
     fun addConsultation(
         consultation: Consultation,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
-        val userId = auth.currentUser?.uid
+        val userId = currentUserId
         if (userId == null) {
             Log.w(TAG, "User not logged in")
             onFailure(Exception("User not logged in"))
@@ -41,36 +47,42 @@ object ConsultationRepository {
             }
     }
 
-    fun getAllConsultations(
-        onSuccess: (List<Consultation>) -> Unit,
-        onFailure: (Exception) -> Unit
-    ) {
-        val userId = auth.currentUser?.uid
+    // Modified to return a Flow for real-time updates
+    fun getAllConsultationsFlow(): Flow<List<Consultation>> = callbackFlow {
+        val userId = currentUserId
         if (userId == null) {
-            Log.w(TAG, "User not logged in")
-            onFailure(Exception("User not logged in"))
-            return
+            Log.w(TAG, "User not logged in, returning empty flow for consultations")
+            trySend(emptyList())
+            close(Exception("User not logged in"))
+            return@callbackFlow
         }
 
-        db.collection(CONSULTATIONS_COLLECTION)
+        Log.d(TAG, "Setting up consultation snapshot listener for user: $userId")
+        val listenerRegistration: ListenerRegistration = db.collection(CONSULTATIONS_COLLECTION)
             .whereEqualTo("userId", userId)
             // Consider ordering by dateTime if stored as Timestamp
             // .orderBy("dateTime", Query.Direction.ASCENDING)
-            .get()
-            .addOnSuccessListener { documents ->
-                if (documents != null) {
-                    val consultations = documents.toObjects(Consultation::class.java)
-                    Log.d(TAG, "Fetched ${consultations.size} consultations")
-                    onSuccess(consultations)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e(TAG, "Error listening for consultation updates", error)
+                    close(error)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+                    val consultations = snapshot.toObjects(Consultation::class.java)
+                    Log.d(TAG, "Consultation snapshot received. Found ${consultations.size} consultations.")
+                    trySend(consultations)
                 } else {
-                    Log.d(TAG, "No consultations found")
-                    onSuccess(emptyList())
+                    Log.d(TAG, "Consultation snapshot was null")
+                    trySend(emptyList())
                 }
             }
-            .addOnFailureListener {
-                Log.e(TAG, "Error getting consultations", it)
-                onFailure(it)
-            }
+
+        awaitClose {
+            Log.d(TAG, "Closing consultation snapshot listener for user: $userId")
+            listenerRegistration.remove()
+        }
     }
 
     fun getConsultationById(
@@ -78,7 +90,7 @@ object ConsultationRepository {
         onSuccess: (Consultation?) -> Unit,
         onFailure: (Exception) -> Unit
     ) {
-        val userId = auth.currentUser?.uid
+        val userId = currentUserId
         if (userId == null) {
             Log.w(TAG, "User not logged in")
             onFailure(Exception("User not logged in"))
@@ -120,7 +132,7 @@ object ConsultationRepository {
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
-        val userId = auth.currentUser?.uid
+        val userId = currentUserId
         if (userId == null || consultation.userId != userId) {
             Log.w(TAG, "User not logged in or trying to update another user's consultation")
             onFailure(Exception("Authorization error"))
@@ -145,13 +157,12 @@ object ConsultationRepository {
             }
     }
 
-    @Suppress("unused") // Function is planned for future use (delete button)
     fun deleteConsultation(
         consultationId: String,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
-        val userId = auth.currentUser?.uid
+        val userId = currentUserId
         if (userId == null) {
             Log.w(TAG, "User not logged in")
             onFailure(Exception("User not logged in"))
@@ -178,4 +189,37 @@ object ConsultationRepository {
                 onFailure(it)
             }
     }
+
+    // --- Kept the old method for compatibility if needed elsewhere, but marked as deprecated ---
+    @Deprecated("Use getAllConsultationsFlow for real-time updates", ReplaceWith("getAllConsultationsFlow()"))
+    fun getAllConsultations(
+        onSuccess: (List<Consultation>) -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        val userId = currentUserId
+        if (userId == null) {
+            Log.w(TAG, "User not logged in")
+            onFailure(Exception("User not logged in"))
+            return
+        }
+
+        db.collection(CONSULTATIONS_COLLECTION)
+            .whereEqualTo("userId", userId)
+            .get()
+            .addOnSuccessListener { documents ->
+                if (documents != null) {
+                    val consultations = documents.toObjects(Consultation::class.java)
+                    Log.d(TAG, "Fetched ${consultations.size} consultations")
+                    onSuccess(consultations)
+                } else {
+                    Log.d(TAG, "No consultations found")
+                    onSuccess(emptyList())
+                }
+            }
+            .addOnFailureListener {
+                Log.e(TAG, "Error getting consultations", it)
+                onFailure(it)
+            }
+    }
 }
+

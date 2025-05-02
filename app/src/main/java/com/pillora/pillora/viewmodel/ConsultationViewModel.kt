@@ -8,6 +8,7 @@ import android.widget.DatePicker
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth // Import FirebaseAuth
 import com.pillora.pillora.model.Consultation
 import com.pillora.pillora.repository.ConsultationRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,7 @@ import java.util.Locale
 class ConsultationViewModel : ViewModel() {
 
     private val tag = "ConsultationViewModel"
+    private val auth = FirebaseAuth.getInstance() // Get Firebase Auth instance
 
     // Form fields state
     val specialty = mutableStateOf("")
@@ -40,6 +42,7 @@ class ConsultationViewModel : ViewModel() {
     val navigateBack: StateFlow<Boolean> = _navigateBack
 
     private var currentConsultationId: String? = null
+    private var currentConsultationUserId: String? = null // Store userId when loading
 
     // --- Form Input Update Functions ---
     fun onSpecialtyChange(newSpecialty: String) {
@@ -71,7 +74,7 @@ class ConsultationViewModel : ViewModel() {
             }
         }
 
-        DatePickerDialog(
+        val datePickerDialog = DatePickerDialog(
             context,
             { _: DatePicker, year: Int, month: Int, dayOfMonth: Int ->
                 val selectedDate = Calendar.getInstance()
@@ -82,7 +85,12 @@ class ConsultationViewModel : ViewModel() {
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH),
             calendar.get(Calendar.DAY_OF_MONTH)
-        ).show()
+        )
+
+        // Set the minimum date to today
+        datePickerDialog.datePicker.minDate = System.currentTimeMillis() - 1000 // Subtract 1 second to ensure today is selectable
+
+        datePickerDialog.show()
     }
 
     fun showTimePicker(context: Context) {
@@ -133,6 +141,7 @@ class ConsultationViewModel : ViewModel() {
                         time.value = dateTimeParts.getOrElse(1) { "" }
                         location.value = consultation.location
                         observations.value = consultation.observations
+                        currentConsultationUserId = consultation.userId // Store the userId for updates
                         Log.d(tag, "Consultation data loaded for ID: $consultationId")
                     } else {
                         _error.value = "Consulta não encontrada ou acesso negado."
@@ -150,12 +159,18 @@ class ConsultationViewModel : ViewModel() {
     }
 
     fun saveConsultation() {
+        val currentUserIdAuth = auth.currentUser?.uid // Get current user ID from Auth
+        if (currentUserIdAuth == null) {
+            _error.value = "Usuário não autenticado."
+            return
+        }
+
         _isLoading.value = true
         _error.value = null
 
         val consultation = Consultation(
             id = currentConsultationId ?: "", // Keep ID if editing
-            // userId is handled by Repository
+            userId = if (currentConsultationId != null) currentConsultationUserId ?: currentUserIdAuth else currentUserIdAuth, // Use stored or current userId for update, current for new
             specialty = specialty.value.trim(),
             doctorName = doctorName.value.trim(),
             dateTime = "${date.value} ${time.value}".trim(), // Combine date and time
@@ -164,8 +179,8 @@ class ConsultationViewModel : ViewModel() {
         )
 
         // Basic Validation (can be expanded)
-        if (consultation.specialty.isEmpty() || consultation.dateTime.isEmpty()) {
-            _error.value = "Especialidade e Data/Hora são obrigatórios."
+        if (consultation.specialty.isEmpty() || date.value.isEmpty() || time.value.isEmpty()) { // Check date and time separately
+            _error.value = "Especialidade, Data e Hora são obrigatórios."
             _isLoading.value = false
             return
         }
@@ -175,7 +190,7 @@ class ConsultationViewModel : ViewModel() {
                 if (currentConsultationId == null) {
                     // Add new consultation
                     ConsultationRepository.addConsultation(
-                        consultation = consultation,
+                        consultation = consultation, // userId is now included
                         onSuccess = {
                             Log.d(tag, "Consultation added successfully")
                             _isLoading.value = false
@@ -189,8 +204,15 @@ class ConsultationViewModel : ViewModel() {
                     )
                 } else {
                     // Update existing consultation
+                    // Ensure the userId in the object matches the logged-in user before sending
+                    if (consultation.userId != currentUserIdAuth) {
+                        Log.e(tag, "Mismatch between consultation userId (${consultation.userId}) and auth userId ($currentUserIdAuth)")
+                        _error.value = "Erro de autorização ao preparar atualização."
+                        _isLoading.value = false
+                        return@launch
+                    }
                     ConsultationRepository.updateConsultation(
-                        consultation = consultation, // Repository needs the ID within the object
+                        consultation = consultation, // userId is now included and verified
                         onSuccess = {
                             Log.d(tag, "Consultation updated successfully")
                             _isLoading.value = false
@@ -221,3 +243,4 @@ class ConsultationViewModel : ViewModel() {
         _error.value = null
     }
 }
+

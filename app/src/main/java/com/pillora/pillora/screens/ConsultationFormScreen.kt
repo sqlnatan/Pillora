@@ -8,7 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Save // Use Save icon for FAB
+// import androidx.compose.material.icons.filled.Save // No longer needed for Button content
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
 // import androidx.compose.ui.text.input.KeyboardOptions // Removed incorrect import
-// import androidx.compose.ui.text.input.KeyboardType // Keep KeyboardType import if needed elsewhere, otherwise remove if unused
+// import androidx.compose.ui.text.input.KeyboardType // Removed unused import
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -86,16 +86,7 @@ fun ConsultationFormScreen(
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { viewModel.saveConsultation() },
-                icon = { Icon(Icons.Filled.Save, "Salvar Consulta") }, // Changed icon to Save
-                text = { Text("Salvar") },
-                expanded = true
-            )
-        },
-        floatingActionButtonPosition = FabPosition.Center
+        }
     ) {
             padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -112,7 +103,7 @@ fun ConsultationFormScreen(
                     label = { Text("Especialidade*") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions( // Uses the corrected import
+                    keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Words
                     )
                 )
@@ -123,7 +114,7 @@ fun ConsultationFormScreen(
                     label = { Text("Nome do Médico") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions( // Uses the corrected import
+                    keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Words
                     )
                 )
@@ -163,7 +154,7 @@ fun ConsultationFormScreen(
                     label = { Text("Local (Clínica/Endereço)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions( // Uses the corrected import
+                    keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences
                     )
                 )
@@ -173,17 +164,37 @@ fun ConsultationFormScreen(
                     onValueChange = viewModel::onObservationsChange,
                     label = { Text("Observações (Preparo, levar exames, etc.)") },
                     modifier = Modifier.fillMaxWidth().height(120.dp),
-                    keyboardOptions = KeyboardOptions( // Uses the corrected import
+                    keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences
                     )
                 )
 
-                Spacer(modifier = Modifier.height(64.dp)) // Space for FAB
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { viewModel.saveConsultation() },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading // Disable button while loading/saving
+                ) {
+                    // Corrected loading indicator implementation
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary, // Match MedicineFormScreen color
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp)) // Add space
+                    }
+                    // Always display text
+                    Text(if (consultationId == null) "Salvar Consulta" else "Atualizar Consulta")
+                }
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
-            if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            }
+            // Optional: Keep a general loading indicator for initial load if needed
+            // This might be different from the button's saving state
+            // if (isLoading && consultationId != null) { // Example: Show only when loading existing data
+            //     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            // }
         }
     }
 }
