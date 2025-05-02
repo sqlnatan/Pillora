@@ -8,7 +8,9 @@ enum class Screen(val route: String) {
     MedicineList("medicine_list"),
     Settings("settings"), // Adicionar rota para Configurações
     ConsultationList("consultation_list"),
-    ConsultationForm("consultation_form"); // Rota base para o formulário
+    ConsultationForm("consultation_form"), // Rota base para o formulário
+    VaccineList("vaccine_list"), // Nova rota para lista de vacinas
+    VaccineForm("vaccine_form"); // Nova rota para formulário de vacinas
 }
 
 /* // Comentado pois não está sendo usado

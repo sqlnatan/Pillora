@@ -23,7 +23,7 @@ import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.MedicineRepository
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import android.util.Log // Manter Log para caso seja necessário no futuro
+//import android.util.Log // Manter Log para caso seja necessário no futuro
 import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Calendar

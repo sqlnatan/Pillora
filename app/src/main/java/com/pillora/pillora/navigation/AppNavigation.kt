@@ -22,6 +22,8 @@ import com.pillora.pillora.screens.TermsScreen
 import com.pillora.pillora.repository.AuthRepository
 import com.pillora.pillora.screens.ConsultationFormScreen // Import ConsultationFormScreen
 import com.pillora.pillora.screens.ConsultationListScreen // Import ConsultationListScreen
+import com.pillora.pillora.screens.VaccineFormScreen // Importar VaccineFormScreen
+import com.pillora.pillora.screens.VaccineListScreen // Importar VaccineListScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -113,6 +115,26 @@ fun AppNavigation() {
             ) { backStackEntry ->
                 val consultationId = backStackEntry.arguments?.getString("id")
                 ConsultationFormScreen(navController = navController, consultationId = consultationId)
+            }
+
+            // Vaccine list screen (Nova rota adicionada)
+            composable(Screen.VaccineList.route) {
+                VaccineListScreen(navController = navController)
+            }
+
+            // Vaccine form screen (Nova rota adicionada - handles both add and edit)
+            composable(
+                route = Screen.VaccineForm.route + "?id={id}", // Optional ID for editing
+                arguments = listOf(
+                    navArgument("id") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val vaccineId = backStackEntry.arguments?.getString("id")
+                VaccineFormScreen(navController = navController, vaccineId = vaccineId)
             }
         }
     } else {
