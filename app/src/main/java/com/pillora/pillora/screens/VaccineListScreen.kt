@@ -1,30 +1,33 @@
 package com.pillora.pillora.screens
 
+// Imports moved to the top
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Alarm // Icon for reminder time
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Notes // Icon for notes
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign // Import TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.pillora.pillora.model.Vaccine
-import com.pillora.pillora.navigation.Screen // Assuming Screen object exists
+import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.VaccineRepository
 import kotlinx.coroutines.launch
+// import java.util.UUID // Import moved to top
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,13 +41,12 @@ fun VaccineListScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    // Function to load vaccine reminders (using callback pattern like ConsultationListScreen)
+    // Function to load vaccine reminders
     fun loadVaccines() {
         isLoading = true
         error = null
         VaccineRepository.getAllVaccines(
             onSuccess = {
-                // Assuming getAllVaccines already sorts by reminderDate
                 vaccines = it
                 isLoading = false
             },
@@ -60,27 +62,31 @@ fun VaccineListScreen(navController: NavController) {
         loadVaccines()
     }
 
-    // Delete confirmation dialog (similar to ConsultationListScreen)
+    // Delete confirmation dialog
     if (showDeleteDialog && vaccineToDelete != null) {
         AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
+            onDismissRequest = { showDeleteDialog = false; vaccineToDelete = null },
             title = { Text("Confirmar exclusão") },
             text = { Text("Deseja realmente excluir o lembrete para ${vaccineToDelete?.name}?") },
             confirmButton = {
                 TextButton(
                     onClick = {
                         vaccineToDelete?.id?.let { id ->
-                            scope.launch {
-                                VaccineRepository.deleteVaccine(
-                                    vaccineId = id,
-                                    onSuccess = {
-                                        Toast.makeText(context, "Lembrete excluído com sucesso", Toast.LENGTH_SHORT).show()
-                                        loadVaccines() // Reload list after deletion
-                                    },
-                                    onFailure = {
-                                        Toast.makeText(context, "Erro ao excluir lembrete: ${it.message}", Toast.LENGTH_LONG).show()
-                                    }
-                                )
+                            if (id.isNotEmpty()) { // Ensure ID is not empty before deleting
+                                scope.launch {
+                                    VaccineRepository.deleteVaccine(
+                                        vaccineId = id,
+                                        onSuccess = {
+                                            Toast.makeText(context, "Lembrete excluído com sucesso", Toast.LENGTH_SHORT).show()
+                                            loadVaccines() // Reload list
+                                        },
+                                        onFailure = {
+                                            Toast.makeText(context, "Erro ao excluir lembrete: ${it.message}", Toast.LENGTH_LONG).show()
+                                        }
+                                    )
+                                }
+                            } else {
+                                Toast.makeText(context, "Erro: ID inválido para exclusão", Toast.LENGTH_SHORT).show()
                             }
                         }
                         showDeleteDialog = false
@@ -91,7 +97,7 @@ fun VaccineListScreen(navController: NavController) {
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
+                TextButton(onClick = { showDeleteDialog = false; vaccineToDelete = null }) {
                     Text("Cancelar")
                 }
             }
@@ -127,7 +133,8 @@ fun VaccineListScreen(navController: NavController) {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(text = error!!, color = MaterialTheme.colorScheme.error)
+                        // Use safe call ?.let or provide a default value for error
+                        Text(text = error ?: "Ocorreu um erro desconhecido", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(onClick = { loadVaccines() }) {
                             Text("Tentar novamente")
@@ -153,11 +160,17 @@ fun VaccineListScreen(navController: NavController) {
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // Use vaccine.id directly as key, it's non-nullable String
                         items(vaccines, key = { it.id }) { vaccine ->
                             VaccineListItem(
                                 vaccine = vaccine,
                                 onEditClick = {
-                                    navController.navigate("${Screen.VaccineForm.route}?id=${vaccine.id}")
+                                    // Ensure ID is not empty before navigating
+                                    if (vaccine.id.isNotEmpty()) {
+                                        navController.navigate("${Screen.VaccineForm.route}?id=${vaccine.id}")
+                                    } else {
+                                        Toast.makeText(context, "Erro: ID do lembrete inválido", Toast.LENGTH_SHORT).show()
+                                    }
                                 },
                                 onDeleteClick = {
                                     vaccineToDelete = vaccine
@@ -188,27 +201,24 @@ fun VaccineListItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                // Vaccine Details Column
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     Text(
                         text = vaccine.name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                 }
-                // Action Icons Row
-                Row {
-                    IconButton(onClick = onEditClick, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Edit, contentDescription = "Editar")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onEditClick, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(20.dp))
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(onClick = onDeleteClick, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Delete, contentDescription = "Excluir")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    IconButton(onClick = onDeleteClick, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.Delete, contentDescription = "Excluir", modifier = Modifier.size(20.dp))
                     }
                 }
             }
 
-            // Reminder Date and Time
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.DateRange, contentDescription = "Data", modifier = Modifier.size(16.dp))
@@ -217,16 +227,17 @@ fun VaccineListItem(
                     text = vaccine.reminderDate.ifEmpty { "Data não informada" },
                     style = MaterialTheme.typography.bodySmall
                 )
-                Spacer(modifier = Modifier.width(16.dp)) // Space between date and time
-                Icon(Icons.Filled.Alarm, contentDescription = "Hora", modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = vaccine.reminderTime.ifEmpty { "Hora não informada" },
-                    style = MaterialTheme.typography.bodySmall
-                )
+                if (vaccine.reminderTime.isNotEmpty()) {
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Icon(Icons.Filled.Alarm, contentDescription = "Hora", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = vaccine.reminderTime,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
 
-            // Location
             if (vaccine.location.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -239,11 +250,14 @@ fun VaccineListItem(
                 }
             }
 
-            // Notes
             if (vaccine.notes.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.Top) { // Align icon top for multi-line text
-                    Icon(Icons.Filled.Notes, contentDescription = "Observações", modifier = Modifier.size(16.dp).padding(top = 2.dp))
+                Row(verticalAlignment = Alignment.Top) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Notes,
+                        contentDescription = "Observações",
+                        modifier = Modifier.size(16.dp).padding(top = 2.dp)
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = vaccine.notes,

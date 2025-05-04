@@ -5,12 +5,17 @@ import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query // Import Query for sorting
+import com.google.firebase.firestore.ktx.snapshots // Correct import for KTX snapshots extension
 import com.pillora.pillora.model.Vaccine
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flowOf // Import flowOf for returning empty flow
+import kotlinx.coroutines.flow.map
 
 @SuppressLint("StaticFieldLeak") // Suppress warning for Firebase context in object
 object VaccineRepository {
 
-    private const val TAG = "VaccineRepository"
+    private const val TAG = "VaccineRepository" // Convention: UPPER_SNAKE_CASE
     private const val VACCINES_COLLECTION = "vaccines"
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
@@ -31,22 +36,21 @@ object VaccineRepository {
             return
         }
 
-        // Ensure userId is set in the vaccine object before saving
         val vaccineWithUserId = vaccine.copy(userId = userId)
 
         db.collection(VACCINES_COLLECTION)
             .add(vaccineWithUserId)
-            .addOnSuccessListener {
-                Log.d(TAG, "Vaccine reminder added successfully with ID: ${it.id}")
+            .addOnSuccessListener { documentReference ->
+                Log.d(TAG, "Vaccine reminder added successfully with ID: ${documentReference.id}")
                 onSuccess()
             }
-            .addOnFailureListener {
-                Log.e(TAG, "Error adding vaccine reminder", it)
-                onFailure(it)
+            .addOnFailureListener { exception ->
+                Log.e(TAG, "Error adding vaccine reminder", exception)
+                onFailure(exception)
             }
     }
 
-    // --- READ (Callback version, similar to ConsultationRepository's getAllConsultations) ---
+    // --- READ (Callback version) ---
     fun getAllVaccines(
         onSuccess: (List<Vaccine>) -> Unit,
         onFailure: (Exception) -> Unit
@@ -60,24 +64,52 @@ object VaccineRepository {
 
         db.collection(VACCINES_COLLECTION)
             .whereEqualTo("userId", userId)
-            .orderBy("reminderDate", Query.Direction.ASCENDING) // Order by reminder date
+            .orderBy("reminderDate", Query.Direction.ASCENDING)
             .get()
             .addOnSuccessListener { documents ->
-                if (documents != null) {
-                    // Map documents and include the ID
-                    val vaccines = documents.mapNotNull { doc ->
-                        doc.toObject(Vaccine::class.java).copy(id = doc.id)
+                val vaccines = documents.mapNotNull { doc ->
+                    try {
+                        // Reverted: Safe call `?.` IS necessary here because toObject can return null
+                        doc.toObject(Vaccine::class.java)?.copy(id = doc.id)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error converting document ${doc.id} to Vaccine", e)
+                        null
                     }
-                    Log.d(TAG, "Fetched ${vaccines.size} vaccine reminders")
-                    onSuccess(vaccines)
-                } else {
-                    Log.d(TAG, "No vaccine reminders found")
-                    onSuccess(emptyList())
+                }
+                Log.d(TAG, "Fetched ${vaccines.size} vaccine reminders")
+                onSuccess(vaccines)
+            }
+            .addOnFailureListener { exception ->
+                Log.e(TAG, "Error getting vaccine reminders", exception)
+                onFailure(exception)
+            }
+    }
+
+    // --- READ (Flow version) ---
+    // The snapshots() warning about deprecation might be an IDE issue if KTX is correctly imported.
+    // The parameterless snapshots() from com.google.firebase.firestore.ktx.snapshots is the standard
+    // way for basic real-time updates with KTX as per Firebase documentation.
+    fun getAllVaccinesFlow(): Flow<List<Vaccine>> {
+        val userId = currentUserId ?: return flowOf(emptyList())
+
+        return db.collection(VACCINES_COLLECTION)
+            .whereEqualTo("userId", userId)
+            .orderBy("reminderDate", Query.Direction.ASCENDING)
+            .snapshots() // Use KTX snapshots() extension - Ignore IDE warning if present
+            .map { snapshot ->
+                snapshot.documents.mapNotNull { doc ->
+                    try {
+                        // Reverted: Safe call `?.` IS necessary here because toObject can return null
+                        doc.toObject(Vaccine::class.java)?.copy(id = doc.id)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error converting document ${doc.id} to Vaccine", e)
+                        null
+                    }
                 }
             }
-            .addOnFailureListener {
-                Log.e(TAG, "Error getting vaccine reminders", it)
-                onFailure(it)
+            .catch { exception ->
+                Log.e(TAG, "Error in getAllVaccinesFlow", exception)
+                emit(emptyList())
             }
     }
 
@@ -95,7 +127,7 @@ object VaccineRepository {
         }
         if (vaccineId.isEmpty()) {
             Log.w(TAG, "Vaccine ID is empty, cannot fetch")
-            onFailure(Exception("ID do lembrete de vacina está faltando"))
+            onFailure(IllegalArgumentException("ID do lembrete de vacina está faltando"))
             return
         }
 
@@ -104,23 +136,29 @@ object VaccineRepository {
             .get()
             .addOnSuccessListener { document ->
                 if (document != null && document.exists()) {
-                    val vaccine = document.toObject(Vaccine::class.java)?.copy(id = document.id)
-                    // Security check: Ensure the fetched vaccine belongs to the current user
-                    if (vaccine?.userId == userId) {
-                        Log.d(TAG, "Fetched vaccine reminder: ${vaccine.id}")
-                        onSuccess(vaccine)
-                    } else {
-                        Log.w(TAG, "User $userId attempted to fetch vaccine reminder belonging to ${vaccine?.userId}")
-                        onFailure(Exception("Lembrete não encontrado ou acesso negado"))
+                    try {
+                        // Reverted: Safe call `?.` IS necessary here because toObject can return null
+                        val vaccine = document.toObject(Vaccine::class.java)?.copy(id = document.id)
+                        // Security check: Ensure the fetched vaccine belongs to the current user
+                        if (vaccine != null && vaccine.userId == userId) { // Check vaccine is not null after potential failed conversion
+                            Log.d(TAG, "Fetched vaccine reminder: ${vaccine.id}")
+                            onSuccess(vaccine)
+                        } else {
+                            Log.w(TAG, "User $userId attempted to fetch vaccine reminder ${document.id} belonging to ${vaccine?.userId} or vaccine is null")
+                            onSuccess(null)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error converting document ${document.id} to Vaccine", e)
+                        onFailure(e)
                     }
                 } else {
                     Log.d(TAG, "No such vaccine reminder found: $vaccineId")
-                    onSuccess(null) // Indicate not found
+                    onSuccess(null)
                 }
             }
-            .addOnFailureListener {
-                Log.e(TAG, "Error getting vaccine reminder by ID", it)
-                onFailure(it)
+            .addOnFailureListener { exception ->
+                Log.e(TAG, "Error getting vaccine reminder by ID", exception)
+                onFailure(exception)
             }
     }
 
@@ -131,28 +169,27 @@ object VaccineRepository {
         onFailure: (Exception) -> Unit
     ) {
         val userId = currentUserId
-        // Security check: Ensure userId matches and ID is present
-        if (userId == null || vaccine.userId != userId) {
-            Log.w(TAG, "User not logged in or trying to update another user's vaccine reminder")
-            onFailure(Exception("Erro de autorização"))
-            return
-        }
         if (vaccine.id.isEmpty()) {
             Log.w(TAG, "Vaccine ID is empty, cannot update")
-            onFailure(Exception("ID do lembrete de vacina está faltando"))
+            onFailure(IllegalArgumentException("ID do lembrete de vacina está faltando para atualização"))
+            return
+        }
+        if (userId == null || vaccine.userId != userId) {
+            Log.w(TAG, "User not logged in or trying to update another user's vaccine reminder")
+            onFailure(SecurityException("Erro de autorização ou dados inválidos para atualização"))
             return
         }
 
         db.collection(VACCINES_COLLECTION)
             .document(vaccine.id)
-            .set(vaccine) // Use set to overwrite the document
+            .set(vaccine)
             .addOnSuccessListener {
                 Log.d(TAG, "Vaccine reminder updated successfully: ${vaccine.id}")
                 onSuccess()
             }
-            .addOnFailureListener {
-                Log.e(TAG, "Error updating vaccine reminder", it)
-                onFailure(it)
+            .addOnFailureListener { exception ->
+                Log.e(TAG, "Error updating vaccine reminder", exception)
+                onFailure(exception)
             }
     }
 
@@ -170,13 +207,9 @@ object VaccineRepository {
         }
         if (vaccineId.isEmpty()) {
             Log.w(TAG, "Vaccine ID is empty, cannot delete")
-            onFailure(Exception("ID do lembrete de vacina está faltando"))
+            onFailure(IllegalArgumentException("ID do lembrete de vacina está faltando para exclusão"))
             return
         }
-
-        // Optional: Verify ownership before deleting (requires fetching first)
-        // getVaccineById(vaccineId, { vaccine -> ... check vaccine.userId ... }, onFailure)
-        // For simplicity, assuming ID implies ownership (ensure Firestore rules enforce this)
 
         db.collection(VACCINES_COLLECTION)
             .document(vaccineId)
@@ -185,9 +218,10 @@ object VaccineRepository {
                 Log.d(TAG, "Vaccine reminder deleted successfully: $vaccineId")
                 onSuccess()
             }
-            .addOnFailureListener {
-                Log.e(TAG, "Error deleting vaccine reminder", it)
-                onFailure(it)
+            .addOnFailureListener { exception ->
+                Log.e(TAG, "Error deleting vaccine reminder", exception)
+                onFailure(exception)
             }
     }
 }
+

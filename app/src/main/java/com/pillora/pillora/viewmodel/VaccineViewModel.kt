@@ -19,7 +19,7 @@ import java.util.*
 
 class VaccineViewModel : ViewModel() {
 
-    private val TAG = "VaccineViewModel"
+    private val tag = "VaccineViewModel"
 
     // Form fields state
     val name = mutableStateOf("")
@@ -41,16 +41,17 @@ class VaccineViewModel : ViewModel() {
     private var currentVaccineId: String? = null
     private var isEditing: Boolean = false
 
-    // --- Field Change Handlers ---
+    // --- Field Change Handlers (Public for UI Binding/Events) ---
     fun onNameChange(newName: String) {
         name.value = newName
     }
 
-    fun onReminderDateChange(newDate: String) {
+    // Tornadas privadas, pois são chamadas apenas internamente pelos pickers
+    private fun onReminderDateChange(newDate: String) {
         reminderDate.value = newDate
     }
 
-    fun onReminderTimeChange(newTime: String) {
+    private fun onReminderTimeChange(newTime: String) {
         reminderTime.value = newTime
     }
 
@@ -62,18 +63,16 @@ class VaccineViewModel : ViewModel() {
         notes.value = newNotes
     }
 
-    // --- Date/Time Picker Logic (Similar to ConsultationViewModel) ---
+    // --- Date/Time Picker Logic ---
     fun showDatePicker(context: Context) {
         val calendar = Calendar.getInstance()
-        // Try to parse existing date to pre-select in picker
         try {
             if (reminderDate.value.isNotEmpty()) {
                 val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
                 calendar.time = sdf.parse(reminderDate.value) ?: Date()
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Error parsing date for DatePicker: ${reminderDate.value}", e)
-            // Use current date if parsing fails
+            Log.w(tag, "Error parsing date for DatePicker: ${reminderDate.value}", e)
         }
 
         DatePickerDialog(
@@ -83,20 +82,18 @@ class VaccineViewModel : ViewModel() {
                     set(year, month, dayOfMonth)
                 }
                 val format = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                onReminderDateChange(format.format(selectedCalendar.time))
+                onReminderDateChange(format.format(selectedCalendar.time)) // Chama a função privada
             },
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH),
             calendar.get(Calendar.DAY_OF_MONTH)
         ).apply {
-            // Optional: Set min date if needed (e.g., today)
             datePicker.minDate = System.currentTimeMillis() - 1000
         }.show()
     }
 
     fun showTimePicker(context: Context) {
         val calendar = Calendar.getInstance()
-        // Try to parse existing time
         var initialHour = calendar.get(Calendar.HOUR_OF_DAY)
         var initialMinute = calendar.get(Calendar.MINUTE)
         try {
@@ -108,13 +105,13 @@ class VaccineViewModel : ViewModel() {
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Error parsing time for TimePicker: ${reminderTime.value}", e)
+            Log.w(tag, "Error parsing time for TimePicker: ${reminderTime.value}", e)
         }
 
         TimePickerDialog(
             context,
             { _, hourOfDay, minute ->
-                onReminderTimeChange(String.format(Locale.getDefault(), "%02d:%02d", hourOfDay, minute))
+                onReminderTimeChange(String.format(Locale.getDefault(), "%02d:%02d", hourOfDay, minute)) // Chama a função privada
             },
             initialHour,
             initialMinute,
@@ -124,32 +121,34 @@ class VaccineViewModel : ViewModel() {
 
     // --- Load Existing Vaccine for Editing ---
     fun loadVaccine(vaccineId: String) {
-        if (vaccineId == currentVaccineId) return // Avoid reloading if ID hasn't changed
+        if (vaccineId == currentVaccineId && name.value.isNotEmpty()) return // Avoid reloading if already loaded
+        resetFormFields() // Reset before loading new data
         currentVaccineId = vaccineId
         isEditing = true
         _isLoading.value = true
         _error.value = null
-        Log.d(TAG, "Loading vaccine with ID: $vaccineId")
+        Log.d(tag, "Loading vaccine with ID: $vaccineId")
         VaccineRepository.getVaccineById(vaccineId, {
                 vaccine ->
             if (vaccine != null) {
-                Log.d(TAG, "Vaccine loaded: ${vaccine.name}")
+                Log.d(tag, "Vaccine loaded: ${vaccine.name}")
                 name.value = vaccine.name
                 reminderDate.value = vaccine.reminderDate
                 reminderTime.value = vaccine.reminderTime
                 location.value = vaccine.location
                 notes.value = vaccine.notes
             } else {
-                Log.w(TAG, "Vaccine with ID $vaccineId not found")
+                Log.w(tag, "Vaccine with ID $vaccineId not found")
                 _error.value = "Lembrete de vacina não encontrado."
-                // Optionally navigate back or clear fields
+                resetFormFields() // Clear fields if not found
             }
             _isLoading.value = false
         }, {
                 exception ->
-            Log.e(TAG, "Error loading vaccine", exception)
+            Log.e(tag, "Error loading vaccine", exception)
             _error.value = "Erro ao carregar lembrete: ${exception.message}"
             _isLoading.value = false
+            resetFormFields() // Clear fields on error
         })
     }
 
@@ -163,33 +162,39 @@ class VaccineViewModel : ViewModel() {
         _error.value = null
 
         val vaccine = Vaccine(
-            id = currentVaccineId ?: "", // ID is empty for new, set for update
+            id = currentVaccineId ?: "",
             userId = "", // userId will be set by the repository
             name = name.value.trim(),
             reminderDate = reminderDate.value,
-            reminderTime = reminderTime.value, // Already formatted HH:MM
+            reminderTime = reminderTime.value,
             location = location.value.trim(),
             notes = notes.value.trim()
         )
 
         val onSuccess = {
-            Log.d(TAG, "Vaccine ${if (isEditing) "updated" else "added"} successfully")
+            Log.d(tag, "Vaccine ${if (isEditing) "updated" else "added"} successfully")
             _isLoading.value = false
+            resetFormFields()
             _navigateBack.value = true
         }
 
         val onFailure = { exception: Exception ->
-            Log.e(TAG, "Error ${if (isEditing) "updating" else "adding"} vaccine", exception)
+            Log.e(tag, "Error ${if (isEditing) "updating" else "adding"} vaccine", exception)
             _isLoading.value = false
             _error.value = "Erro ao salvar: ${exception.message}"
         }
 
         viewModelScope.launch {
             if (isEditing) {
-                Log.d(TAG, "Attempting to update vaccine: ${vaccine.id}")
-                VaccineRepository.updateVaccine(vaccine, onSuccess, onFailure)
+                Log.d(tag, "Attempting to update vaccine: ${vaccine.id}")
+                if (vaccine.id.isNotEmpty()) {
+                    VaccineRepository.updateVaccine(vaccine, onSuccess, onFailure)
+                } else {
+                    Log.e(tag, "Update failed: Vaccine ID is missing.")
+                    onFailure(IllegalStateException("ID da vacina ausente para atualização."))
+                }
             } else {
-                Log.d(TAG, "Attempting to add new vaccine: ${vaccine.name}")
+                Log.d(tag, "Attempting to add new vaccine: ${vaccine.name}")
                 VaccineRepository.addVaccine(vaccine, onSuccess, onFailure)
             }
         }
@@ -197,34 +202,26 @@ class VaccineViewModel : ViewModel() {
 
     // --- Input Validation ---
     private fun validateInputs(): Boolean {
-        var isValid = true
+        var errorMessage: String? = null
         if (name.value.isBlank()) {
-            // In a real app, you might set specific error states for each field
-            _error.value = "Nome da vacina/lembrete é obrigatório."
-            isValid = false
-        }
-        if (reminderDate.value.isBlank()) {
-            _error.value = "Data do lembrete é obrigatória."
-            isValid = false
+            errorMessage = "Nome da vacina/lembrete é obrigatório."
+        } else if (reminderDate.value.isBlank()) {
+            errorMessage = "Data do lembrete é obrigatória."
         } else {
             val (isValidDate, dateMessage) = DateValidator.validateDate(reminderDate.value)
             if (!isValidDate) {
-                _error.value = dateMessage ?: "Data inválida."
-                isValid = false
+                errorMessage = dateMessage ?: "Data inválida."
             }
         }
-        if (reminderTime.value.isBlank()) {
-            _error.value = "Hora do lembrete é obrigatória."
-            isValid = false
-        } else if (!reminderTime.value.matches(Regex("^\\d{2}:\\d{2}$"))) {
-            _error.value = "Formato de hora inválido (HH:MM)."
-            isValid = false
+        if (reminderTime.value.isNotBlank() && !reminderTime.value.matches(Regex("^\\d{2}:\\d{2}$"))) {
+            errorMessage = "Formato de hora inválido (HH:MM)."
         }
 
-        if (!isValid) {
-            Log.w(TAG, "Validation failed: ${_error.value}")
+        _error.value = errorMessage
+        if (errorMessage != null) {
+            Log.w(tag, "Validation failed: $errorMessage")
         }
-        return isValid
+        return errorMessage == null
     }
 
     // --- State Reset Handlers ---
@@ -234,11 +231,8 @@ class VaccineViewModel : ViewModel() {
 
     fun onNavigationHandled() {
         _navigateBack.value = false
-        // Optionally reset form fields here if needed after navigation
-        // resetFormFields()
     }
 
-    // Optional: Function to reset fields (e.g., after successful save or on init)
     private fun resetFormFields() {
         name.value = ""
         reminderDate.value = ""
@@ -247,5 +241,7 @@ class VaccineViewModel : ViewModel() {
         notes.value = ""
         currentVaccineId = null
         isEditing = false
+        Log.d(tag, "Form fields reset.")
     }
 }
+

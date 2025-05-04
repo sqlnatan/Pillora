@@ -7,6 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.Notes // Importar ícone correto
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -20,10 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight // Import FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-// import androidx.compose.ui.unit.sp // Import sp for font size
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.model.Consultation // Import Consultation
+import com.pillora.pillora.model.Vaccine // Importar Vaccine
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.AuthRepository
 import com.pillora.pillora.viewmodel.HomeViewModel
@@ -41,7 +42,8 @@ fun HomeScreen(
     // Observar os estados do ViewModel
     val medicinesToday by viewModel.medicinesToday.collectAsState()
     val stockAlerts by viewModel.stockAlerts.collectAsState()
-    val upcomingConsultations by viewModel.upcomingConsultations.collectAsState() // Observe upcoming consultations
+    val upcomingConsultations by viewModel.upcomingConsultations.collectAsState()
+    val upcomingVaccines by viewModel.upcomingVaccines.collectAsState() // Observar estado das vacinas
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
@@ -57,6 +59,7 @@ fun HomeScreen(
                     duration = SnackbarDuration.Short
                 )
             }
+            // Consider adding viewModel.onErrorShown() here if you want errors to be dismissable
         }
     }
 
@@ -148,7 +151,7 @@ fun HomeScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Próximas Consultas (7 dias)", style = MaterialTheme.typography.titleLarge) // Updated title
+                            Text("Próximas Consultas (7 dias)", style = MaterialTheme.typography.titleLarge)
                             Spacer(Modifier.weight(1f))
                             IconButton(onClick = { navController.navigate(Screen.ConsultationForm.route) }) {
                                 Icon(Icons.Default.AddCircleOutline, contentDescription = "Adicionar Consulta")
@@ -158,16 +161,49 @@ fun HomeScreen(
                             }
                         }
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        // Display upcoming consultations in the new compact format
                         if (upcomingConsultations.isNotEmpty()) {
                             upcomingConsultations.forEach { consultation ->
                                 UpcomingConsultationItem(consultation = consultation)
                                 if (upcomingConsultations.last() != consultation) {
-                                    Spacer(modifier = Modifier.height(8.dp)) // Space between items
+                                    Spacer(modifier = Modifier.height(8.dp))
                                 }
                             }
                         } else {
                             Text("Nenhuma consulta agendada para os próximos 7 dias.", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+
+                // Card "Próximas Vacinas (15 dias)" - NOVO CARD
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Próximas Vacinas (15 dias)", style = MaterialTheme.typography.titleLarge)
+                            Spacer(Modifier.weight(1f))
+                            IconButton(onClick = { navController.navigate(Screen.VaccineForm.route) }) {
+                                Icon(Icons.Default.AddCircleOutline, contentDescription = "Adicionar Lembrete de Vacina")
+                            }
+                            IconButton(onClick = { navController.navigate(Screen.VaccineList.route) }) {
+                                Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Ver Lista de Lembretes")
+                            }
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        if (upcomingVaccines.isNotEmpty()) {
+                            upcomingVaccines.forEach { vaccine ->
+                                UpcomingVaccineItem(vaccine = vaccine) // Usar um Composable dedicado
+                                if (upcomingVaccines.last() != vaccine) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                            }
+                        } else {
+                            Text("Nenhum lembrete de vacina para os próximos 15 dias.", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
@@ -199,7 +235,7 @@ fun HomeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp)) // Espaço no final da coluna
             }
 
             // Indicador de carregamento centralizado
@@ -210,7 +246,7 @@ fun HomeScreen(
     }
 }
 
-// New Composable for the compact consultation item display
+// Composable para item de consulta (mantido como estava)
 @Composable
 fun UpcomingConsultationItem(consultation: Consultation) {
     val sdfParse = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
@@ -277,14 +313,72 @@ fun UpcomingConsultationItem(consultation: Consultation) {
                 Icon(
                     Icons.Filled.LocationOn,
                     contentDescription = "Local",
-                    modifier = Modifier.size(16.dp), // Corrected: Use dp instead of sp
-                    tint = LocalContentColor.current.copy(alpha = 0.7f) // Subtle color
+                    modifier = Modifier.size(16.dp),
+                    tint = LocalContentColor.current.copy(alpha = 0.7f)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = consultation.location,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = LocalContentColor.current.copy(alpha = 0.7f) // Subtle color
+                    color = LocalContentColor.current.copy(alpha = 0.7f)
+                )
+            }
+        }
+    }
+}
+
+// Novo Composable para exibir item de vacina na HomeScreen
+@Composable
+fun UpcomingVaccineItem(vaccine: Vaccine) {
+    // Formatação de data/hora similar a UpcomingConsultationItem, se necessário
+    // Adapte para mostrar as informações relevantes da vacina
+    Column {
+        Text(
+            text = vaccine.name,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.DateRange, contentDescription = "Data", modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                // Exibe data e hora se a hora não estiver vazia
+                text = if (vaccine.reminderTime.isNotEmpty()) "${vaccine.reminderDate} - ${vaccine.reminderTime}" else vaccine.reminderDate,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            // Adicionar Localização se relevante e não vazia
+            if (vaccine.location.isNotEmpty()) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    Icons.Filled.LocationOn,
+                    contentDescription = "Local",
+                    modifier = Modifier.size(16.dp),
+                    tint = LocalContentColor.current.copy(alpha = 0.7f)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = vaccine.location,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LocalContentColor.current.copy(alpha = 0.7f)
+                )
+            }
+        }
+        // Adicionar Notas se relevante e não vazias
+        if (vaccine.notes.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Notes, // Usar ícone correto (AutoMirrored)
+                    contentDescription = "Observações",
+                    modifier = Modifier.size(16.dp).padding(top = 2.dp),
+                    tint = LocalContentColor.current.copy(alpha = 0.7f)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = vaccine.notes,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LocalContentColor.current.copy(alpha = 0.7f)
                 )
             }
         }

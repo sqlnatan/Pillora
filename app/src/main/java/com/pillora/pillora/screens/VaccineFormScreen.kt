@@ -15,7 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.compose.viewModel // Ensure this import is present
 import androidx.navigation.NavController
 import com.pillora.pillora.viewmodel.VaccineViewModel
 import kotlinx.coroutines.launch
@@ -25,17 +25,18 @@ import kotlinx.coroutines.launch
 fun VaccineFormScreen(
     navController: NavController,
     vaccineId: String? = null,
-    viewModel: VaccineViewModel = viewModel()
+    viewModel: VaccineViewModel = viewModel() // Correct ViewModel injection
 ) {
     val context = LocalContext.current
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = remember { SnackbarHostState() } // Correct SnackbarHostState
     val scope = rememberCoroutineScope()
 
+    // Collect states from ViewModel
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val navigateBack by viewModel.navigateBack.collectAsState()
 
-    // Form state from ViewModel
+    // Form state directly from ViewModel's mutableStateOf properties
     val name = viewModel.name
     val reminderDate = viewModel.reminderDate
     val reminderTime = viewModel.reminderTime
@@ -55,22 +56,22 @@ fun VaccineFormScreen(
     LaunchedEffect(navigateBack) {
         if (navigateBack) {
             navController.popBackStack()
-            viewModel.onNavigationHandled() // Reset the flag
+            viewModel.onNavigationHandled() // Reset the flag in ViewModel
         }
     }
 
-    // Show error messages
+    // Show error messages using Snackbar
     LaunchedEffect(error) {
         error?.let {
             scope.launch {
                 snackbarHostState.showSnackbar(message = it, duration = SnackbarDuration.Short)
             }
-            viewModel.onErrorShown() // Reset error state
+            viewModel.onErrorShown() // Reset error state in ViewModel
         }
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { SnackbarHost(snackbarHostState) }, // Correct SnackbarHost usage
         topBar = {
             TopAppBar(
                 title = { Text(if (vaccineId == null) "Adicionar Lembrete" else "Editar Lembrete") },
@@ -103,7 +104,7 @@ fun VaccineFormScreen(
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Date Field (similar to ConsultationFormScreen)
+                    // Date Field
                     OutlinedTextField(
                         value = reminderDate.value,
                         onValueChange = { /* Read Only */ },
@@ -117,7 +118,7 @@ fun VaccineFormScreen(
                                 modifier = Modifier.clickable { viewModel.showDatePicker(context) })
                         }
                     )
-                    // Time Field (similar to ConsultationFormScreen)
+                    // Time Field
                     OutlinedTextField(
                         value = reminderTime.value,
                         onValueChange = { /* Read Only */ },
@@ -156,11 +157,11 @@ fun VaccineFormScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
-                    onClick = { viewModel.saveVaccine() },
+                    onClick = { viewModel.saveVaccine() }, // Correct call to ViewModel function
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading.value // Disable button while loading/saving
+                    enabled = !isLoading // Correct usage of collected state
                 ) {
-                    if (isLoading.value) {
+                    if (isLoading) { // Correct usage of collected state
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
                             color = MaterialTheme.colorScheme.onPrimary,

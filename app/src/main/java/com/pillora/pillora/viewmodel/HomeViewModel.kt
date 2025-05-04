@@ -5,9 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pillora.pillora.model.Consultation
 import com.pillora.pillora.model.Medicine
+import com.pillora.pillora.model.Vaccine // Importar Vaccine
 import com.pillora.pillora.repository.ConsultationRepository
 import com.pillora.pillora.repository.MedicineRepository
+import com.pillora.pillora.repository.VaccineRepository // Importar VaccineRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted // Importar SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -15,9 +18,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
-import java.util.concurrent.TimeUnit
+import java.util.*
+import java.util.concurrent.TimeUnit // Importar TimeUnit
 
 class HomeViewModel : ViewModel() {
 
@@ -26,6 +28,7 @@ class HomeViewModel : ViewModel() {
     // Input Flows from Repositories
     private val medicinesFlow = MedicineRepository.getAllMedicinesFlow()
     private val consultationsFlow = ConsultationRepository.getAllConsultationsFlow()
+    private val vaccinesFlow = VaccineRepository.getAllVaccinesFlow() // Adicionar fluxo de vacinas
 
     // Processed States for UI
     private val _medicinesToday = MutableStateFlow<List<Medicine>>(emptyList())
@@ -37,27 +40,32 @@ class HomeViewModel : ViewModel() {
     private val _upcomingConsultations = MutableStateFlow<List<Consultation>>(emptyList())
     val upcomingConsultations: StateFlow<List<Consultation>> = _upcomingConsultations
 
+    private val _upcomingVaccines = MutableStateFlow<List<Vaccine>>(emptyList()) // Adicionar StateFlow para vacinas
+    val upcomingVaccines: StateFlow<List<Vaccine>> = _upcomingVaccines
+
     // General States
-    private val _isLoadingMedicines = MutableStateFlow(true) // Separate loading states
+    private val _isLoadingMedicines = MutableStateFlow(true)
     private val _isLoadingConsultations = MutableStateFlow(true)
+    private val _isLoadingVaccines = MutableStateFlow(true) // Adicionar estado de loading para vacinas
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
-    // Combined Loading State for UI (optional, can expose separate ones too)
+    // Combined Loading State for UI
     val isLoading: StateFlow<Boolean> = combine(
-        _isLoadingMedicines, _isLoadingConsultations
-    ) { medLoading, conLoading ->
-        medLoading || conLoading
+        _isLoadingMedicines, _isLoadingConsultations, _isLoadingVaccines // Incluir loading de vacinas
+    ) { medLoading, conLoading, vacLoading ->
+        medLoading || conLoading || vacLoading
     }.catch { e ->
         Log.e(tag, "Error combining loading states", e)
-        emit(false) // Default to false on error
-    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), false)
+        emit(false) // Emit false on error
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
 
     init {
         Log.d(tag, "Initializing HomeViewModel and starting data collection.")
         observeMedicines()
         observeConsultations()
+        observeVaccines() // Iniciar observação de vacinas
     }
 
     private fun observeMedicines() {
@@ -65,12 +73,11 @@ class HomeViewModel : ViewModel() {
             .onEach { medicines ->
                 Log.d(tag, "Received ${medicines.size} medicines from flow. Processing...")
                 _isLoadingMedicines.value = false // Mark medicines as loaded
-                _error.value = null // Clear previous medicine errors if successful
                 processMedicines(medicines)
             }
             .catch { e ->
                 Log.e(tag, "Error collecting medicines flow", e)
-                _error.value = "Erro ao carregar medicamentos: ${e.message}"
+                _error.value = (_error.value ?: "") + "\nErro ao carregar medicamentos: ${e.message}" // Append error
                 _isLoadingMedicines.value = false
             }
             .launchIn(viewModelScope) // Collect the flow within the viewModelScope
@@ -81,8 +88,6 @@ class HomeViewModel : ViewModel() {
             .onEach { consultations ->
                 Log.d(tag, "Received ${consultations.size} consultations from flow. Processing...")
                 _isLoadingConsultations.value = false // Mark consultations as loaded
-                // Don't clear medicine errors here, append if needed or use separate error states
-                // _error.value = null
                 processConsultations(consultations)
             }
             .catch { e ->
@@ -93,12 +98,24 @@ class HomeViewModel : ViewModel() {
             .launchIn(viewModelScope) // Collect the flow within the viewModelScope
     }
 
-    // processMedicines remains largely the same, but now called on each flow emission
+    private fun observeVaccines() {
+        vaccinesFlow
+            .onEach { vaccines ->
+                Log.d(tag, "Received ${vaccines.size} vaccines from flow. Processing...")
+                _isLoadingVaccines.value = false // Marcar vacinas como carregadas
+                processUpcomingVaccines(vaccines)
+            }
+            .catch { e ->
+                Log.e(tag, "Error collecting vaccines flow", e)
+                _error.value = (_error.value ?: "") + "\nErro ao carregar vacinas: ${e.message}" // Append error
+                _isLoadingVaccines.value = false
+            }
+            .launchIn(viewModelScope)
+    }
+
     private fun processMedicines(medicines: List<Medicine>) {
         Log.d(tag, "Processing ${medicines.size} medicines for today and stock alerts.")
         val today = Calendar.getInstance()
-        // val sdfLog = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()) // No longer needed for logging here
-        // Log.d(tag, "Current date/time for filtering: ${sdfLog.format(today.time)}")
 
         _medicinesToday.value = medicines.filter { med ->
             isMedicationActiveToday(med, today)
@@ -126,7 +143,6 @@ class HomeViewModel : ViewModel() {
         Log.d(tag, "Finished checking stock alerts. ${_stockAlerts.value.size} alerts found.")
     }
 
-    // processConsultations remains largely the same, but now called on each flow emission
     private fun processConsultations(consultations: List<Consultation>) {
         Log.d(tag, "Processing ${consultations.size} consultations for upcoming 7 days.")
         val todayStart = Calendar.getInstance().apply {
@@ -140,8 +156,6 @@ class HomeViewModel : ViewModel() {
         }
         val sdfParse = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         sdfParse.isLenient = false
-        // val sdfDisplay = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) // No longer needed for logging here
-        // Log.d(tag, "Filtering consultations between ${sdfDisplay.format(todayStart.time)} and ${sdfDisplay.format(sevenDaysLater.time)}")
 
         val upcoming = mutableListOf<Pair<Calendar, Consultation>>()
 
@@ -150,12 +164,8 @@ class HomeViewModel : ViewModel() {
                 val consultationDateTime = sdfParse.parse(consultation.dateTime)
                 if (consultationDateTime != null) {
                     val consultationCal = Calendar.getInstance().apply { time = consultationDateTime }
-                    // Log.d(tag, "Checking consultation \'${consultation.specialty}\' on ${sdfDisplay.format(consultationCal.time)}")
                     if (!consultationCal.before(todayStart) && consultationCal.before(sevenDaysLater)) {
-                        // Log.d(tag, "-> ACCEPTED: Within range.")
                         upcoming.add(Pair(consultationCal, consultation))
-                    } else {
-                        // Log.d(tag, "-> REJECTED: Outside range.")
                     }
                 } else {
                     Log.w(tag, "Could not parse dateTime for consultation ID ${consultation.id}: \'${consultation.dateTime}\'")
@@ -169,19 +179,72 @@ class HomeViewModel : ViewModel() {
         Log.d(tag, "Finished filtering consultations. ${_upcomingConsultations.value.size} upcoming in next 7 days.")
     }
 
-    // --- Helper Functions (unchanged) ---
+    private fun processUpcomingVaccines(vaccines: List<Vaccine>) {
+        Log.d(tag, "Processing ${vaccines.size} vaccines for upcoming 15 days.")
+        val todayStart = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val fifteenDaysLater = (todayStart.clone() as Calendar).apply {
+            add(Calendar.DAY_OF_YEAR, 15) // Adiciona 15 dias
+        }
+        val sdfParseDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        sdfParseDate.isLenient = false
+
+        val upcoming = mutableListOf<Pair<Calendar, Vaccine>>()
+
+        vaccines.forEach { vaccine ->
+            try {
+                val vaccineDate = sdfParseDate.parse(vaccine.reminderDate)
+                if (vaccineDate != null) {
+                    val vaccineCal = Calendar.getInstance().apply { time = vaccineDate }
+                    vaccineCal.set(Calendar.HOUR_OF_DAY, 0)
+                    vaccineCal.set(Calendar.MINUTE, 0)
+                    vaccineCal.set(Calendar.SECOND, 0)
+                    vaccineCal.set(Calendar.MILLISECOND, 0)
+
+                    if (!vaccineCal.before(todayStart) && vaccineCal.before(fifteenDaysLater)) {
+                        val sdfParseTime = SimpleDateFormat("HH:mm", Locale.getDefault())
+                        try {
+                            if (vaccine.reminderTime.isNotEmpty()) { // Only parse if time exists
+                                val time = sdfParseTime.parse(vaccine.reminderTime)
+                                if (time != null) {
+                                    val timeCal = Calendar.getInstance().apply { this.time = time }
+                                    vaccineCal.set(Calendar.HOUR_OF_DAY, timeCal.get(Calendar.HOUR_OF_DAY))
+                                    vaccineCal.set(Calendar.MINUTE, timeCal.get(Calendar.MINUTE))
+                                }
+                            }
+                        } catch (timeEx: Exception) {
+                            Log.w(tag, "Could not parse time for vaccine ${vaccine.id}, using date only for sorting")
+                        }
+                        upcoming.add(Pair(vaccineCal, vaccine))
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(tag, "Error parsing date for vaccine ID ${vaccine.id}: \'${vaccine.reminderDate}\'", e)
+            }
+        }
+
+        _upcomingVaccines.value = upcoming.sortedBy { it.first }.map { it.second }
+        Log.d(tag, "Finished filtering vaccines. ${_upcomingVaccines.value.size} upcoming in next 15 days.")
+    }
+
+    // --- Helper Functions ---
 
     private fun parseDate(dateStr: String): Calendar? {
+        // Assuming format DD/MM/YYYY based on other parts of the code
         return try {
-            val sdf = SimpleDateFormat("ddMMyyyy", Locale.getDefault())
+            val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
             sdf.isLenient = false
             val date = sdf.parse(dateStr) ?: run {
-                Log.w(tag, "parseDate failed for string: 	'$dateStr	' - SDF returned null")
+                Log.w(tag, "parseDate failed for string: \'$dateStr\' - SDF returned null")
                 return null
             }
             Calendar.getInstance().apply { time = date }
         } catch (e: Exception) {
-            Log.e(tag, "parseDate exception for string: 	'$dateStr	'", e)
+            Log.e(tag, "parseDate exception for string: \'$dateStr\'", e)
             null
         }
     }
@@ -195,23 +258,39 @@ class HomeViewModel : ViewModel() {
             set(Calendar.MILLISECOND, 0)
         }
         if (todayStart.before(startDateCal)) return false
+
         if (med.duration != -1) {
             val endDateCal = (startDateCal.clone() as Calendar).apply {
-                add(Calendar.DAY_OF_YEAR, med.duration - 1)
+                add(Calendar.DAY_OF_YEAR, med.duration)
             }
-            if (todayStart.after(endDateCal)) return false
+            if (!todayStart.before(endDateCal)) return false
         }
+
         if (med.frequencyType == "a_cada_x_horas") {
-            val interval = med.intervalHours ?: return false
-            if (interval <= 0) return false
+            val interval = med.intervalHours ?: return false // Interval must exist
+            if (interval <= 0) return false // Interval must be positive
+
+            // Logic for intervals >= 24 hours (every X days)
             if (interval >= 24) {
+                val intervalDays = interval / 24 // Integer division gives the number of full days
+                // Ensure intervalDays is at least 1 (already guaranteed by interval >= 24)
+                // Calculate the difference in days since the start date
                 val diffMillis = todayStart.timeInMillis - startDateCal.timeInMillis
                 val diffDays = TimeUnit.MILLISECONDS.toDays(diffMillis)
-                val intervalDays = interval / 24
-                if (diffDays % intervalDays != 0L) return false
+
+                // Check if today is a day the medication should be taken
+                // If diffDays is 0, 1*intervalDays, 2*intervalDays, etc., then take today.
+                if (diffDays % intervalDays != 0L) {
+                    // Log.d(tag, "Med ${med.name} not active today (every $intervalDays days, diff $diffDays days)")
+                    return false // Not a day to take the medication
+                }
             }
+            // If interval < 24 hours, assume it's taken every day during the active period.
+            // More complex logic could be added here if needed (e.g., first dose time).
         }
-        return true
+        // Add logic for "dias_especificos" if needed
+
+        return true // Active today if no checks failed
     }
 
     private fun calculateDailyDosage(med: Medicine): Double {
