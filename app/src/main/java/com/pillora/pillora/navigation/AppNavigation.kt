@@ -17,15 +17,21 @@ import com.pillora.pillora.screens.AuthScreen
 import com.pillora.pillora.screens.HomeScreen
 import com.pillora.pillora.screens.MedicineFormScreen
 import com.pillora.pillora.screens.MedicineListScreen
-import com.pillora.pillora.screens.SettingsScreen // Importar SettingsScreen
+import com.pillora.pillora.screens.SettingsScreen
 import com.pillora.pillora.screens.TermsScreen
 import com.pillora.pillora.repository.AuthRepository
-import com.pillora.pillora.screens.ConsultationFormScreen // Import ConsultationFormScreen
-import com.pillora.pillora.screens.ConsultationListScreen // Import ConsultationListScreen
-import com.pillora.pillora.screens.VaccineFormScreen // Importar VaccineFormScreen
-import com.pillora.pillora.screens.VaccineListScreen // Importar VaccineListScreen
+import com.pillora.pillora.screens.ConsultationFormScreen
+import com.pillora.pillora.screens.ConsultationListScreen
+import com.pillora.pillora.screens.RecipeFormScreen // Import RecipeFormScreen
+import com.pillora.pillora.screens.RecipeListScreen // Import RecipeListScreen
+import com.pillora.pillora.screens.VaccineFormScreen
+import com.pillora.pillora.screens.VaccineListScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+// Define routes for Recipe screens (can be added to Screen sealed class if preferred)
+const val RECIPE_LIST_ROUTE = "recipe_list"
+const val RECIPE_FORM_ROUTE = "recipe_form_screen"
 
 @Composable
 fun AppNavigation() {
@@ -135,6 +141,28 @@ fun AppNavigation() {
             ) { backStackEntry ->
                 val vaccineId = backStackEntry.arguments?.getString("id")
                 VaccineFormScreen(navController = navController, vaccineId = vaccineId)
+            }
+
+            // Recipe list screen (Nova rota adicionada)
+            composable(RECIPE_LIST_ROUTE) {
+                RecipeListScreen(navController = navController)
+            }
+
+            // Recipe form screen (Nova rota adicionada - handles both add and edit)
+            composable(
+                route = "$RECIPE_FORM_ROUTE?id={id}", // Optional ID for editing
+                arguments = listOf(
+                    navArgument("id") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null // Default to null for adding new recipe
+                    }
+                )
+            ) { backStackEntry ->
+                val recipeId = backStackEntry.arguments?.getString("id")
+                // Handle the case where the ID might be a space or empty string from the list screen
+                val actualRecipeId = if (recipeId?.trim()?.isNotEmpty() == true) recipeId else null
+                RecipeFormScreen(navController = navController, recipeId = actualRecipeId)
             }
         }
     } else {

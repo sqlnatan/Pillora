@@ -7,7 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.automirrored.filled.Notes // Importar ícone correto
+import androidx.compose.material.icons.automirrored.filled.Notes // Ícone para Receitas
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -25,6 +25,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.model.Consultation // Import Consultation
 import com.pillora.pillora.model.Vaccine // Importar Vaccine
+import com.pillora.pillora.navigation.RECIPE_FORM_ROUTE // Importar rota de formulário de receita
+import com.pillora.pillora.navigation.RECIPE_LIST_ROUTE // Importar rota de lista de receita
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.AuthRepository
 import com.pillora.pillora.viewmodel.HomeViewModel
@@ -117,7 +119,7 @@ fun HomeScreen(
                         ) {
                             Text("Medicamentos de Hoje", style = MaterialTheme.typography.titleLarge)
                             Spacer(Modifier.weight(1f))
-                            IconButton(onClick = { navController.navigate(Screen.MedicineForm.route) }) {
+                            IconButton(onClick = { navController.navigate(Screen.MedicineForm.route + "?id=") }) { // Passar ID vazio para adicionar
                                 Icon(Icons.Default.AddCircleOutline, contentDescription = "Cadastrar Medicamento")
                             }
                             IconButton(onClick = { navController.navigate(Screen.MedicineList.route) }) {
@@ -153,7 +155,7 @@ fun HomeScreen(
                         ) {
                             Text("Próximas Consultas (7 dias)", style = MaterialTheme.typography.titleLarge)
                             Spacer(Modifier.weight(1f))
-                            IconButton(onClick = { navController.navigate(Screen.ConsultationForm.route) }) {
+                            IconButton(onClick = { navController.navigate(Screen.ConsultationForm.route + "?id=") }) { // Passar ID vazio para adicionar
                                 Icon(Icons.Default.AddCircleOutline, contentDescription = "Adicionar Consulta")
                             }
                             IconButton(onClick = { navController.navigate(Screen.ConsultationList.route) }) {
@@ -174,7 +176,7 @@ fun HomeScreen(
                     }
                 }
 
-                // Card "Próximas Vacinas (15 dias)" - NOVO CARD
+                // Card "Próximas Vacinas (15 dias)"
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -187,7 +189,7 @@ fun HomeScreen(
                         ) {
                             Text("Próximas Vacinas (15 dias)", style = MaterialTheme.typography.titleLarge)
                             Spacer(Modifier.weight(1f))
-                            IconButton(onClick = { navController.navigate(Screen.VaccineForm.route) }) {
+                            IconButton(onClick = { navController.navigate(Screen.VaccineForm.route + "?id=") }) { // Passar ID vazio para adicionar
                                 Icon(Icons.Default.AddCircleOutline, contentDescription = "Adicionar Lembrete de Vacina")
                             }
                             IconButton(onClick = { navController.navigate(Screen.VaccineList.route) }) {
@@ -205,6 +207,32 @@ fun HomeScreen(
                         } else {
                             Text("Nenhum lembrete de vacina para os próximos 15 dias.", style = MaterialTheme.typography.bodyMedium)
                         }
+                    }
+                }
+
+                // Card "Receitas Médicas" - NOVO CARD
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Receitas Médicas", style = MaterialTheme.typography.titleLarge)
+                            Spacer(Modifier.weight(1f))
+                            IconButton(onClick = { navController.navigate("$RECIPE_FORM_ROUTE?id=") }) { // Navegar para adicionar receita
+                                Icon(Icons.Default.AddCircleOutline, contentDescription = "Adicionar Receita")
+                            }
+                            IconButton(onClick = { navController.navigate(RECIPE_LIST_ROUTE) }) { // Navegar para lista de receitas
+                                Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = "Ver Lista de Receitas") // Usar ícone Notes
+                            }
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        // TODO: Opcionalmente, mostrar um resumo das últimas receitas aqui
+                        Text("Gerencie suas receitas médicas.", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
 
@@ -339,49 +367,11 @@ fun UpcomingVaccineItem(vaccine: Vaccine) {
             fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(4.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.DateRange, contentDescription = "Data", modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                // Exibe data e hora se a hora não estiver vazia
-                text = if (vaccine.reminderTime.isNotEmpty()) "${vaccine.reminderDate} - ${vaccine.reminderTime}" else vaccine.reminderDate,
-                style = MaterialTheme.typography.bodyMedium
-            )
-            // Adicionar Localização se relevante e não vazia
-            if (vaccine.location.isNotEmpty()) {
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    Icons.Filled.LocationOn,
-                    contentDescription = "Local",
-                    modifier = Modifier.size(16.dp),
-                    tint = LocalContentColor.current.copy(alpha = 0.7f)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = vaccine.location,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = LocalContentColor.current.copy(alpha = 0.7f)
-                )
-            }
-        }
-        // Adicionar Notas se relevante e não vazias
-        if (vaccine.notes.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.Top) {
-                Icon(
-                    Icons.AutoMirrored.Filled.Notes, // Usar ícone correto (AutoMirrored)
-                    contentDescription = "Observações",
-                    modifier = Modifier.size(16.dp).padding(top = 2.dp),
-                    tint = LocalContentColor.current.copy(alpha = 0.7f)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = vaccine.notes,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = LocalContentColor.current.copy(alpha = 0.7f)
-                )
-            }
-        }
+        Text(
+            text = "Data Lembrete: ${vaccine.reminderDate}", // Ajustar conforme necessário
+            style = MaterialTheme.typography.bodyMedium
+        )
+        // Adicionar mais detalhes se relevante (ex: dose, lote)
     }
 }
 
