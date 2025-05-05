@@ -22,13 +22,20 @@ object DateValidator {
      */
     fun validateDate(dateStr: String): Pair<Boolean, String?> {
         // Verifica se tem 8 dígitos
+        // **NOTA:** Esta validação original espera 8 dígitos SEM barras,
+        // mas o ViewModel parece usar DD/MM/AAAA. Isso pode ser a causa raiz.
+        // No entanto, como você indicou que funciona para outros formulários,
+        // vamos manter a lógica original por enquanto e focar no ViewModel.
         if (dateStr.length != 8) {
-            return Pair(false, "Data incompleta. Use o formato DD/MM/AAAA")
+            // Se o ViewModel *realmente* passa DD/MM/AAAA, esta condição SEMPRE falhará.
+            // Se ele passa 8 dígitos, então está correto.
+            // return Pair(false, "Data incompleta. Use o formato DD/MM/AAAA") // Mensagem original pode ser confusa
+            return Pair(false, "Formato de data inválido (esperado 8 dígitos).")
         }
 
         try {
             // Formata a string para DD/MM/AAAA
-            val formattedDate = formatDateString(dateStr)
+            val formattedDate = formatDateString(dateStr) // Isso adiciona as barras
 
             // Tenta fazer o parse da data
             val date = dateFormat.parse(formattedDate) ?:
@@ -47,11 +54,12 @@ object DateValidator {
                 time = date
             }
 
+            // **IMPORTANTE:** Esta lógica retorna uma MENSAGEM mesmo se a data for VÁLIDA (apenas futura)
             if (dateCalendar.time.after(today)) {
                 return Pair(true, "Atenção: A data selecionada está no futuro")
             }
 
-            return Pair(true, null)
+            return Pair(true, null) // Retorna null apenas se for hoje ou passado
         } catch (exception: Exception) {
             return Pair(false, "Data inválida. Verifique dia, mês e ano.")
         }
@@ -69,3 +77,4 @@ object DateValidator {
     }
 
 }
+

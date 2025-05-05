@@ -5,7 +5,8 @@ import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query // Import Query for sorting
-import com.google.firebase.firestore.ktx.snapshots // Correct import for KTX snapshots extension
+import com.google.firebase.firestore.snapshots // Import snapshots from main module
+import com.google.firebase.firestore.toObject // Import toObject from main module
 import com.pillora.pillora.model.Vaccine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -69,8 +70,8 @@ object VaccineRepository {
             .addOnSuccessListener { documents ->
                 val vaccines = documents.mapNotNull { doc ->
                     try {
-                        // Reverted: Safe call `?.` IS necessary here because toObject can return null
-                        doc.toObject(Vaccine::class.java)?.copy(id = doc.id)
+                        // Use toObject<T>() - Removed safe call as per latest warning
+                        doc.toObject<Vaccine>().copy(id = doc.id)
                     } catch (e: Exception) {
                         Log.e(TAG, "Error converting document ${doc.id} to Vaccine", e)
                         null
@@ -86,21 +87,18 @@ object VaccineRepository {
     }
 
     // --- READ (Flow version) ---
-    // The snapshots() warning about deprecation might be an IDE issue if KTX is correctly imported.
-    // The parameterless snapshots() from com.google.firebase.firestore.ktx.snapshots is the standard
-    // way for basic real-time updates with KTX as per Firebase documentation.
     fun getAllVaccinesFlow(): Flow<List<Vaccine>> {
         val userId = currentUserId ?: return flowOf(emptyList())
 
         return db.collection(VACCINES_COLLECTION)
             .whereEqualTo("userId", userId)
             .orderBy("reminderDate", Query.Direction.ASCENDING)
-            .snapshots() // Use KTX snapshots() extension - Ignore IDE warning if present
+            .snapshots() // Use snapshots() from main module
             .map { snapshot ->
                 snapshot.documents.mapNotNull { doc ->
                     try {
-                        // Reverted: Safe call `?.` IS necessary here because toObject can return null
-                        doc.toObject(Vaccine::class.java)?.copy(id = doc.id)
+                        // Use toObject<T>() from the main module with safe call (kept here as warning was specific to getAllVaccines)
+                        doc.toObject<Vaccine>()?.copy(id = doc.id)
                     } catch (e: Exception) {
                         Log.e(TAG, "Error converting document ${doc.id} to Vaccine", e)
                         null
@@ -137,8 +135,8 @@ object VaccineRepository {
             .addOnSuccessListener { document ->
                 if (document != null && document.exists()) {
                     try {
-                        // Reverted: Safe call `?.` IS necessary here because toObject can return null
-                        val vaccine = document.toObject(Vaccine::class.java)?.copy(id = document.id)
+                        // Use toObject<T>() from the main module with safe call (kept here)
+                        val vaccine = document.toObject<Vaccine>()?.copy(id = document.id)
                         // Security check: Ensure the fetched vaccine belongs to the current user
                         if (vaccine != null && vaccine.userId == userId) { // Check vaccine is not null after potential failed conversion
                             Log.d(TAG, "Fetched vaccine reminder: ${vaccine.id}")

@@ -7,10 +7,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DateRange // Add import
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.LocationOn // Add import
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,46 +18,44 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.pillora.pillora.model.Consultation
 import com.pillora.pillora.repository.ConsultationRepository
-import com.pillora.pillora.navigation.Screen // Import Screen object
+import com.pillora.pillora.navigation.Screen
+import kotlinx.coroutines.flow.map // Import map operator
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+
+// Define states for the screen based on Flow emission
+sealed interface ConsultationListUiState {
+    data object Loading : ConsultationListUiState
+    data class Success(val consultations: List<Consultation>) : ConsultationListUiState
+    data class Error(val message: String) : ConsultationListUiState
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConsultationListScreen(navController: NavController) {
 
-    var consultations by remember { mutableStateOf<List<Consultation>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    // Collect the flow, map success/error to UI states
+    val uiState by ConsultationRepository.getAllConsultationsFlow()
+        .map<List<Consultation>, ConsultationListUiState> { consultations -> // Map successful list emission to Success state
+            ConsultationListUiState.Success(consultations)
+        }
+        .catch { exception -> // Catch exceptions from the flow or the map operator
+            // Emit Error state. This is now valid as the flow type is Flow<ConsultationListUiState>
+            emit(ConsultationListUiState.Error("Erro ao carregar consultas: ${exception.message}"))
+        }
+        // Start with Loading state, collectAsStateWithLifecycle handles the initial value.
+        .collectAsStateWithLifecycle(initialValue = ConsultationListUiState.Loading)
+
     var showDeleteDialog by remember { mutableStateOf(false) }
     var consultationToDelete by remember { mutableStateOf<Consultation?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    // Function to load consultations
-    fun loadConsultations() {
-        isLoading = true
-        error = null
-        ConsultationRepository.getAllConsultations(
-            onSuccess = {
-                consultations = it.sortedBy { consultation -> consultation.dateTime } // Sort by date/time
-                isLoading = false
-            },
-            onFailure = {
-                error = "Erro ao buscar consultas: ${it.message}"
-                isLoading = false
-            }
-        )
-    }
-
-    // Fetch consultations when the screen is composed or refreshed
-    LaunchedEffect(Unit) { // Consider adding a refresh mechanism later
-        loadConsultations()
-    }
-
-    // Delete confirmation dialog
+    // Delete confirmation dialog (remains the same)
     if (showDeleteDialog && consultationToDelete != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -72,7 +70,7 @@ fun ConsultationListScreen(navController: NavController) {
                                     consultationId = id,
                                     onSuccess = {
                                         Toast.makeText(context, "Consulta excluída com sucesso", Toast.LENGTH_SHORT).show()
-                                        loadConsultations() // Reload list after deletion
+                                        // Flow updates the list automatically
                                     },
                                     onFailure = {
                                         Toast.makeText(context, "Erro ao excluir consulta: ${it.message}", Toast.LENGTH_LONG).show()
@@ -111,14 +109,14 @@ fun ConsultationListScreen(navController: NavController) {
                 Icon(Icons.Filled.Add, contentDescription = "Adicionar Consulta")
             }
         }
-    ) {
-            padding ->
+    ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            when {
-                isLoading -> {
+            // Adapt the UI based on the collected uiState (remains the same)
+            when (val state = uiState) {
+                is ConsultationListUiState.Loading -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
-                error != null -> {
+                is ConsultationListUiState.Error -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -127,50 +125,46 @@ fun ConsultationListScreen(navController: NavController) {
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = error!!,
-                            color = MaterialTheme.colorScheme.error
+                            text = state.message,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { loadConsultations() }) {
-                            Text("Tentar novamente")
-                        }
+                        // Consider adding a retry button
                     }
                 }
-                consultations.isEmpty() -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Nenhuma consulta encontrada. Adicione uma nova consulta clicando no botão ",
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { navController.navigate(Screen.ConsultationForm.route) }) {
-                            Text("Adicionar Consulta")
-                        }
-                    }
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp) // Increased spacing
-                    ) {
-                        items(consultations, key = { it.id }) { consultation -> // Added key for performance
-                            ConsultationListItem(
-                                consultation = consultation,
-                                onEditClick = {
-                                    // Corrected navigation to use query parameter format
-                                    navController.navigate("${Screen.ConsultationForm.route}?id=${consultation.id}")
-                                },
-                                onDeleteClick = {
-                                    consultationToDelete = consultation
-                                    showDeleteDialog = true
-                                }
+                is ConsultationListUiState.Success -> {
+                    val consultations = state.consultations.sortedBy { it.dateTime }
+                    if (consultations.isEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Nenhuma consulta encontrada. Adicione uma nova consulta clicando no botão +",
+                                modifier = Modifier.padding(bottom = 16.dp)
                             )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(consultations, key = { it.id }) { consultation ->
+                                ConsultationListItem(
+                                    consultation = consultation,
+                                    onEditClick = {
+                                        navController.navigate("${Screen.ConsultationForm.route}?id=${consultation.id}")
+                                    },
+                                    onDeleteClick = {
+                                        consultationToDelete = consultation
+                                        showDeleteDialog = true
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -179,23 +173,23 @@ fun ConsultationListScreen(navController: NavController) {
     }
 }
 
+// ConsultationListItem remains the same
 @Composable
 fun ConsultationListItem(
     consultation: Consultation,
-    onEditClick: () -> Unit, // Added lambda for edit
-    onDeleteClick: () -> Unit // Added lambda for delete
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(), // Removed clickable modifier from Card
+        modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top // Align icons to the top
+                verticalAlignment = Alignment.Top
             ) {
-                // Consultation Details Column
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = consultation.specialty,
@@ -208,19 +202,16 @@ fun ConsultationListItem(
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
-                // Action Icons Row
                 Row {
-                    IconButton(onClick = onEditClick, modifier = Modifier.size(24.dp)) { // Smaller icons
+                    IconButton(onClick = onEditClick, modifier = Modifier.size(24.dp)) {
                         Icon(Icons.Default.Edit, contentDescription = "Editar")
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(onClick = onDeleteClick, modifier = Modifier.size(24.dp)) { // Smaller icons
+                    IconButton(onClick = onDeleteClick, modifier = Modifier.size(24.dp)) {
                         Icon(Icons.Default.Delete, contentDescription = "Excluir")
                     }
                 }
             }
-
-            // Rest of the details
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.DateRange, contentDescription = "Data e Hora", modifier = Modifier.size(16.dp))
@@ -246,7 +237,7 @@ fun ConsultationListItem(
                 Text(
                     text = "Obs: ${consultation.observations}",
                     style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2 // Limit observation lines in list view
+                    maxLines = 2
                 )
             }
         }

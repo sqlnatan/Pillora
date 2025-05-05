@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit // Importar TimeUnit
@@ -24,6 +25,7 @@ import java.util.concurrent.TimeUnit // Importar TimeUnit
 class HomeViewModel : ViewModel() {
 
     private val tag = "HomeViewModel_DEBUG" // Tag for logs
+    private val sdfLog = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()) // Formatter for logs
 
     // Input Flows from Repositories
     private val medicinesFlow = MedicineRepository.getAllMedicinesFlow()
@@ -117,9 +119,12 @@ class HomeViewModel : ViewModel() {
         Log.d(tag, "Processing ${medicines.size} medicines for today and stock alerts.")
         val today = Calendar.getInstance()
 
-        _medicinesToday.value = medicines.filter { med ->
-            isMedicationActiveToday(med, today)
+        val activeToday = medicines.filter { med ->
+            val isActive = isMedicationActiveToday(med, today)
+            // Log moved inside isMedicationActiveToday for context
+            isActive
         }
+        _medicinesToday.value = activeToday
         Log.d(tag, "Finished filtering medicines. ${_medicinesToday.value.size} active today.")
 
         val alertThresholdDays = 5
@@ -243,54 +248,109 @@ class HomeViewModel : ViewModel() {
                 return null
             }
             Calendar.getInstance().apply { time = date }
-        } catch (e: Exception) {
+        } catch (e: ParseException) {
             Log.e(tag, "parseDate exception for string: \'$dateStr\'", e)
+            null
+        } catch (e: Exception) {
+            Log.e(tag, "parseDate unexpected exception for string: \'$dateStr\'", e)
             null
         }
     }
 
+    // Refactored function to check if medication is active today with detailed logs
     private fun isMedicationActiveToday(med: Medicine, today: Calendar): Boolean {
-        val startDateCal = parseDate(med.startDate) ?: return false
+        val medInfo = "Med \'${med.name}\' (ID: ${med.id})"
+        val todayFormatted = sdfLog.format(today.time)
+        Log.d(tag, "[$medInfo] Checking activity for today: $todayFormatted. StartDate: ${med.startDate}, Duration: ${med.duration}, FreqType: ${med.frequencyType}, Interval: ${med.intervalHours}")
+
+        val startDateCal = parseDate(med.startDate) ?: run {
+            Log.w(tag, "[$medInfo] Invalid start date format \'${med.startDate}\'. Result: INACTIVE")
+            return false
+        }
+        val startDateFormatted = sdfLog.format(startDateCal.time)
+        Log.d(tag, "[$medInfo] Parsed Start Date: $startDateFormatted")
+
+        // Normalize 'today' to the start of the day for consistent comparisons
         val todayStart = (today.clone() as Calendar).apply {
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
-        if (todayStart.before(startDateCal)) return false
+        val todayStartFormatted = sdfLog.format(todayStart.time)
+        Log.d(tag, "[$medInfo] Normalized Today Start: $todayStartFormatted")
 
+        // Check 1: Is today before the start date?
+        if (todayStart.before(startDateCal)) {
+            Log.d(tag, "[$medInfo] Check 1 Failed: Today ($todayStartFormatted) is before Start Date ($startDateFormatted). Result: INACTIVE")
+            return false
+        }
+        Log.d(tag, "[$medInfo] Check 1 Passed: Today is on or after Start Date.")
+
+        // Check 2: If there's a duration, has it ended?
+        // Duration is in days. -1 means indefinite.
         if (med.duration != -1) {
+            Log.d(tag, "[$medInfo] Check 2: Duration is ${med.duration} days.")
             val endDateCal = (startDateCal.clone() as Calendar).apply {
-                add(Calendar.DAY_OF_YEAR, med.duration)
+                add(Calendar.DAY_OF_YEAR, med.duration) // End date is exclusive
             }
-            if (!todayStart.before(endDateCal)) return false
+            val endDateFormatted = sdfLog.format(endDateCal.time)
+            Log.d(tag, "[$medInfo] Calculated End Date (exclusive): $endDateFormatted")
+            // If todayStart is on or after the calculated end date, it's no longer active.
+            if (!todayStart.before(endDateCal)) {
+                Log.d(tag, "[$medInfo] Check 2 Failed: Today ($todayStartFormatted) is on or after End Date ($endDateFormatted). Result: INACTIVE")
+                return false
+            }
+            Log.d(tag, "[$medInfo] Check 2 Passed: Today is before End Date.")
+        } else {
+            Log.d(tag, "[$medInfo] Check 2 Skipped: Duration is indefinite (-1).")
         }
 
-        if (med.frequencyType == "a_cada_x_horas") {
-            val interval = med.intervalHours ?: return false // Interval must exist
-            if (interval <= 0) return false // Interval must be positive
+        // Check 3: Based on frequency type
+        Log.d(tag, "[$medInfo] Check 3: Frequency Type is '${med.frequencyType}'.")
+        when (med.frequencyType) {
+            "vezes_dia" -> {
+                Log.d(tag, "[$medInfo] Frequency 'vezes_dia'. Result: ACTIVE")
+                return true
+            }
+            "a_cada_x_horas" -> {
+                val interval = med.intervalHours ?: run {
+                    Log.w(tag, "[$medInfo] Frequency 'a_cada_x_horas' but interval is null. Result: INACTIVE")
+                    return false
+                }
+                Log.d(tag, "[$medInfo] Frequency 'a_cada_x_horas' with interval: $interval hours.")
+                if (interval <= 0) {
+                    Log.w(tag, "[$medInfo] Interval is non-positive ($interval). Result: INACTIVE")
+                    return false
+                }
 
-            // Logic for intervals >= 24 hours (every X days)
-            if (interval >= 24) {
-                val intervalDays = interval / 24 // Integer division gives the number of full days
-                // Ensure intervalDays is at least 1 (already guaranteed by interval >= 24)
-                // Calculate the difference in days since the start date
-                val diffMillis = todayStart.timeInMillis - startDateCal.timeInMillis
-                val diffDays = TimeUnit.MILLISECONDS.toDays(diffMillis)
+                if (interval < 24) {
+                    Log.d(tag, "[$medInfo] Interval ($interval) < 24 hours. Result: ACTIVE")
+                    return true
+                }
+                else {
+                    val intervalDays = interval / 24
+                    Log.d(tag, "[$medInfo] Interval ($interval) >= 24 hours. Calculated Interval Days: $intervalDays.")
+                    // Calculate the difference in days since the start date
+                    val diffMillis = todayStart.timeInMillis - startDateCal.timeInMillis
+                    val diffDays = TimeUnit.MILLISECONDS.toDays(diffMillis)
+                    Log.d(tag, "[$medInfo] Millis diff: $diffMillis. Days diff: $diffDays.")
 
-                // Check if today is a day the medication should be taken
-                // If diffDays is 0, 1*intervalDays, 2*intervalDays, etc., then take today.
-                if (diffDays % intervalDays != 0L) {
-                    // Log.d(tag, "Med ${med.name} not active today (every $intervalDays days, diff $diffDays days)")
-                    return false // Not a day to take the medication
+                    // Check if the difference in days is a multiple of the interval in days.
+                    val isActive = diffDays % intervalDays == 0L
+                    Log.d(tag, "[$medInfo] Check: $diffDays % $intervalDays == 0? $isActive. Result: ${if(isActive) "ACTIVE" else "INACTIVE"}")
+                    return isActive
                 }
             }
-            // If interval < 24 hours, assume it's taken every day during the active period.
-            // More complex logic could be added here if needed (e.g., first dose time).
+            "dias_especificos" -> {
+                Log.w(tag, "[$medInfo] Frequency 'dias_especificos' not implemented. Result: INACTIVE")
+                return false // Placeholder
+            }
+            else -> {
+                Log.w(tag, "[$medInfo] Unknown frequency type '${med.frequencyType}'. Result: INACTIVE")
+                return false
+            }
         }
-        // Add logic for "dias_especificos" if needed
-
-        return true // Active today if no checks failed
     }
 
     private fun calculateDailyDosage(med: Medicine): Double {
