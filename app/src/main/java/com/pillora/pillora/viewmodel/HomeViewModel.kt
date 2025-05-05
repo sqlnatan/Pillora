@@ -27,6 +27,10 @@ class HomeViewModel : ViewModel() {
     private val tag = "HomeViewModel_DEBUG" // Tag for logs
     private val sdfLog = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()) // Formatter for logs
 
+    // Date formatters for parsing
+    private val sdfWithSlashes = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).apply { isLenient = false }
+    private val sdfWithoutSlashes = SimpleDateFormat("ddMMyyyy", Locale.getDefault()).apply { isLenient = false }
+
     // Input Flows from Repositories
     private val medicinesFlow = MedicineRepository.getAllMedicinesFlow()
     private val consultationsFlow = ConsultationRepository.getAllConsultationsFlow()
@@ -195,40 +199,38 @@ class HomeViewModel : ViewModel() {
         val fifteenDaysLater = (todayStart.clone() as Calendar).apply {
             add(Calendar.DAY_OF_YEAR, 15) // Adiciona 15 dias
         }
-        val sdfParseDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-        sdfParseDate.isLenient = false
+        // Use the flexible parseDate function here as well
+        // val sdfParseDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        // sdfParseDate.isLenient = false
 
         val upcoming = mutableListOf<Pair<Calendar, Vaccine>>()
 
         vaccines.forEach { vaccine ->
-            try {
-                val vaccineDate = sdfParseDate.parse(vaccine.reminderDate)
-                if (vaccineDate != null) {
-                    val vaccineCal = Calendar.getInstance().apply { time = vaccineDate }
-                    vaccineCal.set(Calendar.HOUR_OF_DAY, 0)
-                    vaccineCal.set(Calendar.MINUTE, 0)
-                    vaccineCal.set(Calendar.SECOND, 0)
-                    vaccineCal.set(Calendar.MILLISECOND, 0)
+            val vaccineCal = parseDate(vaccine.reminderDate) // Use flexible parsing
+            if (vaccineCal != null) {
+                vaccineCal.set(Calendar.HOUR_OF_DAY, 0)
+                vaccineCal.set(Calendar.MINUTE, 0)
+                vaccineCal.set(Calendar.SECOND, 0)
+                vaccineCal.set(Calendar.MILLISECOND, 0)
 
-                    if (!vaccineCal.before(todayStart) && vaccineCal.before(fifteenDaysLater)) {
-                        val sdfParseTime = SimpleDateFormat("HH:mm", Locale.getDefault())
-                        try {
-                            if (vaccine.reminderTime.isNotEmpty()) { // Only parse if time exists
-                                val time = sdfParseTime.parse(vaccine.reminderTime)
-                                if (time != null) {
-                                    val timeCal = Calendar.getInstance().apply { this.time = time }
-                                    vaccineCal.set(Calendar.HOUR_OF_DAY, timeCal.get(Calendar.HOUR_OF_DAY))
-                                    vaccineCal.set(Calendar.MINUTE, timeCal.get(Calendar.MINUTE))
-                                }
+                if (!vaccineCal.before(todayStart) && vaccineCal.before(fifteenDaysLater)) {
+                    val sdfParseTime = SimpleDateFormat("HH:mm", Locale.getDefault())
+                    try {
+                        if (vaccine.reminderTime.isNotEmpty()) { // Only parse if time exists
+                            val time = sdfParseTime.parse(vaccine.reminderTime)
+                            if (time != null) {
+                                val timeCal = Calendar.getInstance().apply { this.time = time }
+                                vaccineCal.set(Calendar.HOUR_OF_DAY, timeCal.get(Calendar.HOUR_OF_DAY))
+                                vaccineCal.set(Calendar.MINUTE, timeCal.get(Calendar.MINUTE))
                             }
-                        } catch (timeEx: Exception) {
-                            Log.w(tag, "Could not parse time for vaccine ${vaccine.id}, using date only for sorting")
                         }
-                        upcoming.add(Pair(vaccineCal, vaccine))
+                    } catch (timeEx: Exception) {
+                        Log.w(tag, "Could not parse time for vaccine ${vaccine.id}, using date only for sorting")
                     }
+                    upcoming.add(Pair(vaccineCal, vaccine))
                 }
-            } catch (e: Exception) {
-                Log.e(tag, "Error parsing date for vaccine ID ${vaccine.id}: \'${vaccine.reminderDate}\'", e)
+            } else {
+                Log.e(tag, "Error parsing date for vaccine ID ${vaccine.id}: \'${vaccine.reminderDate}\'")
             }
         }
 
@@ -238,23 +240,47 @@ class HomeViewModel : ViewModel() {
 
     // --- Helper Functions ---
 
+    // Updated parseDate to handle both DD/MM/YYYY and DDMMYYYY formats
     private fun parseDate(dateStr: String): Calendar? {
-        // Assuming format DD/MM/YYYY based on other parts of the code
-        return try {
-            val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-            sdf.isLenient = false
-            val date = sdf.parse(dateStr) ?: run {
-                Log.w(tag, "parseDate failed for string: \'$dateStr\' - SDF returned null")
-                return null
-            }
-            Calendar.getInstance().apply { time = date }
-        } catch (e: ParseException) {
-            Log.e(tag, "parseDate exception for string: \'$dateStr\'", e)
-            null
-        } catch (e: Exception) {
-            Log.e(tag, "parseDate unexpected exception for string: \'$dateStr\'", e)
-            null
+        val trimmedDateStr = dateStr.trim()
+        if (trimmedDateStr.isBlank()) {
+            Log.w(tag, "parseDate failed: Input string is blank.")
+            return null
         }
+
+        // Try parsing with slashes first
+        try {
+            val date = sdfWithSlashes.parse(trimmedDateStr)
+            if (date != null) {
+                Log.d(tag, "parseDate successful for string: \'$trimmedDateStr\' using format dd/MM/yyyy")
+                return Calendar.getInstance().apply { time = date }
+            }
+        } catch (e: ParseException) {
+            // Ignore, try next format
+            Log.d(tag, "parseDate: Failed with dd/MM/yyyy for \'$trimmedDateStr\', trying ddMMyyyy...")
+        } catch (e: Exception) {
+            Log.e(tag, "parseDate unexpected exception (dd/MM/yyyy) for string: \'$trimmedDateStr\'", e)
+            // Continue to try the other format
+        }
+
+        // Try parsing without slashes
+        try {
+            val date = sdfWithoutSlashes.parse(trimmedDateStr)
+            if (date != null) {
+                Log.d(tag, "parseDate successful for string: \'$trimmedDateStr\' using format ddMMyyyy")
+                return Calendar.getInstance().apply { time = date }
+            }
+        } catch (e: ParseException) {
+            Log.e(tag, "parseDate failed for string: \'$trimmedDateStr\' with both formats.", e)
+            return null
+        } catch (e: Exception) {
+            Log.e(tag, "parseDate unexpected exception (ddMMyyyy) for string: \'$trimmedDateStr\'", e)
+            return null
+        }
+
+        // Should not happen if parse returns null without exception, but as a fallback
+        Log.w(tag, "parseDate failed for string: \'$trimmedDateStr\' - Both formats failed without exception.")
+        return null
     }
 
     // Refactored function to check if medication is active today with detailed logs
@@ -264,7 +290,8 @@ class HomeViewModel : ViewModel() {
         Log.d(tag, "[$medInfo] Checking activity for today: $todayFormatted. StartDate: ${med.startDate}, Duration: ${med.duration}, FreqType: ${med.frequencyType}, Interval: ${med.intervalHours}")
 
         val startDateCal = parseDate(med.startDate) ?: run {
-            Log.w(tag, "[$medInfo] Invalid start date format \'${med.startDate}\'. Result: INACTIVE")
+            // Log is now inside parseDate on failure
+            Log.w(tag, "[$medInfo] Could not parse start date \'${med.startDate}\'. Result: INACTIVE")
             return false
         }
         val startDateFormatted = sdfLog.format(startDateCal.time)
@@ -335,6 +362,8 @@ class HomeViewModel : ViewModel() {
                     val diffMillis = todayStart.timeInMillis - startDateCal.timeInMillis
                     val diffDays = TimeUnit.MILLISECONDS.toDays(diffMillis)
                     Log.d(tag, "[$medInfo] Millis diff: $diffMillis. Days diff: $diffDays.")
+
+                    // Removed the incorrect check for intervalDays == 0L
 
                     // Check if the difference in days is a multiple of the interval in days.
                     val isActive = diffDays % intervalDays == 0L
