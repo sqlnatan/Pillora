@@ -58,7 +58,7 @@ fun RecipeFormScreen(
 
     // Handle state changes (e.g., navigate back after successful save/delete)
     LaunchedEffect(detailState) {
-        when (val state = detailState) {
+        when (detailState) {
             is RecipeDetailUiState.Idle -> {
                 // Consider navigating back if coming from Loading state (success)
                 // This logic might need refinement based on exact flow
@@ -200,7 +200,8 @@ fun RecipeFormScreen(
             prescribedMedications.forEachIndexed { index, med ->
                 PrescribedMedicationItem(
                     medication = med,
-                    isEditing = index == editingMedIndex, // Highlight if editing
+                    isCurrentlyEditingThis = (index == editingMedIndex), // Pass if this specific item is being edited
+                    isAnyMedicationBeingEdited = (editingMedIndex != -1), // Pass if *any* item is being edited
                     onEditClick = { recipeViewModel.startEditingPrescribedMedication(index) },
                     onRemoveClick = { recipeViewModel.removePrescribedMedication(index) }
                 )
@@ -295,15 +296,19 @@ fun MedicationInputCard(
 @Composable
 fun PrescribedMedicationItem(
     medication: PrescribedMedication,
-    isEditing: Boolean, // Added to indicate if this item is being edited
+    isCurrentlyEditingThis: Boolean, // Renomeado para clareza
+    isAnyMedicationBeingEdited: Boolean, // NOVO: Indica se *qualquer* med está sendo editado
     onEditClick: () -> Unit,
     onRemoveClick: () -> Unit
 ) {
-    val backgroundColor = if (isEditing) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val backgroundColor = if (isCurrentlyEditingThis) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    // Botões habilitados apenas se NENHUM medicamento estiver sendo editado globalmente
+    val areButtonsEnabled = !isAnyMedicationBeingEdited
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(if (isEditing) 4.dp else 1.dp)
+        elevation = CardDefaults.cardElevation(if (isCurrentlyEditingThis) 4.dp else 1.dp)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -314,12 +319,12 @@ fun PrescribedMedicationItem(
                 Text("Dose: ${medication.dose}")
                 Text("Instruções: ${medication.instructions}")
             }
-            // Show buttons only if not currently editing this specific item
-            if (!isEditing) {
-                IconButton(onClick = onEditClick, enabled = !isEditing) {
+            // Mostra os botões apenas se NÃO estiver editando ESTE item
+            if (!isCurrentlyEditingThis) {
+                IconButton(onClick = onEditClick, enabled = areButtonsEnabled) { // Usa estado de habilitação calculado
                     Icon(Icons.Default.Edit, contentDescription = "Editar Medicamento")
                 }
-                IconButton(onClick = onRemoveClick, enabled = !isEditing) {
+                IconButton(onClick = onRemoveClick, enabled = areButtonsEnabled) { // Usa estado de habilitação calculado
                     Icon(Icons.Default.Delete, contentDescription = "Remover Medicamento", tint = MaterialTheme.colorScheme.error)
                 }
             }

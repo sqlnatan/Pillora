@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.model.Consultation // Import Consultation
-import com.pillora.pillora.model.Recipe // <<< ADDED: Import Recipe
+// import com.pillora.pillora.model.Recipe // <<< ADDED: Import Recipe
 import com.pillora.pillora.model.Vaccine // Importar Vaccine
 import com.pillora.pillora.navigation.RECIPE_FORM_ROUTE // Importar rota de formulário de receita
 import com.pillora.pillora.navigation.RECIPE_LIST_ROUTE // Importar rota de lista de receita
@@ -198,7 +198,7 @@ fun HomeScreen(
                             Text(
                                 text = "Receita para ${recipe.patientName} vence em ${recipe.validityDate} $daysText",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = onWarningContainer // Use onWarning color
+                                color = MaterialTheme.colorScheme.onTertiaryContainer // Use theme color
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                         }
@@ -318,8 +318,7 @@ fun UpcomingConsultationItem(consultation: Consultation) {
     val dateText = consultationCal?.let { cal ->
         val datePart = sdfDate.format(cal.time)
         val timePart = sdfTime.format(cal.time)
-        val daysUntil = calculateDaysUntil(consultation.dateTime, sdfParse)
-        val dayLabel = when (daysUntil) {
+        val dayLabel = when (val daysUntil = calculateDaysUntil(consultation.dateTime, sdfParse)) {
             0L -> "(Hoje)"
             1L -> "(Amanhã)"
             null -> ""
@@ -347,8 +346,7 @@ fun UpcomingVaccineItem(vaccine: Vaccine) {
     } catch (e: Exception) { null }
 
     // <<< UPDATED: Use calculateDaysUntil for consistency >>>
-    val daysUntil = calculateDaysUntil(vaccine.reminderDate)
-    val dayLabel = when (daysUntil) {
+    val dayLabel = when (val daysUntil = calculateDaysUntil(vaccine.reminderDate)) {
         0L -> "(Hoje)"
         1L -> "(Amanhã)"
         null -> ""
@@ -358,7 +356,7 @@ fun UpcomingVaccineItem(vaccine: Vaccine) {
     Column {
         Text(vaccine.name, fontWeight = FontWeight.Bold)
         if (dateText != null) {
-            Text("Lembrete: $dateText ${vaccine.reminderTime ?: ""} $dayLabel")
+            Text("Lembrete: $dateText ${vaccine.reminderTime} $dayLabel")
         } else {
             Text("Lembrete: Data inválida")
         }

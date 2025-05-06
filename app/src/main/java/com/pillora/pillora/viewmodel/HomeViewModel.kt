@@ -22,12 +22,10 @@ import kotlinx.coroutines.flow.stateIn
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.*
-import java.util.concurrent.TimeUnit // Importar TimeUnit
 
 class HomeViewModel : ViewModel() {
 
     private val tag = "HomeViewModel_DEBUG" // Tag for logs
-    private val sdfLog = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()) // Formatter for logs
 
     // Date formatters for parsing
     private val sdfWithSlashes = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).apply { isLenient = false }
