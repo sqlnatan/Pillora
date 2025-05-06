@@ -24,7 +24,8 @@ data class Recipe(
     val prescribedMedications: List<PrescribedMedication> = emptyList(),
     val generalInstructions: String = "", // General instructions for the whole recipe
     val notes: String = "",
-    val imageUri: String? = null // Optional URI for prescription image
+    val imageUri: String? = null, // Optional URI for prescription image
+    val validityDate: String = "" // Format DD/MM/YYYY - NEW FIELD
 )
 
 /**

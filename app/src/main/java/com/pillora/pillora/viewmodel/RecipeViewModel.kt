@@ -1,6 +1,7 @@
 package com.pillora.pillora.viewmodel
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -18,17 +19,17 @@ import java.util.*
 
 // Represents the different states for the Recipe List screen
 sealed class RecipeListUiState {
-    object Loading : RecipeListUiState()
+    data object Loading : RecipeListUiState() // Use data object
     data class Success(val recipes: List<Recipe>) : RecipeListUiState()
     data class Error(val message: String) : RecipeListUiState()
 }
 
 // Represents the different states for the Recipe Form/Detail screen
 sealed class RecipeDetailUiState {
-    object Loading : RecipeDetailUiState()
+    data object Loading : RecipeDetailUiState() // Use data object
     data class Success(val recipe: Recipe) : RecipeDetailUiState()
     data class Error(val message: String) : RecipeDetailUiState()
-    object Idle : RecipeDetailUiState() // Initial state or after successful save/delete
+    data object Idle : RecipeDetailUiState() // Use data object // Initial state or after successful save/delete
 }
 
 class RecipeViewModel : ViewModel() {
@@ -40,7 +41,7 @@ class RecipeViewModel : ViewModel() {
     val recipeDetailState: StateFlow<RecipeDetailUiState> = _recipeDetailState.asStateFlow()
 
     // Form state for adding/editing recipes
-    var recipeUiState by mutableStateOf(RecipeFormData()) // Holds the current form data
+    var recipeUiState by mutableStateOf(RecipeFormData())
         private set
 
     // State for managing prescribed medications within the form
@@ -49,6 +50,10 @@ class RecipeViewModel : ViewModel() {
 
     // State for the currently edited/added prescribed medication
     var currentPrescribedMedicationState by mutableStateOf(PrescribedMedication())
+        private set
+
+    // State to track the index of the medication being edited (-1 means adding new)
+    var editingMedicationIndex by mutableIntStateOf(-1)
         private set
 
     init {
@@ -69,9 +74,8 @@ class RecipeViewModel : ViewModel() {
 
     fun loadRecipeDetails(recipeId: String) {
         if (recipeId.isBlank()) {
-            // New recipe mode
             resetFormState()
-            _recipeDetailState.value = RecipeDetailUiState.Idle // Ready for new input
+            _recipeDetailState.value = RecipeDetailUiState.Idle
             return
         }
 
@@ -94,30 +98,31 @@ class RecipeViewModel : ViewModel() {
 
     fun saveOrUpdateRecipe() {
         val recipeToSave = createRecipeFromFormState()
-        if (!validateRecipe(recipeToSave)) return // Validation handled within validateRecipe
+        if (!validateRecipe(recipeToSave)) return
 
         _recipeDetailState.value = RecipeDetailUiState.Loading
 
         if (recipeUiState.id == null) {
-            // Save new recipe
             RecipeRepository.saveRecipe(
                 recipe = recipeToSave,
                 onSuccess = {
-                    _recipeDetailState.value = RecipeDetailUiState.Idle // Reset state after save
+                    _recipeDetailState.value = RecipeDetailUiState.Idle
                     resetFormState()
+                    // Consider navigation back here or via LaunchedEffect in Screen
                 },
                 onError = { exception ->
                     _recipeDetailState.value = RecipeDetailUiState.Error("Erro ao salvar receita: ${exception.message}")
                 }
             )
         } else {
-            // Update existing recipe
+            val currentRecipeId = recipeUiState.id!!
             RecipeRepository.updateRecipe(
-                recipeId = recipeUiState.id,
-                recipe = recipeToSave.copy(userId = recipeUiState.userId), // Ensure userId is passed for update check
+                recipeId = currentRecipeId,
+                recipe = recipeToSave.copy(userId = recipeUiState.userId),
                 onSuccess = {
-                    _recipeDetailState.value = RecipeDetailUiState.Idle // Reset state after update
+                    _recipeDetailState.value = RecipeDetailUiState.Idle
                     resetFormState()
+                    // Consider navigation back here or via LaunchedEffect in Screen
                 },
                 onError = { exception ->
                     _recipeDetailState.value = RecipeDetailUiState.Error("Erro ao atualizar receita: ${exception.message}")
@@ -131,79 +136,84 @@ class RecipeViewModel : ViewModel() {
         RecipeRepository.deleteRecipe(
             recipeId = recipeId,
             onSuccess = {
-                _recipeDetailState.value = RecipeDetailUiState.Idle // Reset state after delete
+                _recipeDetailState.value = RecipeDetailUiState.Idle
                 resetFormState()
+                // Navigation back is usually handled in the Screen after calling delete
             },
             onError = { exception ->
-                // If deletion fails, maybe revert to showing the detail?
-                // For now, just show error. Consider state management for failed delete.
                 _recipeDetailState.value = RecipeDetailUiState.Error("Erro ao deletar receita: ${exception.message}")
             }
         )
     }
 
     // --- Form State Management ---
+    fun updatePatientName(name: String) { recipeUiState = recipeUiState.copy(patientName = name) }
+    fun updateDoctorName(name: String) { recipeUiState = recipeUiState.copy(doctorName = name) }
+    fun updateCrm(crm: String) { recipeUiState = recipeUiState.copy(crm = crm) }
+    fun updatePrescriptionDate(date: String) { recipeUiState = recipeUiState.copy(prescriptionDate = date) }
+    fun updateGeneralInstructions(instructions: String) { recipeUiState = recipeUiState.copy(generalInstructions = instructions) }
+    fun updateNotes(notes: String) { recipeUiState = recipeUiState.copy(notes = notes) }
 
-    fun updatePatientName(name: String) {
-        recipeUiState = recipeUiState.copy(patientName = name)
-    }
+    fun updateValidityDate(date: String) { recipeUiState = recipeUiState.copy(validityDate = date) } // Added validity date update
 
-    fun updateDoctorName(name: String) {
-        recipeUiState = recipeUiState.copy(doctorName = name)
-    }
-
-    fun updateCrm(crm: String) {
-        recipeUiState = recipeUiState.copy(crm = crm)
-    }
-
-    fun updatePrescriptionDate(date: String) {
-        // Basic validation or formatting can be added here if needed
-        recipeUiState = recipeUiState.copy(prescriptionDate = date)
-    }
-
-    fun updateGeneralInstructions(instructions: String) {
-        recipeUiState = recipeUiState.copy(generalInstructions = instructions)
-    }
-
-    fun updateNotes(notes: String) {
-        recipeUiState = recipeUiState.copy(notes = notes)
-    }
-
+    /* // Function commented out as image feature is not implemented
     fun updateImageUri(uri: String?) {
         recipeUiState = recipeUiState.copy(imageUri = uri)
     }
+    */
 
     // --- Prescribed Medication Form Management ---
+    fun updateCurrentMedName(name: String) { currentPrescribedMedicationState = currentPrescribedMedicationState.copy(name = name) }
+    fun updateCurrentMedDose(dose: String) { currentPrescribedMedicationState = currentPrescribedMedicationState.copy(dose = dose) }
+    fun updateCurrentMedInstructions(instructions: String) { currentPrescribedMedicationState = currentPrescribedMedicationState.copy(instructions = instructions) }
 
-    fun updateCurrentMedName(name: String) {
-        currentPrescribedMedicationState = currentPrescribedMedicationState.copy(name = name)
-    }
-
-    fun updateCurrentMedDose(dose: String) {
-        currentPrescribedMedicationState = currentPrescribedMedicationState.copy(dose = dose)
-    }
-
-    fun updateCurrentMedInstructions(instructions: String) {
-        currentPrescribedMedicationState = currentPrescribedMedicationState.copy(instructions = instructions)
-    }
-
-    fun addCurrentPrescribedMedication() {
-        if (currentPrescribedMedicationState.name.isNotBlank()) { // Basic validation
-            prescribedMedicationsState = prescribedMedicationsState + currentPrescribedMedicationState
-            currentPrescribedMedicationState = PrescribedMedication() // Reset for next entry
+    // Starts editing a medication at the given index
+    fun startEditingPrescribedMedication(index: Int) {
+        if (index in prescribedMedicationsState.indices) {
+            editingMedicationIndex = index
+            currentPrescribedMedicationState = prescribedMedicationsState[index]
         }
     }
 
-    fun removePrescribedMedication(medication: PrescribedMedication) {
-        prescribedMedicationsState = prescribedMedicationsState - medication
+    // Cancels the current editing operation
+    fun cancelEditingPrescribedMedication() {
+        editingMedicationIndex = -1
+        currentPrescribedMedicationState = PrescribedMedication() // Reset form
+    }
+
+    // Adds a new medication or updates the one being edited
+    fun saveOrUpdateCurrentPrescribedMedication() {
+        if (currentPrescribedMedicationState.name.isBlank()) return // Basic validation
+
+        val currentList = prescribedMedicationsState.toMutableList()
+        if (editingMedicationIndex != -1 && editingMedicationIndex in currentList.indices) {
+            // Update existing medication
+            currentList[editingMedicationIndex] = currentPrescribedMedicationState
+        } else {
+            // Add new medication
+            currentList.add(currentPrescribedMedicationState)
+        }
+        prescribedMedicationsState = currentList.toList() // Update the state list
+        cancelEditingPrescribedMedication() // Reset editing state and form
+    }
+
+    fun removePrescribedMedication(index: Int) {
+        if (index in prescribedMedicationsState.indices) {
+            val currentList = prescribedMedicationsState.toMutableList()
+            currentList.removeAt(index)
+            prescribedMedicationsState = currentList.toList()
+            // If the removed item was being edited, cancel editing
+            if (index == editingMedicationIndex) {
+                cancelEditingPrescribedMedication()
+            }
+        }
     }
 
     // --- Helper Functions ---
-
     private fun resetFormState() {
-        recipeUiState = RecipeFormData()
+        recipeUiState = RecipeFormData() // Includes validityDate reset to ""
         prescribedMedicationsState = emptyList()
-        currentPrescribedMedicationState = PrescribedMedication()
+        cancelEditingPrescribedMedication() // Also reset medication form/state
     }
 
     private fun updateFormState(recipe: Recipe) {
@@ -214,23 +224,25 @@ class RecipeViewModel : ViewModel() {
             doctorName = recipe.doctorName,
             crm = recipe.crm,
             prescriptionDate = recipe.prescriptionDate,
+            validityDate = recipe.validityDate, // Populate validity date
             generalInstructions = recipe.generalInstructions,
             notes = recipe.notes,
             imageUri = recipe.imageUri
         )
         prescribedMedicationsState = recipe.prescribedMedications
-        currentPrescribedMedicationState = PrescribedMedication() // Reset current med form
+        cancelEditingPrescribedMedication() // Reset medication form/state
     }
 
     private fun createRecipeFromFormState(): Recipe {
         return Recipe(
             id = recipeUiState.id,
-            userId = recipeUiState.userId, // Important for update checks
+            userId = recipeUiState.userId,
             patientName = recipeUiState.patientName.trim(),
             doctorName = recipeUiState.doctorName.trim(),
             crm = recipeUiState.crm.trim(),
             prescriptionDate = recipeUiState.prescriptionDate.trim(),
-            prescribedMedications = prescribedMedicationsState,
+            validityDate = recipeUiState.validityDate.trim(), // Add validity date
+            prescribedMedications = prescribedMedicationsState, // Use the updated list
             generalInstructions = recipeUiState.generalInstructions.trim(),
             notes = recipeUiState.notes.trim(),
             imageUri = recipeUiState.imageUri
@@ -253,7 +265,6 @@ class RecipeViewModel : ViewModel() {
             errorMessage += "Data da prescrição não pode estar vazia.\n"
             isValid = false
         } else {
-            // Simple date format validation (DD/MM/YYYY)
             try {
                 val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
                 sdf.isLenient = false
@@ -276,7 +287,6 @@ class RecipeViewModel : ViewModel() {
     }
 }
 
-// Data class to hold the form state separately
 data class RecipeFormData(
     val id: String? = null,
     val userId: String? = null,
@@ -284,9 +294,9 @@ data class RecipeFormData(
     val doctorName: String = "",
     val crm: String = "",
     val prescriptionDate: String = "",
+    val validityDate: String = "", // Added validity date
     val generalInstructions: String = "",
     val notes: String = "",
     val imageUri: String? = null
-    // prescribedMedications are handled by a separate state list
 )
 

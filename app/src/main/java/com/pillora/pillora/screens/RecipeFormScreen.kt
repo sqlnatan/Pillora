@@ -4,27 +4,30 @@ import android.app.DatePickerDialog
 import android.widget.DatePicker
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack // Use AutoMirrored icon
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Cancel // Import Cancel icon
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Edit // Import Edit icon
+import androidx.compose.material.icons.filled.Save // Import Save icon for medication edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight // Import FontWeight explicitly
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextAlign // Import TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.model.PrescribedMedication
+// import com.pillora.pillora.navigation.RECIPE_FORM_ROUTE // Not needed directly here
 import com.pillora.pillora.viewmodel.RecipeDetailUiState
 import com.pillora.pillora.viewmodel.RecipeViewModel
 import java.text.SimpleDateFormat
@@ -35,76 +38,111 @@ import java.util.*
 fun RecipeFormScreen(
     navController: NavController,
     recipeId: String?,
-    recipeViewModel: RecipeViewModel = viewModel()
+    // Use the ViewModel that includes medication editing logic
+    recipeViewModel: RecipeViewModel = viewModel() // Assuming RecipeViewModel_edit_meds.kt logic is merged
 ) {
     val context = LocalContext.current
     val detailState by recipeViewModel.recipeDetailState.collectAsState()
     val formState = recipeViewModel.recipeUiState
     val prescribedMedications = recipeViewModel.prescribedMedicationsState
     val currentMedication = recipeViewModel.currentPrescribedMedicationState
+    val editingMedIndex = recipeViewModel.editingMedicationIndex
 
-    val isEditing = recipeId != null && recipeId.isNotBlank()
-    val screenTitle = if (isEditing) "Editar Receita" else "Adicionar Receita"
+    val isEditingRecipe = !recipeId.isNullOrBlank()
+    val screenTitle = if (isEditingRecipe) "Editar Receita" else "Adicionar Receita"
 
     // Load recipe details when editing
     LaunchedEffect(recipeId) {
         recipeViewModel.loadRecipeDetails(recipeId ?: "")
     }
 
-    // Handle state changes after save/delete/error
+    // Handle state changes (e.g., navigate back after successful save/delete)
     LaunchedEffect(detailState) {
-        when (detailState) {
+        when (val state = detailState) {
             is RecipeDetailUiState.Idle -> {
-                // If idle after a successful save/delete, navigate back
-                if (recipeViewModel.recipeUiState.id == null && !isEditing) { // Check if it was a new save
-                    // navController.popBackStack() // Consider navigating back after save
-                } else if (recipeViewModel.recipeUiState.id != null && isEditing) { // Check if it was an update
-                    // navController.popBackStack() // Consider navigating back after update
-                }
-                // If idle after delete, popBackStack is usually handled by the caller
+                // Consider navigating back if coming from Loading state (success)
+                // This logic might need refinement based on exact flow
             }
             is RecipeDetailUiState.Error -> {
-                // Show snackbar or dialog with error message
-                // For now, error is displayed in the form
+                // Error message is displayed below
             }
             else -> { /* Loading or Success states handled by UI */ }
         }
     }
 
-    // Date Picker Dialog
+    // --- Date Picker Dialogs ---
     val calendar = Calendar.getInstance()
-    val datePickerDialog = DatePickerDialog(
+    val sdf = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+
+    // Prescription Date Picker
+    var initialPrescriptionYear = calendar.get(Calendar.YEAR)
+    var initialPrescriptionMonth = calendar.get(Calendar.MONTH)
+    var initialPrescriptionDay = calendar.get(Calendar.DAY_OF_MONTH)
+    if (formState.prescriptionDate.isNotBlank()) {
+        try {
+            sdf.parse(formState.prescriptionDate)?.let { date ->
+                val cal = Calendar.getInstance().apply { time = date }
+                initialPrescriptionYear = cal.get(Calendar.YEAR)
+                initialPrescriptionMonth = cal.get(Calendar.MONTH)
+                initialPrescriptionDay = cal.get(Calendar.DAY_OF_MONTH)
+            }
+        } catch (e: Exception) { /* Ignore parsing error */ }
+    }
+    val prescriptionDatePickerDialog = DatePickerDialog(
         context,
         { _: DatePicker, year: Int, month: Int, dayOfMonth: Int ->
-            calendar.set(year, month, dayOfMonth)
-            val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-            recipeViewModel.updatePrescriptionDate(sdf.format(calendar.time))
+            val selectedDate = Calendar.getInstance().apply { set(year, month, dayOfMonth) }
+            recipeViewModel.updatePrescriptionDate(sdf.format(selectedDate.time))
         },
-        calendar.get(Calendar.YEAR),
-        calendar.get(Calendar.MONTH),
-        calendar.get(Calendar.DAY_OF_MONTH)
+        initialPrescriptionYear, initialPrescriptionMonth, initialPrescriptionDay
     )
 
+    // Validity Date Picker
+    var initialValidityYear = calendar.get(Calendar.YEAR)
+    var initialValidityMonth = calendar.get(Calendar.MONTH)
+    var initialValidityDay = calendar.get(Calendar.DAY_OF_MONTH)
+    if (formState.validityDate.isNotBlank()) {
+        try {
+            sdf.parse(formState.validityDate)?.let { date ->
+                val cal = Calendar.getInstance().apply { time = date }
+                initialValidityYear = cal.get(Calendar.YEAR)
+                initialValidityMonth = cal.get(Calendar.MONTH)
+                initialValidityDay = cal.get(Calendar.DAY_OF_MONTH)
+            }
+        } catch (e: Exception) { /* Ignore parsing error */ }
+    }
+    val validityDatePickerDialog = DatePickerDialog(
+        context,
+        { _: DatePicker, year: Int, month: Int, dayOfMonth: Int ->
+            val selectedDate = Calendar.getInstance().apply { set(year, month, dayOfMonth) }
+            recipeViewModel.updateValidityDate(sdf.format(selectedDate.time))
+        },
+        initialValidityYear, initialValidityMonth, initialValidityDay
+    )
+    // Set min date for validity picker (optional: can be today or prescription date)
+    // validityDatePickerDialog.datePicker.minDate = System.currentTimeMillis() - 1000
+
+    // --- UI ---
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(screenTitle) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Voltar")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
                     }
                 },
                 actions = {
-                    if (isEditing) {
+                    if (isEditingRecipe) {
                         IconButton(onClick = {
-                            recipeViewModel.deleteRecipe(recipeId!!)
-                            navController.popBackStack() // Navigate back immediately after requesting delete
+                            // TODO: Add confirmation dialog before deleting recipe
+                            recipeId?.let { id ->
+                                recipeViewModel.deleteRecipe(id)
+                                navController.popBackStack()
+                            }
                         }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Deletar Receita")
+                            Icon(Icons.Default.Delete, contentDescription = "Deletar Receita", tint = MaterialTheme.colorScheme.error)
                         }
-                    }
-                    IconButton(onClick = { recipeViewModel.saveOrUpdateRecipe() }) {
-                        Icon(Icons.Default.Save, contentDescription = "Salvar Receita")
                     }
                 }
             )
@@ -115,153 +153,178 @@ fun RecipeFormScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            // Show loading indicator
-            if (detailState is RecipeDetailUiState.Loading) {
-                Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            }
+            Spacer(modifier = Modifier.height(0.dp))
 
-            // Show error message
             if (detailState is RecipeDetailUiState.Error) {
                 Text(
                     text = (detailState as RecipeDetailUiState.Error).message,
                     color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(bottom = 8.dp).fillMaxWidth(),
+                    textAlign = TextAlign.Center
                 )
             }
 
-            OutlinedTextField(
-                value = formState.patientName,
-                onValueChange = recipeViewModel::updatePatientName,
-                label = { Text("Nome do Paciente") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
-            )
+            // Recipe Fields
+            OutlinedTextField(value = formState.patientName, onValueChange = recipeViewModel::updatePatientName, label = { Text("Nome do Paciente") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words), isError = detailState is RecipeDetailUiState.Error && formState.patientName.isBlank())
+            OutlinedTextField(value = formState.doctorName, onValueChange = recipeViewModel::updateDoctorName, label = { Text("Nome do Médico") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words), isError = detailState is RecipeDetailUiState.Error && formState.doctorName.isBlank())
+            OutlinedTextField(value = formState.crm, onValueChange = recipeViewModel::updateCrm, label = { Text("CRM do Médico (Opcional)") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = formState.prescriptionDate, onValueChange = {}, label = { Text("Data da Prescrição (DD/MM/AAAA)") }, modifier = Modifier.fillMaxWidth(), readOnly = true, trailingIcon = { Icon(Icons.Default.CalendarToday, "Selecionar Data", modifier = Modifier.clickable { prescriptionDatePickerDialog.show() }) }, isError = detailState is RecipeDetailUiState.Error && formState.prescriptionDate.isBlank())
 
+            // Validity Date Field (NEW)
             OutlinedTextField(
-                value = formState.doctorName,
-                onValueChange = recipeViewModel::updateDoctorName,
-                label = { Text("Nome do Médico") },
+                value = formState.validityDate,
+                onValueChange = {}, // Not directly changeable
+                label = { Text("Data de Validade (DD/MM/AAAA)") },
                 modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
-            )
-
-            OutlinedTextField(
-                value = formState.crm,
-                onValueChange = recipeViewModel::updateCrm,
-                label = { Text("CRM do Médico (Opcional)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            OutlinedTextField(
-                value = formState.prescriptionDate,
-                onValueChange = recipeViewModel::updatePrescriptionDate, // Direct update, validation on save
-                label = { Text("Data da Prescrição (DD/MM/AAAA)") },
-                modifier = Modifier.fillMaxWidth(),
-                readOnly = true, // Make it read-only to force using the picker
+                readOnly = true,
                 trailingIcon = {
                     Icon(
                         Icons.Default.CalendarToday,
-                        contentDescription = "Selecionar Data",
-                        modifier = Modifier.clickable { datePickerDialog.show() }
+                        contentDescription = "Selecionar Data de Validade",
+                        modifier = Modifier.clickable { validityDatePickerDialog.show() } // Show the correct dialog
                     )
-                }
+                },
+                // Optional: Add error indication if needed
+                isError = detailState is RecipeDetailUiState.Error && formState.validityDate.isBlank() // Example validation
             )
 
-            // Section for Prescribed Medications
+            // Prescribed Medications Section
             Text("Medicamentos Prescritos", style = MaterialTheme.typography.titleMedium)
 
-            // List of added medications
-            prescribedMedications.forEach { med ->
-                PrescribedMedicationItem(medication = med) {
-                    recipeViewModel.removePrescribedMedication(med)
-                }
+            // List of added/existing medications
+            prescribedMedications.forEachIndexed { index, med ->
+                PrescribedMedicationItem(
+                    medication = med,
+                    isEditing = index == editingMedIndex, // Highlight if editing
+                    onEditClick = { recipeViewModel.startEditingPrescribedMedication(index) },
+                    onRemoveClick = { recipeViewModel.removePrescribedMedication(index) }
+                )
                 Spacer(modifier = Modifier.height(8.dp))
             }
-
-            // Form to add a new medication
-            Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = currentMedication.name,
-                        onValueChange = recipeViewModel::updateCurrentMedName,
-                        label = { Text("Nome do Medicamento") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = currentMedication.dose,
-                        onValueChange = recipeViewModel::updateCurrentMedDose,
-                        label = { Text("Dose (ex: 500mg)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = currentMedication.instructions,
-                        onValueChange = recipeViewModel::updateCurrentMedInstructions,
-                        label = { Text("Instruções Específicas") },
-                        modifier = Modifier.fillMaxWidth(),
-                        maxLines = 3
-                    )
-                    Button(
-                        onClick = { recipeViewModel.addCurrentPrescribedMedication() },
-                        modifier = Modifier.align(Alignment.End),
-                        enabled = currentMedication.name.isNotBlank() // Enable only if name is entered
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                        Text("Adicionar Medicamento")
-                    }
-                }
+            if (detailState is RecipeDetailUiState.Error && prescribedMedications.isEmpty()) {
+                Text("Adicione pelo menos um medicamento.", color = MaterialTheme.colorScheme.error)
             }
 
-            OutlinedTextField(
-                value = formState.generalInstructions,
-                onValueChange = recipeViewModel::updateGeneralInstructions,
-                label = { Text("Instruções Gerais (Opcional)") },
-                modifier = Modifier.fillMaxWidth(),
-                maxLines = 5
+            // Form to add/edit a medication
+            MedicationInputCard(
+                medication = currentMedication,
+                isEditing = editingMedIndex != -1,
+                onNameChange = recipeViewModel::updateCurrentMedName,
+                onDoseChange = recipeViewModel::updateCurrentMedDose,
+                onInstructionsChange = recipeViewModel::updateCurrentMedInstructions,
+                onSaveClick = { recipeViewModel.saveOrUpdateCurrentPrescribedMedication() },
+                onCancelClick = { recipeViewModel.cancelEditingPrescribedMedication() }
             )
 
-            OutlinedTextField(
-                value = formState.notes,
-                onValueChange = recipeViewModel::updateNotes,
-                label = { Text("Notas Adicionais (Opcional)") },
-                modifier = Modifier.fillMaxWidth(),
-                maxLines = 5
-            )
+            // Other Recipe Fields
+            OutlinedTextField(value = formState.generalInstructions, onValueChange = recipeViewModel::updateGeneralInstructions, label = { Text("Instruções Gerais (Opcional)") }, modifier = Modifier.fillMaxWidth(), maxLines = 5)
+            OutlinedTextField(value = formState.notes, onValueChange = recipeViewModel::updateNotes, label = { Text("Notas Adicionais (Opcional)") }, modifier = Modifier.fillMaxWidth(), maxLines = 5)
 
-            // TODO: Add Image Picker functionality
-            // Button(onClick = { /* TODO: Launch image picker */ }) {
-            //     Text("Adicionar Imagem da Receita")
-            // }
-            // if (formState.imageUri != null) {
-            //     // TODO: Display selected image preview
-            //     Text("Imagem selecionada: ${formState.imageUri}")
-            // }
+            // Save Recipe Button
+            Button(
+                onClick = { recipeViewModel.saveOrUpdateRecipe() },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp),
+                enabled = detailState !is RecipeDetailUiState.Loading
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                    if (detailState is RecipeDetailUiState.Loading) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(if (isEditingRecipe) "Atualizar Receita" else "Salvar Receita")
+                }
+            }
         }
     }
 }
 
 @Composable
-fun PrescribedMedicationItem(medication: PrescribedMedication, onRemoveClick: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(medication.name, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-            Text("Dose: ${medication.dose}")
-            Text("Instruções: ${medication.instructions}")
-        }
-        IconButton(onClick = onRemoveClick) {
-            Icon(Icons.Default.Delete, contentDescription = "Remover Medicamento")
+fun MedicationInputCard(
+    medication: PrescribedMedication,
+    isEditing: Boolean,
+    onNameChange: (String) -> Unit,
+    onDoseChange: (String) -> Unit,
+    onInstructionsChange: (String) -> Unit,
+    onSaveClick: () -> Unit,
+    onCancelClick: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                if (isEditing) "Editando Medicamento" else "Adicionar Novo Medicamento",
+                style = MaterialTheme.typography.titleMedium
+            )
+            OutlinedTextField(value = medication.name, onValueChange = onNameChange, label = { Text("Nome do Medicamento") }, modifier = Modifier.fillMaxWidth(), isError = isEditing && medication.name.isBlank())
+            OutlinedTextField(value = medication.dose, onValueChange = onDoseChange, label = { Text("Dose (ex: 500mg)") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = medication.instructions, onValueChange = onInstructionsChange, label = { Text("Instruções Específicas") }, modifier = Modifier.fillMaxWidth(), maxLines = 3)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = if (isEditing) Arrangement.SpaceBetween else Arrangement.End
+            ) {
+                if (isEditing) {
+                    Button(
+                        onClick = onCancelClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    ) {
+                        Icon(Icons.Default.Cancel, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                        Text("Cancelar Edição")
+                    }
+                }
+                Button(
+                    onClick = onSaveClick,
+                    enabled = medication.name.isNotBlank()
+                ) {
+                    val icon = if (isEditing) Icons.Default.Save else Icons.Default.Add
+                    val text = if (isEditing) "Salvar Alterações" else "Adicionar Medicamento"
+                    Icon(icon, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text(text)
+                }
+            }
         }
     }
-    Divider()
 }
+
+
+@Composable
+fun PrescribedMedicationItem(
+    medication: PrescribedMedication,
+    isEditing: Boolean, // Added to indicate if this item is being edited
+    onEditClick: () -> Unit,
+    onRemoveClick: () -> Unit
+) {
+    val backgroundColor = if (isEditing) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        elevation = CardDefaults.cardElevation(if (isEditing) 4.dp else 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(medication.name, fontWeight = FontWeight.Bold)
+                Text("Dose: ${medication.dose}")
+                Text("Instruções: ${medication.instructions}")
+            }
+            // Show buttons only if not currently editing this specific item
+            if (!isEditing) {
+                IconButton(onClick = onEditClick, enabled = !isEditing) {
+                    Icon(Icons.Default.Edit, contentDescription = "Editar Medicamento")
+                }
+                IconButton(onClick = onRemoveClick, enabled = !isEditing) {
+                    Icon(Icons.Default.Delete, contentDescription = "Remover Medicamento", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    }
+}
+
 
