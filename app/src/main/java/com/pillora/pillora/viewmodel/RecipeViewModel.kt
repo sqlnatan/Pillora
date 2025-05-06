@@ -19,17 +19,18 @@ import java.util.*
 
 // Represents the different states for the Recipe List screen
 sealed class RecipeListUiState {
-    data object Loading : RecipeListUiState() // Use data object
+    data object Loading : RecipeListUiState()
     data class Success(val recipes: List<Recipe>) : RecipeListUiState()
     data class Error(val message: String) : RecipeListUiState()
 }
 
 // Represents the different states for the Recipe Form/Detail screen
 sealed class RecipeDetailUiState {
-    data object Loading : RecipeDetailUiState() // Use data object
-    data class Success(val recipe: Recipe) : RecipeDetailUiState()
+    data object Loading : RecipeDetailUiState()
+    data class Success(val recipe: Recipe) : RecipeDetailUiState() // State for when data is loaded successfully
     data class Error(val message: String) : RecipeDetailUiState()
-    data object Idle : RecipeDetailUiState() // Use data object // Initial state or after successful save/delete
+    data object OperationSuccess : RecipeDetailUiState() // <<< NEW: State for when save/update/delete is successful
+    data object Idle : RecipeDetailUiState() // Initial state or after an operation
 }
 
 class RecipeViewModel : ViewModel() {
@@ -37,6 +38,7 @@ class RecipeViewModel : ViewModel() {
     private val _recipeListState = MutableStateFlow<RecipeListUiState>(RecipeListUiState.Loading)
     val recipeListState: StateFlow<RecipeListUiState> = _recipeListState.asStateFlow()
 
+    // Default to Idle state
     private val _recipeDetailState = MutableStateFlow<RecipeDetailUiState>(RecipeDetailUiState.Idle)
     val recipeDetailState: StateFlow<RecipeDetailUiState> = _recipeDetailState.asStateFlow()
 
@@ -75,16 +77,17 @@ class RecipeViewModel : ViewModel() {
     fun loadRecipeDetails(recipeId: String) {
         if (recipeId.isBlank()) {
             resetFormState()
-            _recipeDetailState.value = RecipeDetailUiState.Idle
+            _recipeDetailState.value = RecipeDetailUiState.Idle // Ensure Idle state for new recipe
             return
         }
 
-        _recipeDetailState.value = RecipeDetailUiState.Loading
+        _recipeDetailState.value = RecipeDetailUiState.Loading // Set Loading state before fetching
         RecipeRepository.getRecipeById(
             recipeId = recipeId,
             onSuccess = { recipe ->
                 if (recipe != null) {
                     updateFormState(recipe)
+                    // Set Success state ONLY when data is loaded
                     _recipeDetailState.value = RecipeDetailUiState.Success(recipe)
                 } else {
                     _recipeDetailState.value = RecipeDetailUiState.Error("Receita não encontrada.")
@@ -94,6 +97,11 @@ class RecipeViewModel : ViewModel() {
                 _recipeDetailState.value = RecipeDetailUiState.Error("Erro ao carregar detalhes da receita: ${exception.message}")
             }
         )
+    }
+
+    // Function to reset the detail state to Idle
+    fun resetDetailState() {
+        _recipeDetailState.value = RecipeDetailUiState.Idle
     }
 
     fun saveOrUpdateRecipe() {
@@ -106,9 +114,9 @@ class RecipeViewModel : ViewModel() {
             RecipeRepository.saveRecipe(
                 recipe = recipeToSave,
                 onSuccess = {
-                    _recipeDetailState.value = RecipeDetailUiState.Idle
+                    // <<< CHANGE: Set OperationSuccess state on successful save
+                    _recipeDetailState.value = RecipeDetailUiState.OperationSuccess
                     resetFormState()
-                    // Consider navigation back here or via LaunchedEffect in Screen
                 },
                 onError = { exception ->
                     _recipeDetailState.value = RecipeDetailUiState.Error("Erro ao salvar receita: ${exception.message}")
@@ -116,13 +124,14 @@ class RecipeViewModel : ViewModel() {
             )
         } else {
             val currentRecipeId = recipeUiState.id!!
+            val updatedRecipe = recipeToSave.copy(userId = recipeUiState.userId) // Ensure userId is preserved
             RecipeRepository.updateRecipe(
                 recipeId = currentRecipeId,
-                recipe = recipeToSave.copy(userId = recipeUiState.userId),
+                recipe = updatedRecipe,
                 onSuccess = {
-                    _recipeDetailState.value = RecipeDetailUiState.Idle
+                    // <<< CHANGE: Set OperationSuccess state on successful update
+                    _recipeDetailState.value = RecipeDetailUiState.OperationSuccess
                     resetFormState()
-                    // Consider navigation back here or via LaunchedEffect in Screen
                 },
                 onError = { exception ->
                     _recipeDetailState.value = RecipeDetailUiState.Error("Erro ao atualizar receita: ${exception.message}")
@@ -136,9 +145,9 @@ class RecipeViewModel : ViewModel() {
         RecipeRepository.deleteRecipe(
             recipeId = recipeId,
             onSuccess = {
-                _recipeDetailState.value = RecipeDetailUiState.Idle
+                // <<< CHANGE: Set OperationSuccess state after successful delete
+                _recipeDetailState.value = RecipeDetailUiState.OperationSuccess
                 resetFormState()
-                // Navigation back is usually handled in the Screen after calling delete
             },
             onError = { exception ->
                 _recipeDetailState.value = RecipeDetailUiState.Error("Erro ao deletar receita: ${exception.message}")
@@ -154,9 +163,9 @@ class RecipeViewModel : ViewModel() {
     fun updateGeneralInstructions(instructions: String) { recipeUiState = recipeUiState.copy(generalInstructions = instructions) }
     fun updateNotes(notes: String) { recipeUiState = recipeUiState.copy(notes = notes) }
 
-    fun updateValidityDate(date: String) { recipeUiState = recipeUiState.copy(validityDate = date) } // Added validity date update
+    fun updateValidityDate(date: String) { recipeUiState = recipeUiState.copy(validityDate = date) }
 
-    /* // Function commented out as image feature is not implemented
+    /*
     fun updateImageUri(uri: String?) {
         recipeUiState = recipeUiState.copy(imageUri = uri)
     }
@@ -167,7 +176,6 @@ class RecipeViewModel : ViewModel() {
     fun updateCurrentMedDose(dose: String) { currentPrescribedMedicationState = currentPrescribedMedicationState.copy(dose = dose) }
     fun updateCurrentMedInstructions(instructions: String) { currentPrescribedMedicationState = currentPrescribedMedicationState.copy(instructions = instructions) }
 
-    // Starts editing a medication at the given index
     fun startEditingPrescribedMedication(index: Int) {
         if (index in prescribedMedicationsState.indices) {
             editingMedicationIndex = index
@@ -175,26 +183,22 @@ class RecipeViewModel : ViewModel() {
         }
     }
 
-    // Cancels the current editing operation
     fun cancelEditingPrescribedMedication() {
         editingMedicationIndex = -1
         currentPrescribedMedicationState = PrescribedMedication() // Reset form
     }
 
-    // Adds a new medication or updates the one being edited
     fun saveOrUpdateCurrentPrescribedMedication() {
         if (currentPrescribedMedicationState.name.isBlank()) return // Basic validation
 
         val currentList = prescribedMedicationsState.toMutableList()
         if (editingMedicationIndex != -1 && editingMedicationIndex in currentList.indices) {
-            // Update existing medication
             currentList[editingMedicationIndex] = currentPrescribedMedicationState
         } else {
-            // Add new medication
             currentList.add(currentPrescribedMedicationState)
         }
-        prescribedMedicationsState = currentList.toList() // Update the state list
-        cancelEditingPrescribedMedication() // Reset editing state and form
+        prescribedMedicationsState = currentList.toList()
+        cancelEditingPrescribedMedication()
     }
 
     fun removePrescribedMedication(index: Int) {
@@ -202,7 +206,6 @@ class RecipeViewModel : ViewModel() {
             val currentList = prescribedMedicationsState.toMutableList()
             currentList.removeAt(index)
             prescribedMedicationsState = currentList.toList()
-            // If the removed item was being edited, cancel editing
             if (index == editingMedicationIndex) {
                 cancelEditingPrescribedMedication()
             }
@@ -211,9 +214,9 @@ class RecipeViewModel : ViewModel() {
 
     // --- Helper Functions ---
     private fun resetFormState() {
-        recipeUiState = RecipeFormData() // Includes validityDate reset to ""
+        recipeUiState = RecipeFormData()
         prescribedMedicationsState = emptyList()
-        cancelEditingPrescribedMedication() // Also reset medication form/state
+        cancelEditingPrescribedMedication()
     }
 
     private fun updateFormState(recipe: Recipe) {
@@ -224,13 +227,13 @@ class RecipeViewModel : ViewModel() {
             doctorName = recipe.doctorName,
             crm = recipe.crm,
             prescriptionDate = recipe.prescriptionDate,
-            validityDate = recipe.validityDate, // Populate validity date
+            validityDate = recipe.validityDate,
             generalInstructions = recipe.generalInstructions,
             notes = recipe.notes,
             imageUri = recipe.imageUri
         )
         prescribedMedicationsState = recipe.prescribedMedications
-        cancelEditingPrescribedMedication() // Reset medication form/state
+        cancelEditingPrescribedMedication()
     }
 
     private fun createRecipeFromFormState(): Recipe {
@@ -241,8 +244,8 @@ class RecipeViewModel : ViewModel() {
             doctorName = recipeUiState.doctorName.trim(),
             crm = recipeUiState.crm.trim(),
             prescriptionDate = recipeUiState.prescriptionDate.trim(),
-            validityDate = recipeUiState.validityDate.trim(), // Add validity date
-            prescribedMedications = prescribedMedicationsState, // Use the updated list
+            validityDate = recipeUiState.validityDate.trim(),
+            prescribedMedications = prescribedMedicationsState,
             generalInstructions = recipeUiState.generalInstructions.trim(),
             notes = recipeUiState.notes.trim(),
             imageUri = recipeUiState.imageUri
@@ -274,6 +277,17 @@ class RecipeViewModel : ViewModel() {
                 isValid = false
             }
         }
+        if (recipe.validityDate.isNotBlank()) {
+            try {
+                val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                sdf.isLenient = false
+                sdf.parse(recipe.validityDate)
+            } catch (e: Exception) {
+                errorMessage += "Formato da data de validade inválido (use DD/MM/YYYY).\n"
+                isValid = false
+            }
+        }
+
         if (recipe.prescribedMedications.isEmpty()) {
             errorMessage += "Adicione pelo menos um medicamento prescrito.\n"
             isValid = false
@@ -294,7 +308,7 @@ data class RecipeFormData(
     val doctorName: String = "",
     val crm: String = "",
     val prescriptionDate: String = "",
-    val validityDate: String = "", // Added validity date
+    val validityDate: String = "",
     val generalInstructions: String = "",
     val notes: String = "",
     val imageUri: String? = null

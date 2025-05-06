@@ -39,8 +39,9 @@ fun RecipeListScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
+                    // Reset detail state before navigating to add new recipe
+                    recipeViewModel.resetDetailState() // <<< ADDED: Reset state for adding new
                     // Navigate to Add Recipe Screen (pass empty ID or specific marker)
-                    // Using the constant for clarity
                     navController.navigate("$RECIPE_FORM_ROUTE?id=")
                 }
             ) {
@@ -77,6 +78,8 @@ fun RecipeListScreen(
                                 RecipeListItem(
                                     recipe = recipe,
                                     onEditClick = {
+                                        // <<< ADDED: Reset detail state before navigating to edit
+                                        recipeViewModel.resetDetailState()
                                         // Navigate to Recipe Detail/Edit Screen
                                         navController.navigate("$RECIPE_FORM_ROUTE?id=${recipe.id}")
                                     },
@@ -169,7 +172,4 @@ fun RecipeListItem(
         }
     }
 }
-
-
-
 

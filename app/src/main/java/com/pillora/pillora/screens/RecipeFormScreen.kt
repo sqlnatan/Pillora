@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.model.PrescribedMedication
-// import com.pillora.pillora.navigation.RECIPE_FORM_ROUTE // Not needed directly here
 import com.pillora.pillora.viewmodel.RecipeDetailUiState
 import com.pillora.pillora.viewmodel.RecipeViewModel
 import java.text.SimpleDateFormat
@@ -38,8 +37,7 @@ import java.util.*
 fun RecipeFormScreen(
     navController: NavController,
     recipeId: String?,
-    // Use the ViewModel that includes medication editing logic
-    recipeViewModel: RecipeViewModel = viewModel() // Assuming RecipeViewModel_edit_meds.kt logic is merged
+    recipeViewModel: RecipeViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val detailState by recipeViewModel.recipeDetailState.collectAsState()
@@ -51,35 +49,18 @@ fun RecipeFormScreen(
     val isEditingRecipe = !recipeId.isNullOrBlank()
     val screenTitle = if (isEditingRecipe) "Editar Receita" else "Adicionar Receita"
 
-    // Load recipe details when editing
+    // Load recipe details when editing, only if not already loaded or loading
     LaunchedEffect(recipeId) {
-        recipeViewModel.loadRecipeDetails(recipeId ?: "")
+        if (detailState is RecipeDetailUiState.Idle && !recipeId.isNullOrBlank()) {
+            recipeViewModel.loadRecipeDetails(recipeId)
+        }
     }
 
-    // Handle state changes (e.g., navigate back after successful save/delete)
-    var hasNavigatedBack by remember { mutableStateOf(false) } // <<< NEW: Prevent multiple navigations
+    // Handle navigation after successful operation (save/update/delete)
     LaunchedEffect(detailState) {
-        when (detailState) {
-            is RecipeDetailUiState.Success -> {
-                if (!hasNavigatedBack) {
-                    navController.popBackStack()
-                    hasNavigatedBack = true // Mark as navigated
-                    // Optionally reset state in ViewModel if needed
-                    // recipeViewModel.resetDetailState()
-                }
-            }
-            is RecipeDetailUiState.Error -> {
-                // Error message is displayed below
-                hasNavigatedBack = false // Reset flag on error
-            }
-            is RecipeDetailUiState.Loading -> {
-                hasNavigatedBack = false // Reset flag when loading starts
-            }
-            is RecipeDetailUiState.Idle -> {
-                // Reset flag when idle (e.g., after initial load or error)
-                // Do not navigate back from Idle unless it follows Loading (handled by Success state)
-                // hasNavigatedBack = false // Might reset too early, keep Success state handling
-            }
+        if (detailState is RecipeDetailUiState.OperationSuccess) {
+            navController.popBackStack()
+            recipeViewModel.resetDetailState() // Reset state AFTER navigation
         }
     }
 
@@ -132,8 +113,6 @@ fun RecipeFormScreen(
         },
         initialValidityYear, initialValidityMonth, initialValidityDay
     )
-    // Set min date for validity picker (optional: can be today or prescription date)
-    // validityDatePickerDialog.datePicker.minDate = System.currentTimeMillis() - 1000
 
     // --- UI ---
     Scaffold(
@@ -148,10 +127,8 @@ fun RecipeFormScreen(
                 actions = {
                     if (isEditingRecipe) {
                         IconButton(onClick = {
-                            // TODO: Add confirmation dialog before deleting recipe
                             recipeId?.let { id ->
                                 recipeViewModel.deleteRecipe(id)
-                                navController.popBackStack()
                             }
                         }) {
                             Icon(Icons.Default.Delete, contentDescription = "Deletar Receita", tint = MaterialTheme.colorScheme.error)
@@ -171,8 +148,9 @@ fun RecipeFormScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            Spacer(modifier = Modifier.height(0.dp))
+            Spacer(modifier = Modifier.height(0.dp)) // Keep spacer for padding consistency
 
+            // Display error message
             if (detailState is RecipeDetailUiState.Error) {
                 Text(
                     text = (detailState as RecipeDetailUiState.Error).message,
@@ -182,13 +160,11 @@ fun RecipeFormScreen(
                 )
             }
 
-            // Recipe Fields
+            // Recipe Fields are always displayed, but button might be disabled during loading
             OutlinedTextField(value = formState.patientName, onValueChange = recipeViewModel::updatePatientName, label = { Text("Nome do Paciente") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words), isError = detailState is RecipeDetailUiState.Error && formState.patientName.isBlank())
             OutlinedTextField(value = formState.doctorName, onValueChange = recipeViewModel::updateDoctorName, label = { Text("Nome do Médico") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words), isError = detailState is RecipeDetailUiState.Error && formState.doctorName.isBlank())
             OutlinedTextField(value = formState.crm, onValueChange = recipeViewModel::updateCrm, label = { Text("CRM do Médico (Opcional)") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value = formState.prescriptionDate, onValueChange = {}, label = { Text("Data da Prescrição (DD/MM/AAAA)") }, modifier = Modifier.fillMaxWidth(), readOnly = true, trailingIcon = { Icon(Icons.Default.CalendarToday, "Selecionar Data", modifier = Modifier.clickable { prescriptionDatePickerDialog.show() }) }, isError = detailState is RecipeDetailUiState.Error && formState.prescriptionDate.isBlank())
-
-            // Validity Date Field (NEW)
             OutlinedTextField(
                 value = formState.validityDate,
                 onValueChange = {}, // Not directly changeable
@@ -199,22 +175,20 @@ fun RecipeFormScreen(
                     Icon(
                         Icons.Default.CalendarToday,
                         contentDescription = "Selecionar Data de Validade",
-                        modifier = Modifier.clickable { validityDatePickerDialog.show() } // Show the correct dialog
+                        modifier = Modifier.clickable { validityDatePickerDialog.show() }
                     )
                 },
-                // Optional: Add error indication if needed
                 isError = detailState is RecipeDetailUiState.Error && formState.validityDate.isBlank() // Example validation
             )
 
             // Prescribed Medications Section
             Text("Medicamentos Prescritos", style = MaterialTheme.typography.titleMedium)
 
-            // List of added/existing medications
             prescribedMedications.forEachIndexed { index, med ->
                 PrescribedMedicationItem(
                     medication = med,
-                    isCurrentlyEditingThis = (index == editingMedIndex), // Pass if this specific item is being edited
-                    isAnyMedicationBeingEdited = (editingMedIndex != -1), // Pass if *any* item is being edited
+                    isCurrentlyEditingThis = (index == editingMedIndex),
+                    isAnyMedicationBeingEdited = (editingMedIndex != -1),
                     onEditClick = { recipeViewModel.startEditingPrescribedMedication(index) },
                     onRemoveClick = { recipeViewModel.removePrescribedMedication(index) }
                 )
@@ -243,13 +217,23 @@ fun RecipeFormScreen(
             Button(
                 onClick = { recipeViewModel.saveOrUpdateRecipe() },
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp),
+                // Disable button only when the detail state is Loading
                 enabled = detailState !is RecipeDetailUiState.Loading
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    // Show progress indicator inside button when loading
                     if (detailState is RecipeDetailUiState.Loading) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary // Use contrast color for visibility
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
                     }
+                    // Always show the text
                     Text(if (isEditingRecipe) "Atualizar Receita" else "Salvar Receita")
                 }
             }
@@ -305,45 +289,36 @@ fun MedicationInputCard(
     }
 }
 
-
 @Composable
 fun PrescribedMedicationItem(
     medication: PrescribedMedication,
-    isCurrentlyEditingThis: Boolean, // Renomeado para clareza
-    isAnyMedicationBeingEdited: Boolean, // NOVO: Indica se *qualquer* med está sendo editado
+    isCurrentlyEditingThis: Boolean,
+    isAnyMedicationBeingEdited: Boolean,
     onEditClick: () -> Unit,
     onRemoveClick: () -> Unit
 ) {
-    val backgroundColor = if (isCurrentlyEditingThis) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-    // Botões habilitados apenas se NENHUM medicamento estiver sendo editado globalmente
-    val areButtonsEnabled = !isAnyMedicationBeingEdited
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(if (isCurrentlyEditingThis) 4.dp else 1.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(medication.name, fontWeight = FontWeight.Bold)
-                Text("Dose: ${medication.dose}")
-                Text("Instruções: ${medication.instructions}")
-            }
-            // Mostra os botões apenas se NÃO estiver editando ESTE item
-            if (!isCurrentlyEditingThis) {
-                IconButton(onClick = onEditClick, enabled = areButtonsEnabled) { // Usa estado de habilitação calculado
+        Column(modifier = Modifier.weight(1f)) {
+            Text(medication.name, fontWeight = FontWeight.Bold)
+            if (medication.dose.isNotBlank()) Text("Dose: ${medication.dose}")
+            if (medication.instructions.isNotBlank()) Text("Instruções: ${medication.instructions}")
+        }
+        Row {
+            if (!isCurrentlyEditingThis && !isAnyMedicationBeingEdited) {
+                IconButton(onClick = onEditClick) {
                     Icon(Icons.Default.Edit, contentDescription = "Editar Medicamento")
                 }
-                IconButton(onClick = onRemoveClick, enabled = areButtonsEnabled) { // Usa estado de habilitação calculado
+            }
+            if (!isAnyMedicationBeingEdited) {
+                IconButton(onClick = onRemoveClick) {
                     Icon(Icons.Default.Delete, contentDescription = "Remover Medicamento", tint = MaterialTheme.colorScheme.error)
                 }
             }
         }
     }
 }
-
-
 
