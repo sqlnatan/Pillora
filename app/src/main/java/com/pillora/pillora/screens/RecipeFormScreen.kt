@@ -57,16 +57,29 @@ fun RecipeFormScreen(
     }
 
     // Handle state changes (e.g., navigate back after successful save/delete)
+    var hasNavigatedBack by remember { mutableStateOf(false) } // <<< NEW: Prevent multiple navigations
     LaunchedEffect(detailState) {
         when (detailState) {
-            is RecipeDetailUiState.Idle -> {
-                // Consider navigating back if coming from Loading state (success)
-                // This logic might need refinement based on exact flow
+            is RecipeDetailUiState.Success -> {
+                if (!hasNavigatedBack) {
+                    navController.popBackStack()
+                    hasNavigatedBack = true // Mark as navigated
+                    // Optionally reset state in ViewModel if needed
+                    // recipeViewModel.resetDetailState()
+                }
             }
             is RecipeDetailUiState.Error -> {
                 // Error message is displayed below
+                hasNavigatedBack = false // Reset flag on error
             }
-            else -> { /* Loading or Success states handled by UI */ }
+            is RecipeDetailUiState.Loading -> {
+                hasNavigatedBack = false // Reset flag when loading starts
+            }
+            is RecipeDetailUiState.Idle -> {
+                // Reset flag when idle (e.g., after initial load or error)
+                // Do not navigate back from Idle unless it follows Loading (handled by Success state)
+                // hasNavigatedBack = false // Might reset too early, keep Success state handling
+            }
         }
     }
 

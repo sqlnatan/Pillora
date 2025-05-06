@@ -51,6 +51,7 @@ fun HomeScreen(
     val upcomingConsultations by viewModel.upcomingConsultations.collectAsState()
     val upcomingVaccines by viewModel.upcomingVaccines.collectAsState()
     val expiringRecipes by viewModel.expiringRecipes.collectAsState() // <<< ADDED: Observe expiring recipes
+    val allRecipes by viewModel.allRecipes.collectAsState() // <<< NEW: Observe all recipes
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
@@ -169,7 +170,7 @@ fun HomeScreen(
                     }
                 }
 
-                // <<< ADDED: Card "Receitas Médicas" >>>
+                // <<< UPDATED: Card "Receitas Médicas" >>>
                 HomeCard(
                     title = "Receitas Médicas",
                     addRoute = "$RECIPE_FORM_ROUTE?id=",
@@ -177,7 +178,22 @@ fun HomeScreen(
                     listIcon = Icons.AutoMirrored.Filled.Notes, // Use specific icon
                     navController = navController // Pass NavController
                 ) {
-                    Text("Gerencie suas receitas médicas.", style = MaterialTheme.typography.bodyMedium)
+                    // <<< UPDATED: Display list of recipes >>>
+                    if (allRecipes.isNotEmpty()) {
+                        // Display a few recent recipes, for example
+                        allRecipes.take(3).forEach { recipe -> // Limit to 3 for brevity on home screen
+                            Text(
+                                text = "Receita p/ ${recipe.patientName} (Dr. ${recipe.doctorName}) - ${recipe.prescriptionDate}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+                        if (allRecipes.size > 3) {
+                            Text("... e mais ${allRecipes.size - 3}", style = MaterialTheme.typography.bodySmall)
+                        }
+                    } else {
+                        Text("Nenhuma receita cadastrada.", style = MaterialTheme.typography.bodyMedium)
+                    }
                 }
 
                 // <<< ADDED: Card "Alertas de Validade" >>>

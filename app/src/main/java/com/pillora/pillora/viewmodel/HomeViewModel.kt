@@ -22,11 +22,11 @@ import kotlinx.coroutines.flow.stateIn
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.*
+// import java.util.concurrent.TimeUnit // Importar TimeUnit
 
 class HomeViewModel : ViewModel() {
 
     private val tag = "HomeViewModel_DEBUG" // Tag for logs
-
     // Date formatters for parsing
     private val sdfWithSlashes = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).apply { isLenient = false }
     private val sdfWithoutSlashes = SimpleDateFormat("ddMMyyyy", Locale.getDefault()).apply { isLenient = false }
@@ -52,6 +52,9 @@ class HomeViewModel : ViewModel() {
 
     private val _expiringRecipes = MutableStateFlow<List<Recipe>>(emptyList()) // <<< ADDED: State for expiring recipes
     val expiringRecipes: StateFlow<List<Recipe>> = _expiringRecipes
+
+    private val _allRecipes = MutableStateFlow<List<Recipe>>(emptyList()) // <<< NEW: State for ALL recipes
+    val allRecipes: StateFlow<List<Recipe>> = _allRecipes
 
     // General States
     private val _isLoadingMedicines = MutableStateFlow(true)
@@ -131,6 +134,7 @@ class HomeViewModel : ViewModel() {
             .onEach { recipes ->
                 Log.d(tag, "Received ${recipes.size} recipes from flow. Processing...")
                 _isLoadingRecipes.value = false // Mark recipes as loaded
+                _allRecipes.value = recipes // <<< UPDATED: Populate all recipes list
                 processExpiringRecipes(recipes)
             }
             .catch { e ->
