@@ -1,6 +1,5 @@
 package com.pillora.pillora.navigation
 
-import android.app.Application // Import Application
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -9,59 +8,38 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.ViewModelProvider // Import ViewModelProvider
-import androidx.lifecycle.viewmodel.compose.viewModel // Import viewModel
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.pillora.pillora.screens.*
+import com.pillora.pillora.screens.AuthScreen
+import com.pillora.pillora.screens.HomeScreen
+import com.pillora.pillora.screens.MedicineFormScreen
+import com.pillora.pillora.screens.MedicineListScreen
+import com.pillora.pillora.screens.SettingsScreen
+import com.pillora.pillora.screens.TermsScreen
 import com.pillora.pillora.repository.AuthRepository
-import com.pillora.pillora.viewmodel.AppViewModel // *** IMPORT AppViewModel ***
-import com.pillora.pillora.viewmodel.RecipeViewModel // *** IMPORT RecipeViewModel ***
-import com.pillora.pillora.viewmodel.ProfileViewModel // *** IMPORT ProfileViewModel ***
-// Import other ViewModels as needed
+import com.pillora.pillora.screens.ConsultationFormScreen
+import com.pillora.pillora.screens.ConsultationListScreen
+import com.pillora.pillora.screens.RecipeFormScreen // Import RecipeFormScreen
+import com.pillora.pillora.screens.RecipeListScreen // Import RecipeListScreen
+import com.pillora.pillora.screens.VaccineFormScreen
+import com.pillora.pillora.screens.VaccineListScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-// Define routes for Recipe screens
+// Define routes for Recipe screens (can be added to Screen sealed class if preferred)
 const val RECIPE_LIST_ROUTE = "recipe_list"
 const val RECIPE_FORM_ROUTE = "recipe_form_screen"
 
-// Define routes for Profile screens
-const val PROFILE_LIST_ROUTE = "profile_list"
-const val PROFILE_FORM_ROUTE = "profile_form_screen"
-
-// *** ADDED: ViewModel Factory for passing AppViewModel ***
-class ViewModelFactory(private val appViewModel: AppViewModel) : ViewModelProvider.Factory {
-    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(RecipeViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return RecipeViewModel(appViewModel) as T
-        }
-        // Add other ViewModels that need AppViewModel here
-        // if (modelClass.isAssignableFrom(MedicationViewModel::class.java)) {
-        //     @Suppress("UNCHECKED_CAST")
-        //     return MedicationViewModel(appViewModel) as T
-        // }
-        // ... etc.
-        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
-    }
-}
-
-// *** MODIFIED: Accept AppViewModel ***
 @Composable
-fun AppNavigation(appViewModel: AppViewModel) {
+fun AppNavigation() {
     val navController = rememberNavController()
     val context = LocalContext.current
     val prefs = remember {
         context.getSharedPreferences("pillora_prefs", Context.MODE_PRIVATE)
     }
-
-    // *** ADDED: Create ViewModelFactory instance ***
-    val viewModelFactory = remember { ViewModelFactory(appViewModel) }
 
     // Estado para armazenar a rota inicial, começando com um valor temporário
     var startRoute by remember { mutableStateOf<String?>(null) }
@@ -83,6 +61,8 @@ fun AppNavigation(appViewModel: AppViewModel) {
     // Só exibe o NavHost quando a rota inicial for determinada
     if (startRoute != null) {
         NavHost(navController = navController, startDestination = startRoute!!) {
+            // Remover a rota "splash" - A SplashActivity nativa cuida da transição inicial
+
             // Terms screen
             composable(Screen.Terms.route) {
                 TermsScreen(navController = navController)
@@ -95,16 +75,12 @@ fun AppNavigation(appViewModel: AppViewModel) {
 
             // Home screen
             composable(Screen.Home.route) {
-                // *** Pass AppViewModel and ProfileViewModel to HomeScreen ***
-                val profileViewModel: ProfileViewModel = viewModel() // Standard factory ok
-                HomeScreen(navController = navController, appViewModel = appViewModel, profileViewModel = profileViewModel)
+                HomeScreen(navController = navController)
             }
 
             // Medicine list screen
             composable(Screen.MedicineList.route) {
-                // TODO: Adapt MedicationViewModel to accept AppViewModel via factory
-                // val medicationViewModel: MedicationViewModel = viewModel(factory = viewModelFactory)
-                MedicineListScreen(navController = navController /*, medicationViewModel = medicationViewModel */)
+                MedicineListScreen(navController = navController)
             }
 
             // Medicine form screen
@@ -119,27 +95,22 @@ fun AppNavigation(appViewModel: AppViewModel) {
                 )
             ) { backStackEntry ->
                 val medicineId = backStackEntry.arguments?.getString("id")
-                // TODO: Adapt MedicationViewModel to accept AppViewModel via factory
-                // val medicationViewModel: MedicationViewModel = viewModel(factory = viewModelFactory)
-                MedicineFormScreen(navController = navController, medicineId = medicineId /*, medicationViewModel = medicationViewModel */)
+                MedicineFormScreen(navController = navController, medicineId = medicineId)
             }
 
-            // Settings screen
+            // Settings screen (Nova rota adicionada)
             composable(Screen.Settings.route) {
-                // *** Pass AppViewModel and ProfileViewModel to SettingsScreen ***
-                val profileViewModel: ProfileViewModel = viewModel() // Standard factory is ok here
-                SettingsScreen(navController = navController, appViewModel = appViewModel, profileViewModel = profileViewModel)
+                SettingsScreen(navController = navController)
             }
 
             // Consultation list screen
             composable(Screen.ConsultationList.route) {
-                // TODO: Adapt ConsultationViewModel
                 ConsultationListScreen(navController = navController)
             }
 
-            // Consultation form screen
+            // Consultation form screen (handles both add and edit)
             composable(
-                route = Screen.ConsultationForm.route + "?id={id}",
+                route = Screen.ConsultationForm.route + "?id={id}", // Optional ID for editing
                 arguments = listOf(
                     navArgument("id") {
                         type = NavType.StringType
@@ -149,19 +120,17 @@ fun AppNavigation(appViewModel: AppViewModel) {
                 )
             ) { backStackEntry ->
                 val consultationId = backStackEntry.arguments?.getString("id")
-                // TODO: Adapt ConsultationViewModel
                 ConsultationFormScreen(navController = navController, consultationId = consultationId)
             }
 
-            // Vaccine list screen
+            // Vaccine list screen (Nova rota adicionada)
             composable(Screen.VaccineList.route) {
-                // TODO: Adapt VaccineViewModel
                 VaccineListScreen(navController = navController)
             }
 
-            // Vaccine form screen
+            // Vaccine form screen (Nova rota adicionada - handles both add and edit)
             composable(
-                route = Screen.VaccineForm.route + "?id={id}",
+                route = Screen.VaccineForm.route + "?id={id}", // Optional ID for editing
                 arguments = listOf(
                     navArgument("id") {
                         type = NavType.StringType
@@ -171,60 +140,34 @@ fun AppNavigation(appViewModel: AppViewModel) {
                 )
             ) { backStackEntry ->
                 val vaccineId = backStackEntry.arguments?.getString("id")
-                // TODO: Adapt VaccineViewModel
                 VaccineFormScreen(navController = navController, vaccineId = vaccineId)
             }
 
-            // Recipe list screen
+            // Recipe list screen (Nova rota adicionada)
             composable(RECIPE_LIST_ROUTE) {
-                // *** Use factory to create RecipeViewModel ***
-                val recipeViewModel: RecipeViewModel = viewModel(factory = viewModelFactory)
-                RecipeListScreen(navController = navController, recipeViewModel = recipeViewModel)
+                RecipeListScreen(navController = navController)
             }
 
-            // Recipe form screen
+            // Recipe form screen (Nova rota adicionada - handles both add and edit)
             composable(
-                route = "$RECIPE_FORM_ROUTE?id={id}",
+                route = "$RECIPE_FORM_ROUTE?id={id}", // Optional ID for editing
                 arguments = listOf(
                     navArgument("id") {
                         type = NavType.StringType
                         nullable = true
-                        defaultValue = null
+                        defaultValue = null // Default to null for adding new recipe
                     }
                 )
             ) { backStackEntry ->
                 val recipeId = backStackEntry.arguments?.getString("id")
+                // Handle the case where the ID might be a space or empty string from the list screen
                 val actualRecipeId = if (recipeId?.trim()?.isNotEmpty() == true) recipeId else null
-                // *** Use factory to create RecipeViewModel ***
-                val recipeViewModel: RecipeViewModel = viewModel(factory = viewModelFactory)
-                RecipeFormScreen(navController = navController, recipeId = actualRecipeId, recipeViewModel = recipeViewModel)
-            }
-
-            // *** ADDED: Profile List Screen Route ***
-            composable(PROFILE_LIST_ROUTE) {
-                val profileViewModel: ProfileViewModel = viewModel() // Standard factory ok
-                ProfileListScreen(navController = navController, profileViewModel = profileViewModel)
-            }
-
-            // *** ADDED: Profile Form Screen Route ***
-            composable(
-                route = "$PROFILE_FORM_ROUTE?id={id}",
-                arguments = listOf(
-                    navArgument("id") {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = null
-                    }
-                )
-            ) { backStackEntry ->
-                val profileId = backStackEntry.arguments?.getString("id")
-                val actualProfileId = if (profileId?.trim()?.isNotEmpty() == true) profileId else null
-                val profileViewModel: ProfileViewModel = viewModel() // Standard factory ok
-                ProfileFormScreen(navController = navController, profileId = actualProfileId, profileViewModel = profileViewModel)
+                RecipeFormScreen(navController = navController, recipeId = actualRecipeId)
             }
         }
     } else {
-        // Optional: Loading indicator
+        // Opcional: Mostrar um indicador de carregamento ou tela vazia enquanto determina a rota inicial
+        // No entanto, a SplashActivity nativa já deve estar cobrindo este tempo.
     }
 }
 

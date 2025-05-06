@@ -10,7 +10,6 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Notes // Ícone para Receitas
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -33,9 +32,7 @@ import com.pillora.pillora.navigation.RECIPE_LIST_ROUTE // Importar rota de list
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.AuthRepository
 import androidx.compose.material3.MaterialTheme // <<< ADDED: Import MaterialTheme
-import com.pillora.pillora.viewmodel.AppViewModel // *** ADDED ***
 import com.pillora.pillora.viewmodel.HomeViewModel
-import com.pillora.pillora.viewmodel.ProfileViewModel // *** ADDED ***
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -46,33 +43,17 @@ import java.util.concurrent.TimeUnit // <<< ADDED: Import TimeUnit
 @Composable
 fun HomeScreen(
     navController: NavController,
-    appViewModel: AppViewModel, // *** ADDED AppViewModel parameter ***
-    homeViewModel: HomeViewModel = viewModel(), // Renamed for clarity
-    profileViewModel: ProfileViewModel = viewModel() // *** ADDED ProfileViewModel ***
+    viewModel: HomeViewModel = viewModel() // Injetar ViewModel
 ) {
     // Observar os estados do ViewModel
-    val medicinesToday by homeViewModel.medicinesToday.collectAsState()
-    val stockAlerts by homeViewModel.stockAlerts.collectAsState()
-    val upcomingConsultations by homeViewModel.upcomingConsultations.collectAsState()
-    val upcomingVaccines by homeViewModel.upcomingVaccines.collectAsState()
-    val expiringRecipes by homeViewModel.expiringRecipes.collectAsState()
-    val allRecipes by homeViewModel.allRecipes.collectAsState()
-    val isLoading by homeViewModel.isLoading.collectAsState()
-    val error by homeViewModel.error.collectAsState()
-
-    // *** ADDED: Observe profile states ***
-    val profilesState by profileViewModel.profileListState.collectAsState()
-    val activeProfileId by appViewModel.activeProfileId.collectAsState()
-    val activeProfile = remember(profilesState, activeProfileId) {
-        if (profilesState is ProfileListUiState.Success) {
-            (profilesState as ProfileListUiState.Success).profiles.find { it.id == activeProfileId }
-        } else {
-            null
-        }
-    }
-
-    // *** ADDED: State for dropdown menu ***
-    var profileMenuExpanded by remember { mutableStateOf(false) }
+    val medicinesToday by viewModel.medicinesToday.collectAsState()
+    val stockAlerts by viewModel.stockAlerts.collectAsState()
+    val upcomingConsultations by viewModel.upcomingConsultations.collectAsState()
+    val upcomingVaccines by viewModel.upcomingVaccines.collectAsState()
+    val expiringRecipes by viewModel.expiringRecipes.collectAsState() // <<< ADDED: Observe expiring recipes
+    val allRecipes by viewModel.allRecipes.collectAsState() // <<< NEW: Observe all recipes
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -94,73 +75,11 @@ fun HomeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = {
-                    // *** ADDED: Display active profile name or default text ***
-                    Text(activeProfile?.name ?: "Pillora - Nenhum Perfil")
-                },
+                title = { Text("Pillora") },
                 actions = {
-                    // *** ADDED: Profile Selection Dropdown ***
-                    Box {
-                        IconButton(onClick = { profileMenuExpanded = true }) {
-                            // Use AccountCircle or Person icon, show initial if no image
-                            Icon(Icons.Default.AccountCircle, contentDescription = "Selecionar Perfil")
-                        }
-                        DropdownMenu(
-                            expanded = profileMenuExpanded,
-                            onDismissRequest = { profileMenuExpanded = false }
-                        ) {
-                            if (profilesState is ProfileListUiState.Success) {
-                                val profiles = (profilesState as ProfileListUiState.Success).profiles
-                                if (profiles.isNotEmpty()) {
-                                    profiles.forEach { profile ->
-                                        DropdownMenuItem(
-                                            text = { Text(profile.name) },
-                                            onClick = {
-                                                appViewModel.selectActiveProfile(profile.id)
-                                                profileMenuExpanded = false
-                                            },
-                                            leadingIcon = { // Optional: Show profile picture or initial
-                                                Icon(Icons.Default.Person, contentDescription = null)
-                                            }
-                                        )
-                                    }
-                                } else {
-                                    DropdownMenuItem(
-                                        text = { Text("Nenhum perfil encontrado") },
-                                        onClick = { profileMenuExpanded = false },
-                                        enabled = false
-                                    )
-                                }
-                            } else if (profilesState is ProfileListUiState.Loading) {
-                                DropdownMenuItem(
-                                    text = { Text("Carregando perfis...") },
-                                    onClick = { profileMenuExpanded = false },
-                                    enabled = false
-                                )
-                            } else {
-                                DropdownMenuItem(
-                                    text = { Text("Erro ao carregar perfis") },
-                                    onClick = { profileMenuExpanded = false },
-                                    enabled = false
-                                )
-                            }
-                            // Add option to manage profiles
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("Gerenciar Perfis") },
-                                onClick = {
-                                    navController.navigate(Screen.ProfileList.route)
-                                    profileMenuExpanded = false
-                                },
-                                leadingIcon = { Icon(Icons.Default.ManageAccounts, contentDescription = null) }
-                            )
-                        }
-                    }
-                    // Settings Icon
                     IconButton(onClick = { navController.navigate(Screen.Settings.route) }) {
                         Icon(Icons.Default.Settings, contentDescription = "Configurações")
                     }
-                    // Logout Icon
                     IconButton(onClick = {
                         AuthRepository.signOut()
                         navController.navigate("auth") {
