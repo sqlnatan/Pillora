@@ -1,6 +1,7 @@
 package com.pillora.pillora.screens
 
 import android.content.Context
+import androidx.compose.foundation.clickable // *** ADDED ***
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -8,6 +9,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight // *** ADDED ***
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +21,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pillora.pillora.navigation.Screen // *** ADDED ***
+import com.pillora.pillora.viewmodel.AppViewModel // *** ADDED ***
+import com.pillora.pillora.viewmodel.ProfileViewModel // *** ADDED ***
 import com.pillora.pillora.viewmodel.SettingsViewModel
 import com.pillora.pillora.viewmodel.ThemePreference
 
@@ -36,14 +41,18 @@ class SettingsViewModelFactory(private val context: Context) : ViewModelProvider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(navController: NavController) {
+fun SettingsScreen(
+    navController: NavController,
+    appViewModel: AppViewModel, // *** ADDED ***
+    profileViewModel: ProfileViewModel // *** ADDED ***
+) {
     val context = LocalContext.current
     // Usar a Factory para criar o ViewModel
-    val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModelFactory(context))
+    val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModelFactory(context))
 
-    val currentThemePref by viewModel.themePreference.collectAsState()
-    val doseRemindersEnabled by viewModel.doseRemindersEnabled.collectAsState()
-    val stockAlertsEnabled by viewModel.stockAlertsEnabled.collectAsState()
+    val currentThemePref by settingsViewModel.themePreference.collectAsState()
+    val doseRemindersEnabled by settingsViewModel.doseRemindersEnabled.collectAsState()
+    val stockAlertsEnabled by settingsViewModel.stockAlertsEnabled.collectAsState()
 
     Scaffold(
         topBar = {
@@ -92,6 +101,22 @@ fun SettingsScreen(navController: NavController) {
                         onCheckedChange = { viewModel.setStockAlertsEnabled(it) }
                     )
                     // TODO: Adicionar Switches para outros tipos de notificação (Consultas, Vacinas)
+                }
+            }
+
+            // *** ADDED: Profile Management Section ***
+            Text("Perfis", style = MaterialTheme.typography.titleMedium)
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { navController.navigate(Screen.ProfileList.route) }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Gerenciar Perfis", style = MaterialTheme.typography.bodyLarge)
+                    Icon(Icons.Default.ChevronRight, contentDescription = null)
                 }
             }
 

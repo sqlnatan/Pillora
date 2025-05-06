@@ -3,6 +3,7 @@ package com.pillora.pillora.repository
 import android.util.Log
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.pillora.pillora.model.Recipe
@@ -20,13 +21,13 @@ object RecipeRepository {
     private val currentUserId: String?
         get() = Firebase.auth.currentUser?.uid
 
-    // Obter a coleção de receitas filtrada pelo usuário atual
+    // Obter a coleção de receitas (sem filtro de usuário/perfil aqui)
     private val recipesCollection by lazy {
         db.collection(COLLECTION_RECIPES)
     }
 
     fun saveRecipe(
-        recipe: Recipe,
+        recipe: Recipe, // Recipe object now includes profileId
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit
     ) {
@@ -35,10 +36,14 @@ object RecipeRepository {
             onError(Exception("Usuário não autenticado"))
             return
         }
+        if (recipe.profileId.isBlank()) {
+            onError(Exception("ID do Perfil não pode ser vazio"))
+            return
+        }
         // Adicionar o ID do usuário à receita antes de salvar
-        val recipeWithUserId = recipe.copy(userId = userId)
+        val recipeWithIds = recipe.copy(userId = userId)
 
-        recipesCollection.add(recipeWithUserId)
+        recipesCollection.add(recipeWithIds)
             .addOnSuccessListener {
                 Log.d(TAG, "Receita salva com sucesso.")
                 onSuccess()
@@ -51,17 +56,23 @@ object RecipeRepository {
 
     fun updateRecipe(
         recipeId: String,
-        recipe: Recipe,
+        recipe: Recipe, // Recipe object now includes profileId
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit
     ) {
         val userId = currentUserId
-        // Verificar se o usuário está logado e se a receita pertence a ele
-        if (userId == null || recipe.userId != userId) {
-            onError(Exception("Erro de autorização ou dados inválidos para atualização"))
+        // Verificar se o usuário está logado
+        if (userId == null) {
+            onError(Exception("Usuário não autenticado"))
+            return
+        }
+        // Verificar se o profileId está presente
+        if (recipe.profileId.isBlank()) {
+            onError(Exception("ID do Perfil não pode ser vazio na atualização"))
             return
         }
         // Garantir que o ID do usuário seja mantido na atualização
+        // O ID do perfil também deve ser mantido/atualizado conforme o objeto `recipe` recebido
         val recipeWithUserId = recipe.copy(userId = userId)
 
         recipesCollection.document(recipeId)
@@ -86,8 +97,7 @@ object RecipeRepository {
             onError(Exception("Usuário não autenticado"))
             return
         }
-        // Opcional: Verificar propriedade antes de deletar (requer leitura prévia)
-        // Por simplicidade, deletamos diretamente. Regras de segurança do Firestore devem garantir a autorização.
+        // Regras de segurança do Firestore devem garantir que apenas o usuário proprietário possa deletar
         recipesCollection.document(recipeId)
             .delete()
             .addOnSuccessListener {
@@ -134,8 +144,8 @@ object RecipeRepository {
             }
     }
 
-    // Retorna um Flow para atualizações em tempo real
-    fun getAllRecipesFlow(): Flow<List<Recipe>> = callbackFlow {
+    // Retorna um Flow para atualizações em tempo real, FILTRADO POR USUÁRIO E PERFIL
+    fun getAllRecipesFlow(profileId: String): Flow<List<Recipe>> = callbackFlow {
         val userId = currentUserId
         if (userId == null) {
             Log.w(TAG, "Usuário não autenticado, retornando fluxo vazio")
@@ -143,14 +153,22 @@ object RecipeRepository {
             close(Exception("Usuário não autenticado"))
             return@callbackFlow
         }
+        if (profileId.isBlank()) {
+            Log.w(TAG, "ID do Perfil vazio, retornando fluxo vazio")
+            trySend(emptyList())
+            // Não fechar com erro, apenas retornar vazio se nenhum perfil estiver selecionado
+            awaitClose { }
+            return@callbackFlow
+        }
 
-        Log.d(TAG, "Configurando listener de snapshots para receitas do usuário: $userId")
+        Log.d(TAG, "Configurando listener de snapshots para receitas do usuário: $userId, perfil: $profileId")
         val listenerRegistration: ListenerRegistration = recipesCollection
             .whereEqualTo("userId", userId)
-            // .orderBy("prescriptionDate", Query.Direction.DESCENDING) // Opcional: Ordenar por data
+            .whereEqualTo("profileId", profileId) // *** ADICIONADO FILTRO POR PROFILE ID ***
+            .orderBy("prescriptionDate", Query.Direction.DESCENDING) // Opcional: Ordenar por data
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    Log.e(TAG, "Erro ao ouvir atualizações de receitas", error)
+                    Log.e(TAG, "Erro ao ouvir atualizações de receitas para perfil $profileId", error)
                     close(error)
                     return@addSnapshotListener
                 }
@@ -164,16 +182,16 @@ object RecipeRepository {
                             null
                         }
                     }
-                    Log.d(TAG, "Snapshot recebido. Encontradas ${recipes.size} receitas.")
+                    Log.d(TAG, "Snapshot recebido para perfil $profileId. Encontradas ${recipes.size} receitas.")
                     trySend(recipes)
                 } else {
-                    Log.d(TAG, "Snapshot de receitas nulo")
+                    Log.d(TAG, "Snapshot de receitas nulo para perfil $profileId")
                     trySend(emptyList())
                 }
             }
 
         awaitClose {
-            Log.d(TAG, "Fechando listener de snapshots de receitas para usuário: $userId")
+            Log.d(TAG, "Fechando listener de snapshots de receitas para usuário: $userId, perfil: $profileId")
             listenerRegistration.remove()
         }
     }

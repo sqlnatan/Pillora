@@ -1,5 +1,6 @@
 package com.pillora.pillora
 
+import android.app.Application // Import Application
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
@@ -14,6 +15,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.ViewModelProvider // Import ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel // Import viewModel
 import com.pillora.pillora.ui.theme.PilloraTheme
 import com.pillora.pillora.navigation.AppNavigation
 import com.pillora.pillora.viewmodel.ThemePreference // Importar o Enum
@@ -21,6 +24,7 @@ import com.google.firebase.analytics.ktx.analytics
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.FirebaseApp
+import com.pillora.pillora.viewmodel.AppViewModel // *** IMPORT AppViewModel ***
 
 class MainActivity : ComponentActivity() {
 
@@ -36,10 +40,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
+            // *** Instantiate AppViewModel ***
+            val appViewModel: AppViewModel = viewModel(
+                factory = ViewModelProvider.AndroidViewModelFactory.getInstance(LocalContext.current.applicationContext as Application)
+            )
+
             // Estado para guardar a preferência de tema atual
             var currentThemePreference by remember { mutableStateOf(getInitialThemePreference()) }
 
-            // Efeito para ouvir mudanças nas SharedPreferences
+            // Efeito para ouvir mudanças nas SharedPreferences (mantido para tema)
             val context = LocalContext.current
             DisposableEffect(Unit) {
                 val prefs = context.getSharedPreferences("pillora_prefs", Context.MODE_PRIVATE)
@@ -59,7 +68,8 @@ class MainActivity : ComponentActivity() {
             val useDarkTheme = shouldUseDarkTheme(currentThemePreference)
 
             PilloraTheme(darkTheme = useDarkTheme) {
-                AppNavigation()
+                // *** Pass AppViewModel to AppNavigation ***
+                AppNavigation(appViewModel = appViewModel)
             }
         }
     }

@@ -11,31 +11,42 @@ import com.pillora.pillora.repository.ConsultationRepository
 import com.pillora.pillora.repository.MedicineRepository
 import com.pillora.pillora.repository.RecipeRepository // Import RecipeRepository
 import com.pillora.pillora.repository.VaccineRepository // Importar VaccineRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi // Import for OptIn
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted // Importar SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest // *** ADDED ***
+import kotlinx.coroutines.flow.flowOf // *** ADDED ***
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch // *** ADDED ***
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.*
 // import java.util.concurrent.TimeUnit // Importar TimeUnit
 
-class HomeViewModel : ViewModel() {
+@OptIn(ExperimentalCoroutinesApi::class)
+class HomeViewModel(private val appViewModel: AppViewModel) : ViewModel() {
 
     private val tag = "HomeViewModel_DEBUG" // Tag for logs
     // Date formatters for parsing
     private val sdfWithSlashes = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).apply { isLenient = false }
     private val sdfWithoutSlashes = SimpleDateFormat("ddMMyyyy", Locale.getDefault()).apply { isLenient = false }
 
-    // Input Flows from Repositories
-    private val medicinesFlow = MedicineRepository.getAllMedicinesFlow()
-    private val consultationsFlow = ConsultationRepository.getAllConsultationsFlow()
-    private val vaccinesFlow = VaccineRepository.getAllVaccinesFlow()
-    private val recipesFlow = RecipeRepository.getAllRecipesFlow() // <<< ADDED: Recipe flow
+    // Repositories (Assuming they don't need context, instantiate directly or use DI)
+    private val medicineRepository = MedicineRepository() // Corrected: Removed ()
+    private val consultationRepository = ConsultationRepository() // Corrected: Removed ()
+    private val vaccineRepository = VaccineRepository() // Corrected: Removed ()
+    private val recipeRepository = RecipeRepository() // Corrected: Removed ()
+
+    // Input Flows from Repositories (Removed direct calls here, handled in observe functions)
+    // private val medicinesFlow = MedicineRepository.getAllMedicinesFlow()
+    // private val consultationsFlow = ConsultationRepository.getAllConsultationsFlow()
+    // private val vaccinesFlow = VaccineRepository.getAllVaccinesFlow()
+    // private val recipesFlow = RecipeRepository.getAllRecipesFlow() // <<< ADDED: Recipe flow
 
     // Processed States for UI
     private val _medicinesToday = MutableStateFlow<List<Medicine>>(emptyList())
@@ -76,21 +87,52 @@ class HomeViewModel : ViewModel() {
 
 
     init {
-        Log.d(tag, "Initializing HomeViewModel and starting data collection.")
-        observeMedicines()
-        observeConsultations()
-        observeVaccines()
-        observeRecipes() // <<< ADDED: Start observing recipes
+        Log.d(tag, "Initializing HomeViewModel and starting data collection based on active profile.")
+        observeActiveProfileAndLoadData()
     }
 
-    private fun observeMedicines() {
-        medicinesFlow
-            .onEach { medicines ->
+    private fun observeActiveProfileAndLoadData() {
+        viewModelScope.launch {
+            appViewModel.activeProfileId.collect { profileId ->
+                Log.d(tag, "Active profile changed to: $profileId. Reloading data.")
+                if (profileId.isNullOrBlank()) {
+                    // Clear all data if no profile is selected
+                    clearAllDataStates()
+                    _isLoadingMedicines.value = false
+                    _isLoadingConsultations.value = false
+                    _isLoadingVaccines.value = false
+                    _isLoadingRecipes.value = false
+                } else {
+                    // Load data for the active profile
+                    observeMedicines(profileId)
+                    observeConsultations(profileId)
+                    observeVaccines(profileId)
+                    observeRecipes(profileId)
+                }
+            }
+        }
+    }
+
+    private fun clearAllDataStates() {
+        _medicinesToday.value = emptyList()
+        _stockAlerts.value = emptyList()
+        _upcomingConsultations.value = emptyList()
+        _upcomingVaccines.value = emptyList()
+        _expiringRecipes.value = emptyList()
+        _allRecipes.value = emptyList()
+        _error.value = null // Clear errors too
+    }
+
+    private fun observeMedicines(profileId: String) {
+        _isLoadingMedicines.value = true
+        // Assuming MedicineRepository.getAllMedicinesFlow accepts profileId
+        medicineRepository.getAllMedicinesFlow(profileId)
+            .onEach { medicines: List<Medicine> -> // *** ADDED TYPE ***
                 Log.d(tag, "Received ${medicines.size} medicines from flow. Processing...")
                 _isLoadingMedicines.value = false // Mark medicines as loaded
                 processMedicines(medicines)
             }
-            .catch { e ->
+            .catch { e: Throwable -> // *** ADDED TYPE ***
                 Log.e(tag, "Error collecting medicines flow", e)
                 _error.value = appendError("Erro ao carregar medicamentos: ${e.message}") // Use appendError
                 _isLoadingMedicines.value = false
@@ -98,14 +140,16 @@ class HomeViewModel : ViewModel() {
             .launchIn(viewModelScope) // Collect the flow within the viewModelScope
     }
 
-    private fun observeConsultations() {
-        consultationsFlow
-            .onEach { consultations ->
+    private fun observeConsultations(profileId: String) {
+        _isLoadingConsultations.value = true
+        // Assuming ConsultationRepository.getAllConsultationsFlow accepts profileId
+        consultationRepository.getAllConsultationsFlow(profileId)
+            .onEach { consultations: List<Consultation> -> // *** ADDED TYPE ***
                 Log.d(tag, "Received ${consultations.size} consultations from flow. Processing...")
                 _isLoadingConsultations.value = false // Mark consultations as loaded
                 processConsultations(consultations)
             }
-            .catch { e ->
+            .catch { e: Throwable -> // *** ADDED TYPE ***
                 Log.e(tag, "Error collecting consultations flow", e)
                 _error.value = appendError("Erro ao carregar consultas: ${e.message}") // Use appendError
                 _isLoadingConsultations.value = false
@@ -113,14 +157,16 @@ class HomeViewModel : ViewModel() {
             .launchIn(viewModelScope) // Collect the flow within the viewModelScope
     }
 
-    private fun observeVaccines() {
-        vaccinesFlow
-            .onEach { vaccines ->
+    private fun observeVaccines(profileId: String) {
+        _isLoadingVaccines.value = true
+        // Assuming VaccineRepository.getAllVaccinesFlow accepts profileId
+        vaccineRepository.getAllVaccinesFlow(profileId)
+            .onEach { vaccines: List<Vaccine> -> // *** ADDED TYPE ***
                 Log.d(tag, "Received ${vaccines.size} vaccines from flow. Processing...")
                 _isLoadingVaccines.value = false // Marcar vacinas como carregadas
                 processUpcomingVaccines(vaccines)
             }
-            .catch { e ->
+            .catch { e: Throwable -> // *** ADDED TYPE ***
                 Log.e(tag, "Error collecting vaccines flow", e)
                 _error.value = appendError("Erro ao carregar vacinas: ${e.message}") // Use appendError
                 _isLoadingVaccines.value = false
@@ -129,15 +175,17 @@ class HomeViewModel : ViewModel() {
     }
 
     // <<< ADDED: Function to observe recipes >>>
-    private fun observeRecipes() {
-        recipesFlow
-            .onEach { recipes ->
+    private fun observeRecipes(profileId: String) {
+        _isLoadingRecipes.value = true
+        // Assuming RecipeRepository.getAllRecipesFlow accepts profileId
+        recipeRepository.getAllRecipesFlow(profileId)
+            .onEach { recipes: List<Recipe> -> // *** ADDED TYPE ***
                 Log.d(tag, "Received ${recipes.size} recipes from flow. Processing...")
                 _isLoadingRecipes.value = false // Mark recipes as loaded
                 _allRecipes.value = recipes // <<< UPDATED: Populate all recipes list
                 processExpiringRecipes(recipes)
             }
-            .catch { e ->
+            .catch { e: Throwable -> // *** ADDED TYPE ***
                 Log.e(tag, "Error collecting recipes flow", e)
                 _error.value = appendError("Erro ao carregar receitas: ${e.message}")
                 _isLoadingRecipes.value = false

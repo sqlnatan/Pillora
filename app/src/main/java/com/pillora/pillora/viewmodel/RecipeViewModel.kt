@@ -9,10 +9,14 @@ import androidx.lifecycle.viewModelScope
 import com.pillora.pillora.model.PrescribedMedication
 import com.pillora.pillora.model.Recipe
 import com.pillora.pillora.repository.RecipeRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flatMapLatest // Import flatMapLatest
+import kotlinx.coroutines.flow.flowOf // Import flowOf
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -29,11 +33,12 @@ sealed class RecipeDetailUiState {
     data object Loading : RecipeDetailUiState()
     data class Success(val recipe: Recipe) : RecipeDetailUiState() // State for when data is loaded successfully
     data class Error(val message: String) : RecipeDetailUiState()
-    data object OperationSuccess : RecipeDetailUiState() // <<< NEW: State for when save/update/delete is successful
+    data object OperationSuccess : RecipeDetailUiState() // State for when save/update/delete is successful
     data object Idle : RecipeDetailUiState() // Initial state or after an operation
 }
 
-class RecipeViewModel : ViewModel() {
+// *** MODIFIED: Added AppViewModel dependency ***
+class RecipeViewModel(private val appViewModel: AppViewModel) : ViewModel() {
 
     private val _recipeListState = MutableStateFlow<RecipeListUiState>(RecipeListUiState.Loading)
     val recipeListState: StateFlow<RecipeListUiState> = _recipeListState.asStateFlow()
@@ -59,23 +64,38 @@ class RecipeViewModel : ViewModel() {
         private set
 
     init {
-        loadRecipes()
+        // *** MODIFIED: Load recipes based on active profile ***
+        loadRecipesBasedOnActiveProfile()
     }
 
-    private fun loadRecipes() {
+    // *** MODIFIED: Renamed and updated to use activeProfileId ***
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun loadRecipesBasedOnActiveProfile() {
         viewModelScope.launch {
-            RecipeRepository.getAllRecipesFlow()
-                .catch { e ->
-                    _recipeListState.value = RecipeListUiState.Error("Erro ao carregar receitas: ${e.message}")
+            appViewModel.activeProfileId.flatMapLatest { profileId ->
+                if (profileId.isNullOrBlank()) {
+                    // No profile selected, return empty list flow
+                    _recipeListState.value = RecipeListUiState.Success(emptyList()) // Update state directly
+                    flowOf(emptyList()) // Return empty flow to satisfy flatMapLatest
+                } else {
+                    // Profile selected, fetch recipes for this profile
+                    _recipeListState.value = RecipeListUiState.Loading // Set loading before fetching
+                    RecipeRepository.getAllRecipesFlow(profileId)
                 }
-                .collect { recipes ->
+            }.catch { e ->
+                _recipeListState.value = RecipeListUiState.Error("Erro ao carregar receitas: ${e.message}")
+            }.collect { recipes ->
+                // Update state only if not already handled (e.g., empty list case)
+                if (_recipeListState.value !is RecipeListUiState.Error) {
                     _recipeListState.value = RecipeListUiState.Success(recipes)
                 }
+            }
         }
     }
 
-    fun loadRecipeDetails(recipeId: String) {
-        if (recipeId.isBlank()) {
+    // Load details - No change needed regarding profileId, as ID is unique
+    fun loadRecipeDetails(recipeId: String?) { // Changed parameter to nullable
+        if (recipeId.isNullOrBlank()) {
             resetFormState()
             _recipeDetailState.value = RecipeDetailUiState.Idle // Ensure Idle state for new recipe
             return
@@ -86,9 +106,16 @@ class RecipeViewModel : ViewModel() {
             recipeId = recipeId,
             onSuccess = { recipe ->
                 if (recipe != null) {
-                    updateFormState(recipe)
-                    // Set Success state ONLY when data is loaded
-                    _recipeDetailState.value = RecipeDetailUiState.Success(recipe)
+                    // Check if the loaded recipe belongs to the currently active profile (optional, but good practice)
+                    val currentProfileId = appViewModel.activeProfileId.value
+                    if (currentProfileId == null || recipe.profileId == currentProfileId) {
+                        updateFormState(recipe)
+                        _recipeDetailState.value = RecipeDetailUiState.Success(recipe)
+                    } else {
+                        _recipeDetailState.value = RecipeDetailUiState.Error("Esta receita pertence a outro perfil.")
+                        // Optionally, clear the form or navigate back
+                        resetFormState()
+                    }
                 } else {
                     _recipeDetailState.value = RecipeDetailUiState.Error("Receita não encontrada.")
                 }
@@ -105,16 +132,25 @@ class RecipeViewModel : ViewModel() {
     }
 
     fun saveOrUpdateRecipe() {
-        val recipeToSave = createRecipeFromFormState()
+        // *** MODIFIED: Get active profile ID before saving/updating ***
+        val currentProfileId = appViewModel.activeProfileId.value
+        if (currentProfileId.isNullOrBlank()) {
+            _recipeDetailState.value = RecipeDetailUiState.Error("Nenhum perfil ativo selecionado para salvar a receita.")
+            return
+        }
+
+        // *** MODIFIED: Set profileId in the recipe object ***
+        val recipeToSave = createRecipeFromFormState().copy(profileId = currentProfileId)
+
         if (!validateRecipe(recipeToSave)) return
 
         _recipeDetailState.value = RecipeDetailUiState.Loading
 
         if (recipeUiState.id == null) {
+            // Saving new recipe
             RecipeRepository.saveRecipe(
-                recipe = recipeToSave,
+                recipe = recipeToSave, // Already has profileId
                 onSuccess = {
-                    // <<< CHANGE: Set OperationSuccess state on successful save
                     _recipeDetailState.value = RecipeDetailUiState.OperationSuccess
                     resetFormState()
                 },
@@ -123,13 +159,14 @@ class RecipeViewModel : ViewModel() {
                 }
             )
         } else {
+            // Updating existing recipe
             val currentRecipeId = recipeUiState.id!!
-            val updatedRecipe = recipeToSave.copy(userId = recipeUiState.userId) // Ensure userId is preserved
+            // Ensure userId and profileId are preserved/correct in the object being sent
+            val updatedRecipe = recipeToSave.copy(userId = recipeUiState.userId ?: "")
             RecipeRepository.updateRecipe(
                 recipeId = currentRecipeId,
                 recipe = updatedRecipe,
                 onSuccess = {
-                    // <<< CHANGE: Set OperationSuccess state on successful update
                     _recipeDetailState.value = RecipeDetailUiState.OperationSuccess
                     resetFormState()
                 },
@@ -145,7 +182,6 @@ class RecipeViewModel : ViewModel() {
         RecipeRepository.deleteRecipe(
             recipeId = recipeId,
             onSuccess = {
-                // <<< CHANGE: Set OperationSuccess state after successful delete
                 _recipeDetailState.value = RecipeDetailUiState.OperationSuccess
                 resetFormState()
             },
@@ -162,14 +198,7 @@ class RecipeViewModel : ViewModel() {
     fun updatePrescriptionDate(date: String) { recipeUiState = recipeUiState.copy(prescriptionDate = date) }
     fun updateGeneralInstructions(instructions: String) { recipeUiState = recipeUiState.copy(generalInstructions = instructions) }
     fun updateNotes(notes: String) { recipeUiState = recipeUiState.copy(notes = notes) }
-
     fun updateValidityDate(date: String) { recipeUiState = recipeUiState.copy(validityDate = date) }
-
-    /*
-    fun updateImageUri(uri: String?) {
-        recipeUiState = recipeUiState.copy(imageUri = uri)
-    }
-    */
 
     // --- Prescribed Medication Form Management ---
     fun updateCurrentMedName(name: String) { currentPrescribedMedicationState = currentPrescribedMedicationState.copy(name = name) }
@@ -223,6 +252,7 @@ class RecipeViewModel : ViewModel() {
         recipeUiState = RecipeFormData(
             id = recipe.id,
             userId = recipe.userId,
+            profileId = recipe.profileId, // Store profileId in form state
             patientName = recipe.patientName,
             doctorName = recipe.doctorName,
             crm = recipe.crm,
@@ -237,9 +267,11 @@ class RecipeViewModel : ViewModel() {
     }
 
     private fun createRecipeFromFormState(): Recipe {
+        // profileId will be set/overwritten before saving
         return Recipe(
             id = recipeUiState.id,
-            userId = recipeUiState.userId,
+            userId = recipeUiState.userId ?: "", // Use existing userId if updating
+            profileId = recipeUiState.profileId ?: "", // Use existing profileId if updating
             patientName = recipeUiState.patientName.trim(),
             doctorName = recipeUiState.doctorName.trim(),
             crm = recipeUiState.crm.trim(),
@@ -287,9 +319,13 @@ class RecipeViewModel : ViewModel() {
                 isValid = false
             }
         }
-
         if (recipe.prescribedMedications.isEmpty()) {
             errorMessage += "Adicione pelo menos um medicamento prescrito.\n"
+            isValid = false
+        }
+        // *** ADDED: Validate profileId ***
+        if (recipe.profileId.isBlank()) {
+            errorMessage += "Erro interno: ID do Perfil ausente.\n"
             isValid = false
         }
 
@@ -301,9 +337,11 @@ class RecipeViewModel : ViewModel() {
     }
 }
 
+// *** MODIFIED: Added profileId ***
 data class RecipeFormData(
     val id: String? = null,
     val userId: String? = null,
+    val profileId: String? = null, // Keep track of original profileId when editing
     val patientName: String = "",
     val doctorName: String = "",
     val crm: String = "",
