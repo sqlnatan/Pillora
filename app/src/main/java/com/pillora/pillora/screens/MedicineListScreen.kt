@@ -284,13 +284,24 @@ fun MedicineItem(
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
+                    // ADICIONADO: Exibição do nome do destinatário
+                    if (medicine.recipientName.isNotEmpty()) {
+                        Text(
+                            text = "Para: ${medicine.recipientName}",
+                            style = MaterialTheme.typography.bodyMedium, // Ou o estilo que preferir
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, // Cor para destaque sutil
+                            modifier = Modifier.padding(top = 2.dp) // Pequeno espaçamento superior
+                        )
+                    }
+                    // FIM DA ADIÇÃO
 
                     // Exibir horários tratando nullabilidade
                     if (medicine.frequencyType == "vezes_dia" && !medicine.horarios.isNullOrEmpty()) {
                         Text(
                             text = "Horários: ${medicine.horarios.joinToString(", ")}",
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(top = if (medicine.recipientName.isNotEmpty()) 4.dp else 0.dp) // Adiciona padding se recipientName for exibido
                         )
                     } else if (medicine.frequencyType == "a_cada_x_horas") {
                         // Passar valores potencialmente nulos para calculateTimesForDisplay
@@ -299,7 +310,8 @@ fun MedicineItem(
                             Text(
                                 text = "Horários: $timesDisplay",
                                 style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = if (medicine.recipientName.isNotEmpty()) 4.dp else 0.dp) // Adiciona padding se recipientName for exibido
                             )
                         }
                     }
@@ -367,7 +379,6 @@ fun MedicineItem(
                 )
             }
 
-            // CORREÇÃO LINHA 367: Usar isNotEmpty() pois notes é String (não nulo)
             if (medicine.notes.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -380,9 +391,4 @@ fun MedicineItem(
         }
     }
 }
-
-// Comentários sobre remoção de funções mantidos
-// Remover as funções loadMedicines e deleteMedicine que usavam callbacks
-// A carga agora é feita com Flow no LaunchedEffect
-// A deleção é feita diretamente no callback do AlertDialog usando MedicineRepository.deleteMedicine
 
