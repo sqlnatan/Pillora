@@ -13,19 +13,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.pillora.pillora.screens.AuthScreen
-import com.pillora.pillora.screens.HomeScreen
-import com.pillora.pillora.screens.MedicineFormScreen
-import com.pillora.pillora.screens.MedicineListScreen
-import com.pillora.pillora.screens.SettingsScreen
-import com.pillora.pillora.screens.TermsScreen
+import com.pillora.pillora.screens.* // Importa todas as suas telas, incluindo as novas de dependentes
 import com.pillora.pillora.repository.AuthRepository
-import com.pillora.pillora.screens.ConsultationFormScreen
-import com.pillora.pillora.screens.ConsultationListScreen
-import com.pillora.pillora.screens.RecipeFormScreen // Import RecipeFormScreen
-import com.pillora.pillora.screens.RecipeListScreen // Import RecipeListScreen
-import com.pillora.pillora.screens.VaccineFormScreen
-import com.pillora.pillora.screens.VaccineListScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -164,6 +153,23 @@ fun AppNavigation() {
                 val actualRecipeId = if (recipeId?.trim()?.isNotEmpty() == true) recipeId else null
                 RecipeFormScreen(navController = navController, recipeId = actualRecipeId)
             }
+
+            // Novas Rotas para Dependentes
+            composable(Screen.DependentList.route) {
+                DependentListScreen(navController = navController)
+            }
+            composable(
+                route = Screen.DependentForm.route + "?dependentId={dependentId}",
+                arguments = listOf(navArgument("dependentId") {
+                    type = NavType.StringType
+                    nullable = true // Permite que dependentId seja nulo (para adicionar novo)
+                    defaultValue = null
+                })
+            ) { backStackEntry ->
+                val dependentId = backStackEntry.arguments?.getString("dependentId")
+                DependentFormScreen(navController = navController, dependentId = dependentId)
+            }
+
         }
     } else {
         // Opcional: Mostrar um indicador de carregamento ou tela vazia enquanto determina a rota inicial
