@@ -10,11 +10,7 @@ enum class Screen(val route: String) {
     ConsultationList("consultation_list"),
     ConsultationForm("consultation_form"), // Rota base para o formulário
     VaccineList("vaccine_list"), // Nova rota para lista de vacinas
-    VaccineForm("vaccine_form"), // Nova rota para formulário de vacinas
-
-    // Novas rotas para Dependentes
-    DependentList("dependent_list"),
-    DependentForm("dependent_form");
+    VaccineForm("vaccine_form"); // Nova rota para formulário de vacinas
 }
 
 /* // Comentado pois não está sendo usado
@@ -23,3 +19,4 @@ enum class FrequencyType {
     EVERY_X_HOURS
 }
 */
+

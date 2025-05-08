@@ -9,13 +9,10 @@ import com.google.firebase.firestore.DocumentId
 data class Vaccine(
     @DocumentId val id: String = "", // ID do Firestore
     val userId: String = "", // ID do usuário
-    val recipientName: String = "", // Nome de para quem é a vacina (usuário principal ou dependente)
-    val recipientId: String = "", // ID do usuário principal ou do dependente
     val name: String = "", // Nome da vacina/lembrete
     val reminderDate: String = "", // Data agendada (DD/MM/AAAA) - Obrigatório
     val reminderTime: String = "", // Horário agendado (HH:MM) - Obrigatório (simplificado, pode ser ajustado se necessário)
     val location: String = "", // Local - Opcional, mas String não nula como em Consultation
     val notes: String = "" // Observações - Opcional, mas String não nula como em Consultation
 )
-
 

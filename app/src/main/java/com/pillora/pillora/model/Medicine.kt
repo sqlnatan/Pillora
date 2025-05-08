@@ -2,9 +2,7 @@ package com.pillora.pillora.model
 
 data class Medicine(
     val id: String? = null,
-    val userId: String? = null, // ID do usuário que cadastrou
-    val recipientName: String = "", // Nome de para quem é o medicamento (usuário principal ou dependente)
-    val recipientId: String = "", // ID do usuário principal ou do dependente
+    val userId: String? = null, // Novo campo para armazenar o ID do usuário
     val name: String = "",
     val dose: String = "",
     val doseUnit: String? = null, // "Cápsula" ou "ml"
@@ -22,4 +20,3 @@ data class Medicine(
     val stockQuantity: Double = 0.0, // Quantidade atual em estoque
     val stockUnit: String = "Unidades" // Unidade de medida do estoque (Unidades, ml, etc.)
 )
-
