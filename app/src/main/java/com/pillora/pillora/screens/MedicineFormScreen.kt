@@ -68,14 +68,6 @@ import java.util.Locale
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import java.text.SimpleDateFormat
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import com.pillora.pillora.repository.DependentRepository // Se já não estiver lá
-import com.pillora.pillora.utils.RecipientDisplay // Certifique-se que esta data class existe em com.pillora.pillora.utils
-import kotlinx.coroutines.launch // Se já não estiver lá
-import androidx.compose.runtime.rememberCoroutineScope // Se já não estiver lá
-
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 
@@ -135,47 +127,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
     var isSaving by remember { mutableStateOf(false) }
     // Carregar dados do medicamento se estiver editando
     // Carregar dados do medicamento se estiver editando
-    // Adicionado para dependentes
-    val scope = rememberCoroutineScope()
-    val dependentRepository = remember { DependentRepository() }
-    var recipients by remember { mutableStateOf<List<RecipientDisplay>>(emptyList()) }
-    var selectedRecipient by remember { mutableStateOf<RecipientDisplay?>(null) }
-    var recipientExpandedDropdown by remember { mutableStateOf(false) }
-    var recipientError by remember { mutableStateOf("") }
-    var loadedMedicineRecipientId: String? by remember { mutableStateOf(null) }
-
-
-    // SEU LaunchedEffect(Unit) EXISTENTE (VERIFIQUE SE ESTÁ ASSIM):
-    LaunchedEffect(Unit) {
-        val currentUser = Firebase.auth.currentUser
-        if (currentUser != null) {
-            val userRecipient = RecipientDisplay(id = currentUser.uid, name = currentUser.displayName ?: "Eu", isUser = true)
-            // Inicia currentRecipients apenas com o usuário atual
-            var currentRecipientsHolder = listOf(userRecipient)
-
-            scope.launch {
-                val result = dependentRepository.getDependents()
-                result.onSuccess { dependentsList ->
-                    val dependentRecipients = dependentsList.map { dep -> RecipientDisplay(id = dep.id, name = dep.name, isUser = false) }
-                    // Atualiza a lista combinando o usuário atual com os dependentes
-                    currentRecipientsHolder = (listOf(userRecipient) + dependentRecipients).distinctBy { r -> r.id }
-                }.onFailure {
-                    Toast.makeText(context, "Erro ao carregar dependentes: ${it.message}", Toast.LENGTH_SHORT).show()
-                }
-                // Atribui a lista final a `recipients`
-                recipients = currentRecipientsHolder
-                // Se não estiver editando e a lista de recipients agora contém o userRecipient, seleciona-o
-                if (!isEditing && recipients.any { it.id == userRecipient.id }) {
-                    selectedRecipient = userRecipient
-                }
-            }
-        } else {
-            Toast.makeText(context, "Usuário não autenticado.", Toast.LENGTH_LONG).show()
-        }
-    }
-
-
-
     LaunchedEffect(medicineId) {
         if (medicineId != null) {
             isEditing = true
@@ -192,8 +143,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             isContinuousMedication = medicine.duration == -1
                             duration = if (medicine.duration == -1) "" else medicine.duration.toString()
                             notes = medicine.notes
-                            loadedMedicineRecipientId = medicine.recipientId
-
 
                             // Carregar dados de rastreamento de estoque
                             trackStock = medicine.trackStock
@@ -237,21 +186,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
         }
     }
 
-    // ADICIONE ESTE NOVO LAUNCHEDEFFECT:
-    LaunchedEffect(recipients, loadedMedicineRecipientId, isEditing, isLoading) {
-        // Condições: modo de edição, carregamento do medicamento concluído, lista de recipients populada, e ID do destinatário do medicamento carregado disponível.
-        if (isEditing && !isLoading && recipients.isNotEmpty() && loadedMedicineRecipientId != null) {
-            selectedRecipient = recipients.find { it.id == loadedMedicineRecipientId }
-            // Fallback: se não encontrar o recipientId específico (ex: dependente foi excluído) ou se o ID for do próprio usuário,
-            // tenta selecionar o usuário atual na lista como padrão.
-            if (selectedRecipient == null) {
-                selectedRecipient = recipients.find { it.isUser }
-            }
-        }
-    }
-
-
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -283,44 +217,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                 ) {
                     // Adicionamos um espaçamento no topo para melhorar a aparência
                     Spacer(modifier = Modifier.height(8.dp))
-
-                    Text("Para quem é este medicamento?", style = MaterialTheme.typography.titleMedium)
-                    ExposedDropdownMenuBox(
-                        expanded = recipientExpandedDropdown,
-                        onExpandedChange = { if (!isSaving) recipientExpandedDropdown = !recipientExpandedDropdown },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        OutlinedTextField(
-                            value = selectedRecipient?.name ?: "Selecione...",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Destinatário") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = recipientExpandedDropdown) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth(), // Importante para o ExposedDropdownMenuBox
-                            isError = recipientError.isNotEmpty(),
-                            supportingText = {
-                                if (recipientError.isNotEmpty()) {
-                                    Text(text = recipientError, color = MaterialTheme.colorScheme.error)
-                                }
-                            }
-                        )
-                        ExposedDropdownMenu(
-                            expanded = recipientExpandedDropdown,
-                            onDismissRequest = { recipientExpandedDropdown = false },
-                            modifier = Modifier.fillMaxWidth() // Para o menu ocupar a largura toda
-                        ) {
-                            recipients.forEach { recipient ->
-                                DropdownMenuItem(
-                                    text = { Text(recipient.name) },
-                                    onClick = {
-                                        selectedRecipient = recipient
-                                        recipientExpandedDropdown = false
-                                        recipientError = "" // Limpa o erro ao selecionar
-                                    }
-                                )
-                            }
-                        }
-                    }
 
                     OutlinedTextField(
                         value = name,
@@ -853,7 +749,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                         onClick = {
                             var isValid = true
 
-                            // Suas validações existentes (name, dose, etc.)
                             if (name.isBlank()) {
                                 nameError = "Nome do medicamento é obrigatório"
                                 isValid = false
@@ -892,6 +787,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                 }
                             }
 
+                            // Validação de data
                             if (startDate.length == 8) {
                                 val (isValidDate, message) = DateValidator.validateDate(startDate)
                                 if (!isValidDate) {
@@ -912,6 +808,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                 durationError = ""
                             }
 
+                            // Validação dos campos de rastreamento de estoque
                             if (trackStock && stockQuantity.isBlank()) {
                                 stockQuantityError = "Quantidade em estoque é obrigatória"
                                 isValid = false
@@ -919,21 +816,12 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                 stockQuantityError = ""
                             }
 
-                            // --- ADIÇÃO PARA DEPENDENTES: INÍCIO ---
-                            // 1. Validação do destinatário
-                            if (selectedRecipient == null) {
-                                recipientError = "Destinatário é obrigatório"
-                                isValid = false // Atualiza a flag principal de validação
-                            } else {
-                                recipientError = "" // Limpa o erro se estiver tudo OK
-                            }
-                            // --- ADIÇÃO PARA DEPENDENTES: FIM ---
-
                             if (isValid) {
                                 val currentUserId = Firebase.auth.currentUser?.uid ?: ""
+                                // Dentro da função que cria o objeto Medicine para salvar
                                 val medicine = Medicine(
                                     id = if (isEditing) medicineId else null,
-                                    userId = currentUserId,
+                                    userId = currentUserId, // Certifique-se de que este campo foi adicionado
                                     name = name,
                                     dose = dose,
                                     doseUnit = doseUnit,
@@ -942,6 +830,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                     duration = if (isContinuousMedication) -1 else duration.toIntOrNull() ?: 0,
                                     timesPerDay = if (frequencyType.value == "vezes_dia") timesPerDay.toIntOrNull() ?: 1 else 0,
                                     horarios = if (frequencyType.value == "vezes_dia") horarios.toList() else null,
+                                    // Aqui está a correção:
                                     intervalHours = if (frequencyType.value == "intervalo" || frequencyType.value == "a_cada_x_horas")
                                         intervalHours.toIntOrNull() ?: 0
                                     else 0,
@@ -949,31 +838,29 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                     notes = notes,
                                     trackStock = trackStock,
                                     stockQuantity = if (trackStock) (stockQuantity.toDoubleOrNull() ?: 0.0) else 0.0,
-                                    stockUnit = stockUnit,
-                                    // --- ADIÇÃO PARA DEPENDENTES: INÍCIO ---
-                                    // 2. Adicionar recipientId e recipientName ao objeto Medicine
-                                    recipientId = selectedRecipient?.id ?: currentUserId, // Usa o ID do usuário atual como fallback
-                                    recipientName = selectedRecipient?.name ?: (Firebase.auth.currentUser?.displayName ?: "Eu") // Nome do usuário atual como fallback
-                                    // --- ADIÇÃO PARA DEPENDENTES: FIM ---
+                                    stockUnit = stockUnit
                                 )
 
+
+                                // Verificar se a data é futura
                                 val (_, message) = DateValidator.validateDate(startDate)
                                 if (message != null && message.contains("futuro")) {
                                     medicineToSave = medicine
                                     showFutureDateDialog = true
                                 } else {
+                                    // Definir isSaving como true antes de salvar
                                     isSaving = true
                                     if (isEditing && medicineId != null) {
                                         MedicineRepository.updateMedicine(
                                             medicineId = medicineId,
                                             medicine = medicine,
                                             onSuccess = {
-                                                isSaving = false
+                                                isSaving = false // Finaliza o carregamento
                                                 Toast.makeText(context, "Medicamento atualizado com sucesso!", Toast.LENGTH_SHORT).show()
                                                 navController.popBackStack()
                                             },
                                             onError = { exception ->
-                                                isSaving = false
+                                                isSaving = false // Finaliza o carregamento mesmo em caso de erro
                                                 Toast.makeText(context, "Erro ao atualizar: ${exception.message}", Toast.LENGTH_LONG).show()
                                             }
                                         )
@@ -981,12 +868,12 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                         MedicineRepository.saveMedicine(
                                             medicine = medicine,
                                             onSuccess = {
-                                                isSaving = false
+                                                isSaving = false // Finaliza o carregamento
                                                 Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
                                                 navController.popBackStack()
                                             },
                                             onError = { exception ->
-                                                isSaving = false
+                                                isSaving = false // Finaliza o carregamento mesmo em caso de erro
                                                 Toast.makeText(context, "Erro ao salvar: ${exception.message}", Toast.LENGTH_LONG).show()
                                             }
                                         )
