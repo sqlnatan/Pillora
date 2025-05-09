@@ -121,11 +121,23 @@ fun HomeScreen(
                 ) {
                     if (medicinesToday.isNotEmpty()) {
                         medicinesToday.forEach { med ->
-                            Text(
-                                text = "${med.name} - ${med.dose} ${med.doseUnit ?: ""} - ${med.horarios?.joinToString() ?: med.startTime ?: "N/A"}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = "${med.name} - ${med.dose} ${med.doseUnit ?: ""} - ${med.horarios?.joinToString() ?: med.startTime ?: "N/A"}",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+
+                                // Adicionar o nome do destinatário se estiver disponível
+                                if (med.recipientName.isNotBlank()) {
+                                    Text(
+                                        text = "Para: ${med.recipientName}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
                         }
                     } else {
                         Text("Nenhum medicamento agendado para hoje.", style = MaterialTheme.typography.bodyMedium)

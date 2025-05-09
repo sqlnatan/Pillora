@@ -66,7 +66,7 @@ object MedicineRepository {
         }
 
         // Garante que o userId e o id do objeto estejam corretos antes de salvar
-        val medicineToUpdate = medicine.copy(userId = currentUserId, id = medicineId)
+        val medicineToUpdate = medicine.copy(userId = currentUserId, id = null)
 
         userMedicinesRef.document(medicineId)
             .set(medicineToUpdate)

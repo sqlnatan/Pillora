@@ -4,6 +4,7 @@ data class Medicine(
     val id: String? = null,
     val userId: String? = null, // Novo campo para armazenar o ID do usuário
     val name: String = "",
+    val recipientName: String = "",
     val dose: String = "",
     val doseUnit: String? = null, // "Cápsula" ou "ml"
     val frequencyType: String = "", // "vezes_dia" ou "a_cada_x_horas"

@@ -121,12 +121,13 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
 
     var showFutureDateDialog by remember { mutableStateOf(false) }
     var medicineToSave by remember { mutableStateOf<Medicine?>(null) }
-    var isEditing by remember { mutableStateOf(false) }
+    var isEditing by remember { mutableStateOf(!medicineId.isNullOrBlank()) }
     var isLoading by remember { mutableStateOf(medicineId != null) }
     // Adicionar estado para controlar o carregamento durante o salvamento
     var isSaving by remember { mutableStateOf(false) }
     // Carregar dados do medicamento se estiver editando
     // Carregar dados do medicamento se estiver editando
+    var recipientName by remember { mutableStateOf("") }
     LaunchedEffect(medicineId) {
         if (!medicineId.isNullOrBlank()) {
             isEditing = true
@@ -137,6 +138,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                     onSuccess = { medicine ->
                         if (medicine != null) {
                             name = medicine.name
+                            recipientName = medicine.recipientName
                             dose = medicine.dose
                             doseUnit = medicine.doseUnit ?: "Cápsula"
                             frequencyType.value = medicine.frequencyType
@@ -169,7 +171,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             Toast.makeText(context, "Medicamento não encontrado", Toast.LENGTH_LONG).show()
                             navController.popBackStack() // Voltar para a tela anterior
                         }
-                        isEditing = false
                         isLoading = false
                     },
                     onError = { exception ->
@@ -687,6 +688,16 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                         minLines = 2
                     )
 
+                    OutlinedTextField(
+                        value = recipientName,
+                        onValueChange = { recipientName = it },
+                        label = { Text("Para quem é este medicamento? (opcional)") },
+                        placeholder = { Text("Deixe em branco se for para você") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+
                     if (showFutureDateDialog && medicineToSave != null) {
                         AlertDialog(
                             onDismissRequest = { showFutureDateDialog = false },
@@ -746,6 +757,9 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             }
                         )
                     }
+
+
+
                     // Botão de salvar
                     Button(
                         onClick = {
@@ -822,9 +836,10 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                 val currentUserId = Firebase.auth.currentUser?.uid ?: ""
                                 // Dentro da função que cria o objeto Medicine para salvar
                                 val medicine = Medicine(
-                                    id = if (isEditing) medicineId else null,
+                                    id = null,
                                     userId = currentUserId, // Certifique-se de que este campo foi adicionado
                                     name = name,
+                                    recipientName = recipientName.trim(),
                                     dose = dose,
                                     doseUnit = doseUnit,
                                     frequencyType = frequencyType.value,

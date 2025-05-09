@@ -285,6 +285,15 @@ fun MedicineItem(
                         fontWeight = FontWeight.Bold
                     )
 
+                    if (medicine.recipientName.isNotBlank()) {
+                        Text(
+                            text = "Para: ${medicine.recipientName}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
                     // Exibir horários tratando nullabilidade
                     if (medicine.frequencyType == "vezes_dia" && !medicine.horarios.isNullOrEmpty()) {
                         Text(
