@@ -30,6 +30,7 @@ class ConsultationViewModel : ViewModel() {
     val time = mutableStateOf("") // Store as HH:mm
     val location = mutableStateOf("")
     val observations = mutableStateOf("")
+    val patientName = mutableStateOf("")
 
     // UI state
     private val _isLoading = MutableStateFlow(false)
@@ -45,6 +46,9 @@ class ConsultationViewModel : ViewModel() {
     private var currentConsultationUserId: String? = null // Store userId when loading
 
     // --- Form Input Update Functions ---
+    fun onPatientNameChange(newName: String) {
+        patientName.value = newName
+    }
     fun onSpecialtyChange(newSpecialty: String) {
         specialty.value = newSpecialty
     }
@@ -135,6 +139,7 @@ class ConsultationViewModel : ViewModel() {
                     if (consultation != null) {
                         specialty.value = consultation.specialty
                         doctorName.value = consultation.doctorName
+                        patientName.value = consultation.patientName
                         // Split dateTime back into date and time
                         val dateTimeParts = consultation.dateTime.split(" ")
                         date.value = dateTimeParts.getOrElse(0) { "" }
@@ -173,6 +178,7 @@ class ConsultationViewModel : ViewModel() {
             userId = if (currentConsultationId != null) currentConsultationUserId ?: currentUserIdAuth else currentUserIdAuth, // Use stored or current userId for update, current for new
             specialty = specialty.value.trim(),
             doctorName = doctorName.value.trim(),
+            patientName = patientName.value.trim(),
             dateTime = "${date.value} ${time.value}".trim(), // Combine date and time
             location = location.value.trim(),
             observations = observations.value.trim()

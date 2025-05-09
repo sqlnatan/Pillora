@@ -12,7 +12,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+// import androidx.compose.ui.Alignment //
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -43,6 +43,7 @@ fun ConsultationFormScreen(
     // Form state from ViewModel
     val specialty = viewModel.specialty
     val doctorName = viewModel.doctorName
+    val patientName = viewModel.patientName
     val date = viewModel.date
     val time = viewModel.time
     val location = viewModel.location
@@ -166,6 +167,17 @@ fun ConsultationFormScreen(
                     modifier = Modifier.fillMaxWidth().height(120.dp),
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences
+                    )
+                )
+
+                OutlinedTextField(
+                    value = patientName.value, // Ou apenas patientName, dependendo de como você pegou o estado no passo anterior
+                    onValueChange = { viewModel.onPatientNameChange(it) }, // Chama a função que criamos no ViewModel
+                    label = { Text("Nome do Paciente") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true, // Para que o nome seja em uma única linha
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words // Para capitalizar cada palavra automaticamente
                     )
                 )
 

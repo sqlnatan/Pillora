@@ -12,6 +12,7 @@ import com.google.firebase.firestore.DocumentId
  * @property dateTime Date and time of the consultation (Stored as String, e.g., "dd/MM/yyyy HH:mm").
  * @property location Location of the consultation (clinic name or address).
  * @property observations Additional notes or observations about the consultation.
+ * @property patientName Name of the patient for whom the consultation is scheduled. // Added patientName field
  */
 data class Consultation(
     @DocumentId val id: String = "",
@@ -20,5 +21,6 @@ data class Consultation(
     val doctorName: String = "",
     val dateTime: String = "", // Consider using Timestamp for Firestore sorting/querying later
     val location: String = "",
-    val observations: String = ""
+    val observations: String = "",
+    val patientName: String = "" // Added patientName field
 )

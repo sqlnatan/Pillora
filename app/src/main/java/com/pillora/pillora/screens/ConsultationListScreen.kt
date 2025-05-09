@@ -201,6 +201,15 @@ fun ConsultationListItem(
                         text = "Dr(a). ${consultation.doctorName.ifEmpty { "Não informado" }}",
                         style = MaterialTheme.typography.bodyMedium
                     )
+                    if (consultation.patientName.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp)) // Adiciona um pequeno espaço
+                        Text(
+                            text = "Paciente: ${consultation.patientName}",
+                            style = MaterialTheme.typography.bodyMedium, // Mesmo estilo do nome do médico
+                            // Você pode adicionar um fontWeight aqui se quiser, por exemplo:
+                            // fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
                 Row {
                     IconButton(onClick = onEditClick, modifier = Modifier.size(24.dp)) {

@@ -358,6 +358,12 @@ fun UpcomingConsultationItem(consultation: Consultation) {
     Column {
         Text("Dr(a). ${consultation.doctorName}", fontWeight = FontWeight.Bold)
         Text("Especialidade: ${consultation.specialty}")
+        if (consultation.patientName.isNotBlank()) {
+            Text(
+                text = "Paciente: ${consultation.patientName}",
+                style = MaterialTheme.typography.bodySmall // Ou o estilo que preferir
+            )
+        }
         Text("Data: $dateText")
         if (consultation.location.isNotBlank()) {
             Text("Local: ${consultation.location}")
