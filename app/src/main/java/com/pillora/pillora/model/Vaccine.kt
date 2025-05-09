@@ -10,6 +10,7 @@ data class Vaccine(
     @DocumentId val id: String = "", // ID do Firestore
     val userId: String = "", // ID do usuário
     val name: String = "", // Nome da vacina/lembrete
+    val patientName: String = "",
     val reminderDate: String = "", // Data agendada (DD/MM/AAAA) - Obrigatório
     val reminderTime: String = "", // Horário agendado (HH:MM) - Obrigatório (simplificado, pode ser ajustado se necessário)
     val location: String = "", // Local - Opcional, mas String não nula como em Consultation

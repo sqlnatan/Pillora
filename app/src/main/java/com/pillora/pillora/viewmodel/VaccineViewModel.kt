@@ -28,6 +28,7 @@ class VaccineViewModel : ViewModel() {
     val reminderTime = mutableStateOf("") // Format HH:MM
     val location = mutableStateOf("")
     val notes = mutableStateOf("")
+    val patientName = mutableStateOf("")
 
     // UI State
     private val _isLoading = MutableStateFlow(false)
@@ -69,6 +70,10 @@ class VaccineViewModel : ViewModel() {
 
     fun onNotesChange(newNotes: String) {
         notes.value = newNotes
+    }
+
+    fun onPatientNameChange(newName: String) { // <<< ADICIONE ESTA FUNÇÃO INTEIRA
+        patientName.value = newName
     }
 
     // --- Date/Time Picker Logic ---
@@ -148,6 +153,7 @@ class VaccineViewModel : ViewModel() {
                 reminderTime.value = vaccine.reminderTime
                 location.value = vaccine.location
                 notes.value = vaccine.notes
+                patientName.value = vaccine.patientName
                 originalUserId = vaccine.userId // Store the original userId
             } else {
                 Log.w(tag, "Vaccine with ID $vaccineId not found")
@@ -194,6 +200,7 @@ class VaccineViewModel : ViewModel() {
             id = currentVaccineId ?: "",
             userId = userIdToSave, // Use the determined userId
             name = name.value.trim(),
+            patientName = patientName.value.trim(),
             reminderDate = reminderDate.value,
             reminderTime = reminderTime.value,
             location = location.value.trim(),

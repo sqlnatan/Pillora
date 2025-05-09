@@ -42,6 +42,7 @@ fun VaccineFormScreen(
     val reminderTime = viewModel.reminderTime
     val location = viewModel.location
     val notes = viewModel.notes
+    val patientName = viewModel.patientName
 
     // Load vaccine data if ID is provided (editing mode)
     LaunchedEffect(vaccineId) {
@@ -144,6 +145,18 @@ fun VaccineFormScreen(
                         capitalization = KeyboardCapitalization.Sentences
                     )
                 )
+
+                OutlinedTextField(
+                    value = patientName.value, // Usa o estado que pegamos do ViewModel
+                    onValueChange = { viewModel.onPatientNameChange(it) }, // Chama a função que criamos no ViewModel
+                    label = { Text("Nome do Paciente") }, // Rótulo do campo
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words // Capitaliza cada palavra
+                    )
+                )
+
 
                 OutlinedTextField(
                     value = notes.value,

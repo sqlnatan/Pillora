@@ -207,6 +207,12 @@ fun VaccineListItem(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+                    if (vaccine.patientName.isNotBlank()) {
+                        Text(
+                            text = "Paciente: ${vaccine.patientName}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onEditClick, modifier = Modifier.size(36.dp)) {

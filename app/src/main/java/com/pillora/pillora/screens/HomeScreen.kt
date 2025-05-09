@@ -389,6 +389,13 @@ fun UpcomingVaccineItem(vaccine: Vaccine) {
 
     Column {
         Text(vaccine.name, fontWeight = FontWeight.Bold)
+        if (vaccine.patientName.isNotBlank()) {
+            Spacer(modifier = Modifier.height(4.dp)) // Adiciona um pequeno espaço, se necessário
+            Text(
+                text = "Paciente: ${vaccine.patientName}",
+                style = MaterialTheme.typography.bodySmall // Ou o estilo que achar melhor
+            )
+        }
         if (dateText != null) {
             Text("Lembrete: $dateText ${vaccine.reminderTime} $dayLabel")
         } else {
