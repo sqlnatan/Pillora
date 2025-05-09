@@ -128,8 +128,9 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
     // Carregar dados do medicamento se estiver editando
     // Carregar dados do medicamento se estiver editando
     LaunchedEffect(medicineId) {
-        if (medicineId != null) {
+        if (!medicineId.isNullOrBlank()) {
             isEditing = true
+            isLoading = true // Inicia o carregamento
             try {
                 MedicineRepository.getMedicineById(
                     medicineId = medicineId,
@@ -168,6 +169,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             Toast.makeText(context, "Medicamento não encontrado", Toast.LENGTH_LONG).show()
                             navController.popBackStack() // Voltar para a tela anterior
                         }
+                        isEditing = false
                         isLoading = false
                     },
                     onError = { exception ->

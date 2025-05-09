@@ -115,7 +115,7 @@ fun HomeScreen(
                 // Card "Medicamentos de Hoje"
                 HomeCard(
                     title = "Medicamentos de Hoje",
-                    addRoute = Screen.MedicineForm.route + "?id=",
+                    addRoute = Screen.MedicineForm.route,
                     listRoute = Screen.MedicineList.route,
                     navController = navController // Pass NavController
                 ) {

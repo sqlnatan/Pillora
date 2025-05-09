@@ -9,56 +9,67 @@ import com.pillora.pillora.model.Medicine
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+// Remova a importação de kotlinx.coroutines.tasks.await se não for usada diretamente aqui
+// import kotlinx.coroutines.tasks.await
 
 object MedicineRepository {
     private const val TAG = "MedicineRepository"
-    private const val COLLECTION_MEDICINES = "medicines"
+    private const val USERS_COLLECTION = "users"
+    private const val MEDICINES_SUBCOLLECTION = "medicines"
 
     private val db by lazy { Firebase.firestore }
 
-    // Obter o ID do usuário atual
     private val currentUserId: String?
         get() = Firebase.auth.currentUser?.uid
 
-    // Obter a coleção de medicamentos filtrada pelo usuário atual
-    private val medicinesCollection by lazy {
-        db.collection(COLLECTION_MEDICINES)
+    // Função auxiliar para obter a referência da subcoleção de medicamentos do usuário atual
+    private fun getUserMedicinesCollectionRef() = currentUserId?.let {
+        db.collection(USERS_COLLECTION).document(it).collection(MEDICINES_SUBCOLLECTION)
     }
 
     fun saveMedicine(
         medicine: Medicine,
-        onSuccess: () -> Unit,
+        onSuccess: (String) -> Unit, // Modificado para retornar o ID do novo medicamento
         onError: (Exception) -> Unit
     ) {
-        val userId = currentUserId
-        if (userId == null) {
-            onError(Exception("User not logged in"))
+        val userMedicinesRef = getUserMedicinesCollectionRef()
+        if (userMedicinesRef == null) {
+            onError(Exception("User not logged in or user ID is invalid"))
             return
         }
-        // Adicionar o ID do usuário ao medicamento antes de salvar
-        val medicineWithUserId = medicine.copy(userId = userId)
 
-        medicinesCollection.add(medicineWithUserId)
-            .addOnSuccessListener { onSuccess() }
+        // O ID do usuário já deve estar no objeto medicine ou ser adicionado aqui
+        // Se o seu objeto Medicine já tem userId, ótimo. Senão, copie-o.
+        val medicineToSave = medicine.copy(userId = currentUserId) // Garante que userId está no objeto
+
+        userMedicinesRef.add(medicineToSave) // .add() gera um ID automaticamente
+            .addOnSuccessListener { documentReference ->
+                onSuccess(documentReference.id) // Retorna o ID do documento criado
+            }
             .addOnFailureListener { onError(it) }
     }
 
     fun updateMedicine(
-        medicineId: String,
+        medicineId: String, // ID do documento a ser atualizado
         medicine: Medicine,
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit
     ) {
-        val userId = currentUserId
-        if (userId == null || medicine.userId != userId) { // Ensure user owns the medicine being updated
-            onError(Exception("Authorization error"))
+        if (medicineId.isBlank()) { // Verifica se medicineId é branco (nulo ou vazio)
+            onError(Exception("Medicine ID is missing or invalid for update"))
             return
         }
-        // Garantir que o ID do usuário seja mantido na atualização
-        val medicineWithUserId = medicine.copy(userId = userId)
+        val userMedicinesRef = getUserMedicinesCollectionRef()
+        if (userMedicinesRef == null) {
+            onError(Exception("User not logged in or user ID is invalid for update"))
+            return
+        }
 
-        medicinesCollection.document(medicineId)
-            .set(medicineWithUserId)
+        // Garante que o userId e o id do objeto estejam corretos antes de salvar
+        val medicineToUpdate = medicine.copy(userId = currentUserId, id = medicineId)
+
+        userMedicinesRef.document(medicineId)
+            .set(medicineToUpdate)
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { onError(it) }
     }
@@ -68,13 +79,17 @@ object MedicineRepository {
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit
     ) {
-        val userId = currentUserId
-        if (userId == null) {
-            onError(Exception("User not logged in"))
+        if (medicineId.isBlank()) {
+            onError(Exception("Medicine ID is missing or invalid for delete"))
             return
         }
-        // Optional: Verify ownership before deleting
-        medicinesCollection.document(medicineId)
+        val userMedicinesRef = getUserMedicinesCollectionRef()
+        if (userMedicinesRef == null) {
+            onError(Exception("User not logged in or user ID is invalid for delete"))
+            return
+        }
+
+        userMedicinesRef.document(medicineId)
             .delete()
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { onError(it) }
@@ -85,88 +100,97 @@ object MedicineRepository {
         onSuccess: (Medicine?) -> Unit,
         onError: (Exception) -> Unit
     ) {
-        val userId = currentUserId
-        if (userId == null) {
-            onError(Exception("User not logged in"))
+        if (medicineId.isBlank()) {
+            onError(Exception("Medicine ID is missing or invalid for get"))
+            // Você pode optar por chamar onSuccess(null) aqui também se preferir
+            // onSuccess(null)
             return
         }
-        medicinesCollection.document(medicineId)
+        val userMedicinesRef = getUserMedicinesCollectionRef()
+        if (userMedicinesRef == null) {
+            onError(Exception("User not logged in or user ID is invalid for get"))
+            return
+        }
+
+        userMedicinesRef.document(medicineId)
             .get()
-            .addOnSuccessListener { snapshot ->
-                val medicine = snapshot.toObject(Medicine::class.java)
-                // Verificar se o medicamento pertence ao usuário atual
-                if (medicine != null && medicine.userId == userId) {
+            .addOnSuccessListener { documentSnapshot ->
+                if (documentSnapshot.exists()) {
+                    val medicine = documentSnapshot.toObject(Medicine::class.java)?.copy(
+                        id = documentSnapshot.id // ATRIBUI O ID DO DOCUMENTO
+                    )
+                    // A verificação de medicine.userId == currentUserId é redundante se buscamos da subcoleção
                     onSuccess(medicine)
                 } else {
-                    onSuccess(null) // Retorna null se não pertencer ao usuário atual ou não encontrado
+                    onSuccess(null) // Documento não encontrado
                 }
             }
             .addOnFailureListener { onError(it) }
     }
 
-    // Modified to return a Flow for real-time updates
     fun getAllMedicinesFlow(): Flow<List<Medicine>> = callbackFlow {
-        val userId = currentUserId
-        if (userId == null) {
-            Log.w(TAG, "User not logged in, returning empty flow")
-            trySend(emptyList()) // Send empty list if user not logged in
+        val userMedicinesRef = getUserMedicinesCollectionRef()
+        if (userMedicinesRef == null) {
+            Log.w(TAG, "User not logged in for getAllMedicinesFlow, sending empty list")
+            trySend(emptyList()).isSuccess // Use isSuccess para evitar warning
             close(Exception("User not logged in"))
             return@callbackFlow
         }
 
-        Log.d(TAG, "Setting up snapshot listener for user: $userId")
-        val listenerRegistration: ListenerRegistration = medicinesCollection
-            .whereEqualTo("userId", userId)
+        Log.d(TAG, "Setting up snapshot listener for user medicines")
+        val listenerRegistration: ListenerRegistration = userMedicinesRef
+            // .whereEqualTo("userId", currentUserId) // Não é mais necessário com subcoleções
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Log.e(TAG, "Error listening for medicine updates", error)
-                    close(error) // Close the flow on error
+                    close(error)
                     return@addSnapshotListener
                 }
 
                 if (snapshot != null) {
-                    val medicines = snapshot.toObjects(Medicine::class.java)
+                    val medicines = snapshot.documents.mapNotNull { document ->
+                        try {
+                            document.toObject(Medicine::class.java)?.copy(
+                                id = document.id // ATRIBUI O ID DO DOCUMENTO
+                            )
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error converting document ${document.id} to Medicine", e)
+                            null
+                        }
+                    }
                     Log.d(TAG, "Snapshot received. Found ${medicines.size} medicines.")
-                    trySend(medicines) // Send the updated list to the flow
+                    trySend(medicines).isSuccess
                 } else {
-                    Log.d(TAG, "Snapshot was null")
-                    trySend(emptyList()) // Send empty list if snapshot is null
+                    Log.d(TAG, "Snapshot was null for medicines")
+                    trySend(emptyList()).isSuccess
                 }
             }
 
-        // This block is called when the Flow collector is cancelled
         awaitClose {
-            Log.d(TAG, "Closing snapshot listener for user: $userId")
-            listenerRegistration.remove() // Remove the listener to prevent memory leaks
+            Log.d(TAG, "Closing medicine snapshot listener")
+            listenerRegistration.remove()
         }
     }
 
-    // --- Kept the old method for compatibility if needed elsewhere, but marked as deprecated ---
-    @Deprecated("Use getAllMedicinesFlow for real-time updates", ReplaceWith("getAllMedicinesFlow()"))
+    // A função getAllMedicines (deprecated) também precisaria da mesma lógica.
+    // Considere removê-la ou atualizá-la se realmente precisar dela.
+    @Deprecated("Use getAllMedicinesFlow for real-time updates")
     fun getAllMedicines(
-        onSuccess: (List<Pair<String, Medicine>>) -> Unit,
+        onSuccess: (List<Medicine>) -> Unit,
         onError: (Exception) -> Unit
     ) {
-        val userId = currentUserId
-        if (userId == null) {
+        val userMedicinesRef = getUserMedicinesCollectionRef()
+        if (userMedicinesRef == null) {
             onError(Exception("User not logged in"))
             return
         }
-        medicinesCollection
-            .whereEqualTo("userId", userId)
-            .get()
+        userMedicinesRef.get()
             .addOnSuccessListener { snapshot ->
                 val medicines = snapshot.documents.mapNotNull { document ->
-                    val medicine = document.toObject(Medicine::class.java)
-                    if (medicine != null) {
-                        Pair(document.id, medicine) // Note: Flow version doesn't include ID pair
-                    } else {
-                        null
-                    }
+                    document.toObject(Medicine::class.java)?.copy(id = document.id)
                 }
                 onSuccess(medicines)
             }
             .addOnFailureListener { onError(it) }
     }
 }
-
