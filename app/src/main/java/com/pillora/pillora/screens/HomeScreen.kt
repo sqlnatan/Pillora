@@ -194,8 +194,14 @@ fun HomeScreen(
                     if (allRecipes.isNotEmpty()) {
                         // Display a few recent recipes, for example
                         allRecipes.take(3).forEach { recipe -> // Limit to 3 for brevity on home screen
+                            val doctorInfo = "(Dr. ${recipe.doctorName}) - ${recipe.prescriptionDate}"
+                            val displayText = if (recipe.patientName.isNotBlank()) {
+                                "Receita p/ ${recipe.patientName} $doctorInfo"
+                            } else {
+                                "Receita $doctorInfo"
+                            }
                             Text(
-                                text = "Receita p/ ${recipe.patientName} (Dr. ${recipe.doctorName}) - ${recipe.prescriptionDate}",
+                                text = displayText,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Spacer(modifier = Modifier.height(4.dp))

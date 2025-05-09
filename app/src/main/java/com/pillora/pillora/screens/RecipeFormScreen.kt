@@ -161,9 +161,9 @@ fun RecipeFormScreen(
             }
 
             // Recipe Fields are always displayed, but button might be disabled during loading
-            OutlinedTextField(value = formState.patientName, onValueChange = recipeViewModel::updatePatientName, label = { Text("Nome do Paciente") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words), isError = detailState is RecipeDetailUiState.Error && formState.patientName.isBlank())
             OutlinedTextField(value = formState.doctorName, onValueChange = recipeViewModel::updateDoctorName, label = { Text("Nome do Médico") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words), isError = detailState is RecipeDetailUiState.Error && formState.doctorName.isBlank())
             OutlinedTextField(value = formState.crm, onValueChange = recipeViewModel::updateCrm, label = { Text("CRM do Médico (Opcional)") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = formState.patientName, onValueChange = recipeViewModel::updatePatientName, label = { Text("Nome do Paciente") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words), isError = detailState is RecipeDetailUiState.Error && formState.patientName.isBlank())
             OutlinedTextField(value = formState.prescriptionDate, onValueChange = {}, label = { Text("Data da Prescrição (DD/MM/AAAA)") }, modifier = Modifier.fillMaxWidth(), readOnly = true, trailingIcon = { Icon(Icons.Default.CalendarToday, "Selecionar Data", modifier = Modifier.clickable { prescriptionDatePickerDialog.show() }) }, isError = detailState is RecipeDetailUiState.Error && formState.prescriptionDate.isBlank())
             OutlinedTextField(
                 value = formState.validityDate,

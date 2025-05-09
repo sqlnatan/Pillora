@@ -142,11 +142,13 @@ fun RecipeListItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) { // Content takes available space
-                Text(
-                    text = "Paciente: ${recipe.patientName}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                if (recipe.patientName.isNotBlank()) {
+                    Text(
+                        text = "Paciente: ${recipe.patientName}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text("Médico: ${recipe.doctorName}", style = MaterialTheme.typography.bodyMedium)
                 Text("Data: ${recipe.prescriptionDate}", style = MaterialTheme.typography.bodyMedium)

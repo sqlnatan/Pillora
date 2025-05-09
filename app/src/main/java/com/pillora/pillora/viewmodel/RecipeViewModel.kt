@@ -256,10 +256,7 @@ class RecipeViewModel : ViewModel() {
         var isValid = true
         var errorMessage = ""
 
-        if (recipe.patientName.isBlank()) {
-            errorMessage += "Nome do paciente não pode estar vazio.\n"
-            isValid = false
-        }
+
         if (recipe.doctorName.isBlank()) {
             errorMessage += "Nome do médico não pode estar vazio.\n"
             isValid = false
