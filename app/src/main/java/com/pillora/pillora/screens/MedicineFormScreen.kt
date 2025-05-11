@@ -68,6 +68,14 @@ import java.util.Locale
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import java.text.SimpleDateFormat
+import androidx.compose.runtime.rememberCoroutineScope
+import com.pillora.pillora.data.local.AppDatabase // Para acessar o LembreteDao
+import com.pillora.pillora.model.Lembrete // Seu modelo de Lembrete
+import com.pillora.pillora.utils.AlarmScheduler // Seu agendador
+import kotlinx.coroutines.launch
+import android.util.Log
+
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 
@@ -128,6 +136,9 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
     // Carregar dados do medicamento se estiver editando
     // Carregar dados do medicamento se estiver editando
     var recipientName by remember { mutableStateOf("") }
+    val coroutineScope = rememberCoroutineScope()
+    val lembreteDao = remember { AppDatabase.getDatabase(context).lembreteDao() }
+
     LaunchedEffect(medicineId) {
         if (!medicineId.isNullOrBlank()) {
             isEditing = true
@@ -872,9 +883,79 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                             medicineId = medicineId,
                                             medicine = medicine,
                                             onSuccess = {
-                                                isSaving = false // Finaliza o carregamento
-                                                Toast.makeText(context, "Medicamento atualizado com sucesso!", Toast.LENGTH_SHORT).show()
-                                                navController.popBackStack()
+                                                isSaving = false
+                                                coroutineScope.launch {
+                                                    try {
+                                                        var lembretesAgendadosComSucesso = true // Para controlar o feedback
+
+                                                        // Só processa lembretes se for do tipo "vezes_dia" por enquanto
+                                                        if (frequencyType.value == "vezes_dia") {
+                                                            if (horarios.isEmpty()) {
+                                                                Log.w("MedicineFormScreen", "Nenhum horário definido para lembretes 'vezes_dia'.")
+                                                                // Você pode querer definir lembretesAgendadosComSucesso = false aqui se isso for um erro
+                                                            }
+                                                            horarios.forEach { horarioStr ->
+                                                                val parts = horarioStr.split(":")
+                                                                if (parts.size == 2) {
+                                                                    val hora = parts[0].toIntOrNull()
+                                                                    val minuto = parts[1].toIntOrNull()
+
+                                                                    if (hora != null && minuto != null) {
+                                                                        val calendar = Calendar.getInstance().apply {
+                                                                            set(Calendar.HOUR_OF_DAY, hora)
+                                                                            set(Calendar.MINUTE, minuto)
+                                                                            set(Calendar.SECOND, 0)
+                                                                            set(Calendar.MILLISECOND, 0)
+                                                                            if (before(Calendar.getInstance())) {
+                                                                                add(Calendar.DAY_OF_MONTH, 1)
+                                                                            }
+                                                                            // TODO: Integrar com startDate aqui!
+                                                                        }
+
+                                                                        val novoLembrete = Lembrete(
+                                                                            medicamentoId = medicineId, // ID do Firestore
+                                                                            nomeMedicamento = name,
+                                                                            hora = hora,
+                                                                            minuto = minuto,
+                                                                            dose = "$dose $doseUnit",
+                                                                            observacao = notes,
+                                                                            proximaOcorrenciaMillis = calendar.timeInMillis,
+                                                                            ativo = true
+                                                                        )
+                                                                        val idLembreteSalvo = lembreteDao.insertLembrete(novoLembrete)
+                                                                        AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
+                                                                        Log.d("MedicineFormScreen", "Lembrete agendado para ${novoLembrete.nomeMedicamento} às $hora:$minuto")
+                                                                    } else {
+                                                                        Log.e("MedicineFormScreen", "Formato de horário inválido: $horarioStr")
+                                                                        lembretesAgendadosComSucesso = false
+                                                                    }
+                                                                } else {
+                                                                    Log.e("MedicineFormScreen", "Formato de horário inválido: $horarioStr")
+                                                                    lembretesAgendadosComSucesso = false
+                                                                }
+                                                            }
+                                                        } else if (frequencyType.value == "a_cada_x_horas" || frequencyType.value == "intervalo") {
+                                                            Log.w("MedicineFormScreen", "Agendamento para 'a cada X horas' ainda não implementado.")
+                                                            // Marcar como não totalmente sucesso se esta parte não estiver pronta
+                                                            // lembretesAgendadosComSucesso = false; // Descomente se quiser que isso afete o Toast final
+                                                        }
+
+                                                        // Feedback ao usuário e navegação
+                                                        isSaving = false
+                                                        if (lembretesAgendadosComSucesso) {
+                                                            Toast.makeText(context, "Medicamento salvo e lembretes agendados!", Toast.LENGTH_LONG).show()
+                                                        } else {
+                                                            Toast.makeText(context, "Medicamento salvo, mas houve problema ao agendar alguns lembretes.", Toast.LENGTH_LONG).show()
+                                                        }
+                                                        navController.popBackStack()
+
+                                                    } catch (e: Exception) {
+                                                        isSaving = false
+                                                        Log.e("MedicineFormScreen", "Erro ao salvar/agendar lembretes", e)
+                                                        Toast.makeText(context, "Medicamento salvo, mas erro ao agendar lembretes: ${e.message}", Toast.LENGTH_LONG).show()
+                                                        navController.popBackStack() // Ou decida se quer que o usuário permaneça na tela
+                                                    }
+                                                }
                                             },
                                             onError = { exception ->
                                                 isSaving = false // Finaliza o carregamento mesmo em caso de erro
