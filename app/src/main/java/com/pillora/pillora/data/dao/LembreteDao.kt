@@ -1,14 +1,13 @@
-package com.pillora.pillora.data.dao // Ajuste o pacote
+package com.pillora.pillora.data.dao
 
 import androidx.room.*
 import com.pillora.pillora.model.Lembrete
 import kotlinx.coroutines.flow.Flow
 
-
 @Dao
 interface LembreteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertLembrete(lembrete: Lembrete): Long
+    suspend fun insertLembrete(lembrete: Lembrete): Long // Retorna o ID do lembrete inserido
 
     @Update
     suspend fun updateLembrete(lembrete: Lembrete)
@@ -16,12 +15,18 @@ interface LembreteDao {
     @Delete
     suspend fun deleteLembrete(lembrete: Lembrete)
 
+    @Query("DELETE FROM lembretes WHERE medicamentoId = :medicamentoId")
+    suspend fun deleteLembretesByMedicamentoId(medicamentoId: String)
+
     @Query("SELECT * FROM lembretes WHERE id = :id")
     suspend fun getLembreteById(id: Long): Lembrete?
 
     @Query("SELECT * FROM lembretes WHERE ativo = 1 ORDER BY proximaOcorrenciaMillis ASC")
-    fun getLembretesAtivos(): Flow<List<Lembrete>>
+    fun getLembretesAtivosFlow(): Flow<List<Lembrete>> // Para observar mudanças na UI
 
     @Query("SELECT * FROM lembretes WHERE ativo = 1")
-    suspend fun getLembretesAtivosList(): List<Lembrete>
+    suspend fun getLembretesAtivosList(): List<Lembrete> // Para uso em background, como no BootReceiver
+
+    @Query("SELECT * FROM lembretes WHERE medicamentoId = :medicamentoId")
+    suspend fun getLembretesByMedicamentoId(medicamentoId: String): List<Lembrete>
 }
