@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.gms.googleServices)
+    alias(libs.plugins.kotlinKsp)
 }
 
 android {
@@ -71,6 +72,9 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.play.services.auth)
     implementation(libs.androidx.splashscreen)
-
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 }
 
