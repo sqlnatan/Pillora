@@ -29,4 +29,6 @@ interface LembreteDao {
 
     @Query("SELECT * FROM lembretes WHERE medicamentoId = :medicamentoId")
     suspend fun getLembretesByMedicamentoId(medicamentoId: String): List<Lembrete>
+
+
 }

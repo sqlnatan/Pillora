@@ -1,38 +1,47 @@
 package com.pillora.pillora
 
+import android.app.AlarmManager
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import com.pillora.pillora.ui.theme.PilloraTheme
-import com.pillora.pillora.navigation.AppNavigation
-import com.pillora.pillora.viewmodel.ThemePreference // Importar o Enum
-import com.google.firebase.analytics.ktx.analytics
-import com.google.firebase.ktx.Firebase
-import com.google.firebase.analytics.FirebaseAnalytics
-import com.google.firebase.FirebaseApp
-import android.os.Build // Já deve estar lá, mas confira
-import androidx.compose.runtime.LaunchedEffect // Para executar a lógica de permissão
-import com.google.accompanist.permissions.ExperimentalPermissionsApi // Necessário para Accompanist
+import androidx.core.content.ContextCompat
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
-import android.util.Log
+import com.google.firebase.FirebaseApp
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.ktx.analytics
+import com.google.firebase.ktx.Firebase
+import com.pillora.pillora.navigation.AppNavigation
+import com.pillora.pillora.ui.theme.PilloraTheme
+import com.pillora.pillora.viewmodel.ThemePreference
+
 
 class MainActivity : ComponentActivity() {
 
-    // Chave da preferência de tema
     private val themePreferenceKey = "theme_preference"
+    private var showExactAlarmPermissionDialog by mutableStateOf(false)
 
     @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,11 +53,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            // Estado para guardar a preferência de tema atual
             var currentThemePreference by remember { mutableStateOf(getInitialThemePreference()) }
-
-            // Efeito para ouvir mudanças nas SharedPreferences
             val context = LocalContext.current
+
             DisposableEffect(Unit) {
                 val prefs = context.getSharedPreferences("pillora_prefs", MODE_PRIVATE)
                 val listener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
@@ -57,55 +64,63 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 prefs.registerOnSharedPreferenceChangeListener(listener)
-                // Limpar o listener quando o efeito for descartado
                 onDispose {
                     prefs.unregisterOnSharedPreferenceChangeListener(listener)
                 }
             }
 
-            // Determinar se deve usar tema escuro com base no estado atual
             val useDarkTheme = shouldUseDarkTheme(currentThemePreference)
 
             PilloraTheme(darkTheme = useDarkTheme) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // Android 13+
+                // Lógica para Permissão de Notificação (Android 13+)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     val notificationPermissionState = rememberPermissionState(
                         android.Manifest.permission.POST_NOTIFICATIONS
                     )
-
-                    LaunchedEffect(notificationPermissionState.status) { // Re-executa se o status da permissão mudar
+                    LaunchedEffect(notificationPermissionState.status) {
                         if (!notificationPermissionState.status.isGranted && !notificationPermissionState.status.shouldShowRationale) {
-                            // Se a permissão não foi concedida e não devemos mostrar uma justificativa (primeira vez ou "não perguntar novamente")
                             notificationPermissionState.launchPermissionRequest()
                         }
                     }
-
-                    // Opcional: Mostrar uma UI se a permissão foi negada e você deve mostrar uma justificativa
                     if (notificationPermissionState.status.shouldShowRationale) {
-                        // Aqui você pode mostrar um diálogo ou um Snackbar explicando por que a notificação é importante
-                        // e talvez um botão para tentar solicitar a permissão novamente.
-                        // Exemplo:
-                        // AlertDialog(
-                        //     onDismissRequest = { /* Não faz nada ou controla estado de visibilidade */ },
-                        //     title = { Text("Permissão Necessária") },
-                        //     text = { Text("Para receber lembretes importantes, por favor, permita as notificações.") },
-                        //     confirmButton = {
-                        //         Button(onClick = { notificationPermissionState.launchPermissionRequest() }) {
-                        //             Text("Permitir")
-                        //         }
-                        //     },
-                        //     dismissButton = {
-                        //         Button(onClick = { /* O usuário optou por não permitir agora */ }) {
-                        //             Text("Agora não")
-                        //         }
-                        //     }
-                        // )
-                        // Por simplicidade, vamos apenas logar por enquanto ou você pode adicionar sua UI aqui.
                         Log.d("Permissions", "Deveria mostrar justificativa para permissão de notificação.")
+                        // Aqui você pode adicionar um diálogo para explicar a necessidade da permissão de notificação
                     } else if (!notificationPermissionState.status.isGranted) {
-                        // Permissão ainda não concedida, e não devemos mostrar justificativa (pode ter sido negada permanentemente)
-                        // Você pode querer mostrar uma mensagem mais sutil ou um indicador na UI de configurações do app.
                         Log.d("Permissions", "Permissão de notificação não concedida.")
                     }
+                }
+
+                // Lógica para Permissão de Alarme Exato (Android 12+)
+                // Esta verificação é feita uma vez quando o Composable é lançado.
+                // Se a permissão for negada, o diálogo será mostrado.
+                LaunchedEffect(Unit) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        val alarmManager = ContextCompat.getSystemService(context, AlarmManager::class.java)
+                        if (alarmManager?.canScheduleExactAlarms() == false) {
+                            showExactAlarmPermissionDialog = true
+                        }
+                    }
+                }
+
+                if (showExactAlarmPermissionDialog) {
+                    ExactAlarmPermissionDialog(
+                        onDismiss = { showExactAlarmPermissionDialog = false },
+                        onConfirm = {
+                            showExactAlarmPermissionDialog = false
+                            // Intent para levar o usuário às configurações de permissão de alarme do app
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                    data = Uri.fromParts("package", context.packageName, null)
+                                }
+                                try {
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Log.e("Permissions", "Não foi possível abrir as configurações de alarme exato", e)
+                                    // Opcional: mostrar um Toast ou outra mensagem se não puder abrir as configurações
+                                }
+                            }
+                        }
+                    )
                 }
 
                 AppNavigation()
@@ -113,13 +128,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Função para obter a preferência inicial (fora do Composable)
+    override fun onResume() {
+        super.onResume()
+        // Verificar novamente a permissão de alarme exato quando o app retorna para o primeiro plano,
+        // caso o usuário a tenha concedido nas configurações e retornado.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            if (!alarmManager.canScheduleExactAlarms()) {
+                // Se ainda não tem permissão, e o diálogo não estiver visível, pode mostrá-lo novamente
+                // ou ter uma lógica mais sutil, dependendo da UX desejada.
+                // Por ora, vamos apenas logar.
+                Log.d("Permissions", "Permissão de alarme exato ainda não concedida no onResume.")
+            } else {
+                // Permissão concedida, esconder o diálogo se estiver visível
+                if (showExactAlarmPermissionDialog) {
+                    showExactAlarmPermissionDialog = false
+                }
+                Log.d("Permissions", "Permissão de alarme exato concedida no onResume.")
+            }
+        }
+    }
+
     private fun getInitialThemePreference(): ThemePreference {
         val prefs = getSharedPreferences("pillora_prefs", MODE_PRIVATE)
         return getThemePreferenceFromPrefs(prefs)
     }
 
-    // Função auxiliar para ler a preferência das SharedPreferences
     private fun getThemePreferenceFromPrefs(prefs: SharedPreferences): ThemePreference {
         return when (prefs.getString(themePreferenceKey, ThemePreference.SYSTEM.name)) {
             ThemePreference.LIGHT.name -> ThemePreference.LIGHT
@@ -129,13 +163,30 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Composable auxiliar para determinar o booleano darkTheme
 @Composable
 private fun shouldUseDarkTheme(preference: ThemePreference): Boolean {
     return when (preference) {
         ThemePreference.LIGHT -> false
         ThemePreference.DARK -> true
-        else -> isSystemInDarkTheme() // Usar o tema do sistema como padrão
+        else -> isSystemInDarkTheme()
     }
 }
 
+@Composable
+fun ExactAlarmPermissionDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Permissão Necessária para Lembretes") },
+        text = { Text("Para que os lembretes de medicamentos funcionem corretamente, o Pillora precisa da sua permissão para agendar alarmes precisos. Por favor, conceda essa permissão nas configurações do aplicativo.") },
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text("Abrir Configurações")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("Agora não")
+            }
+        }
+    )
+}

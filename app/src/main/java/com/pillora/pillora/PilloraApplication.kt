@@ -28,7 +28,18 @@ class PilloraApplication : Application() {
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Notificações para tomar seus medicamentos."
-                // Você pode customizar mais, como som, vibração, etc.
+                // Configurar som de alarme
+                setSound(android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM),
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build())
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 1000, 500, 1000, 500, 1000)
+                enableLights(true)
+                lightColor = 0xFF0000FF.toInt() // Azul
+                setBypassDnd(true) // Ignorar modo "Não perturbe"
+                lockscreenVisibility = 1 // VISIBILITY_PUBLIC = 1
             }
 
             val canalAlertasEstoque = NotificationChannel(

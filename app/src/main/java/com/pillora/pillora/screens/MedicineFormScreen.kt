@@ -1,6 +1,7 @@
 package com.pillora.pillora.screens
 
 import android.app.TimePickerDialog
+import android.util.Log
 import android.widget.TimePicker
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
@@ -49,6 +50,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,22 +61,21 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
+import com.pillora.pillora.data.local.AppDatabase
+import com.pillora.pillora.model.Lembrete
 import com.pillora.pillora.model.Medicine
 import com.pillora.pillora.repository.MedicineRepository
 import com.pillora.pillora.ui.components.DateTextField
+import com.pillora.pillora.utils.AlarmScheduler
+import com.pillora.pillora.utils.DateTimeUtils
 import com.pillora.pillora.utils.DateValidator
-import java.util.Calendar
-import java.util.Locale
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.ktx.Firebase
-import java.text.SimpleDateFormat
-import androidx.compose.runtime.rememberCoroutineScope
-import com.pillora.pillora.data.local.AppDatabase // Para acessar o LembreteDao
-import com.pillora.pillora.model.Lembrete // Seu modelo de Lembrete
-import com.pillora.pillora.utils.AlarmScheduler // Seu agendador
 import kotlinx.coroutines.launch
-import android.util.Log
-
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -236,7 +237,8 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                         value = name,
                         onValueChange = {
                             name = it
-                            nameError = if (it.isBlank()) "Nome do medicamento é obrigatório" else ""
+                            nameError =
+                                if (it.isBlank()) "Nome do medicamento é obrigatório" else ""
                         },
                         label = { Text("Nome do medicamento") },
                         modifier = Modifier.fillMaxWidth(),
@@ -259,8 +261,10 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             onValueChange = { newValue ->
                                 val filteredValue = if (doseUnit == "Cápsula" || doseUnit == "ml") {
                                     // Allow digits, one decimal point (either '.' or ',')
-                                    val decimalFiltered = newValue.filter { it.isDigit() || it == '.' || it == ',' }
-                                    val standardized = decimalFiltered.replace(',', '.') // Use '.' as standard
+                                    val decimalFiltered =
+                                        newValue.filter { it.isDigit() || it == '.' || it == ',' }
+                                    val standardized =
+                                        decimalFiltered.replace(',', '.') // Use '.' as standard
                                     val parts = standardized.split('.')
                                     if (parts.size <= 2) { // Allow 0 or 1 decimal point
                                         standardized
@@ -272,7 +276,8 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                     newValue // Allow any text for "Outros"
                                 }
                                 dose = filteredValue
-                                doseError = if (filteredValue.isBlank()) "Dose é obrigatória" else ""
+                                doseError =
+                                    if (filteredValue.isBlank()) "Dose é obrigatória" else ""
                             },
                             label = { Text("Dose") },
                             modifier = Modifier.weight(1f),
@@ -302,7 +307,9 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             ) {
                                 Text(doseUnit)
                             }
-                            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            DropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }) {
                                 doseOptions.forEach { option ->
                                     DropdownMenuItem(text = { Text(option) }, onClick = {
                                         doseUnit = option
@@ -387,7 +394,11 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                                     timesPerDay = (currentValue - 1).toString()
                                                     val count = timesPerDay.toIntOrNull() ?: 0
                                                     if (horarios.size > count) {
-                                                        repeat(horarios.size - count) { horarios.removeAt(horarios.lastIndex) }
+                                                        repeat(horarios.size - count) {
+                                                            horarios.removeAt(
+                                                                horarios.lastIndex
+                                                            )
+                                                        }
                                                     }
                                                     if (selectedTabIndex >= count) {
                                                         selectedTabIndex = count - 1
@@ -471,7 +482,12 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                                 TimePickerDialog(
                                                     context,
                                                     { _: TimePicker, selectedHour: Int, selectedMinute: Int ->
-                                                        val time = String.format(Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute)
+                                                        val time = String.format(
+                                                            Locale.getDefault(),
+                                                            "%02d:%02d",
+                                                            selectedHour,
+                                                            selectedMinute
+                                                        )
                                                         horarios[selectedTabIndex] = time
                                                     },
                                                     hour, minute, true
@@ -499,7 +515,8 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                 value = intervalHours,
                                 onValueChange = {
                                     intervalHours = it.filter { c -> c.isDigit() }
-                                    intervalHoursError = if (intervalHours.isBlank()) "Intervalo é obrigatório" else ""
+                                    intervalHoursError =
+                                        if (intervalHours.isBlank()) "Intervalo é obrigatório" else ""
                                 },
                                 label = { Text("Intervalo (em horas)") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -525,7 +542,12 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                 TimePickerDialog(
                                     context,
                                     { _: TimePicker, selectedHour: Int, selectedMinute: Int ->
-                                        startTime = String.format(Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute)
+                                        startTime = String.format(
+                                            Locale.getDefault(),
+                                            "%02d:%02d",
+                                            selectedHour,
+                                            selectedMinute
+                                        )
                                         startTimeError = ""
                                     },
                                     hour, minute, true
@@ -549,13 +571,19 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                         val calculatedTimes = calculateAllTimes(startTime, interval)
                         if (calculatedTimes.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("Horários calculados:", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "Horários calculados:",
+                                style = MaterialTheme.typography.titleMedium
+                            )
                             // Exibe cada horário calculado em uma nova linha
                             calculatedTimes.forEach { time ->
                                 Text(
                                     text = time,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.padding(start = 8.dp, top = 4.dp) // Adiciona um leve recuo
+                                    modifier = Modifier.padding(
+                                        start = 8.dp,
+                                        top = 4.dp
+                                    ) // Adiciona um leve recuo
                                 )
                             }
                         }
@@ -596,7 +624,8 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             value = duration,
                             onValueChange = {
                                 duration = it.filter { c -> c.isDigit() }
-                                durationError = if (duration.isBlank()) "Duração é obrigatória" else ""
+                                durationError =
+                                    if (duration.isBlank()) "Duração é obrigatória" else ""
                             },
                             label = { Text("Duração (em dias)") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -652,13 +681,18 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                     style = MaterialTheme.typography.titleMedium
                                 )
 
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
                                     OutlinedTextField(
                                         value = stockQuantity,
                                         onValueChange = {
                                             // Aceitar apenas números e ponto decimal
-                                            stockQuantity = it.filter { c -> c.isDigit() || c == '.' }
-                                            stockQuantityError = if (stockQuantity.isBlank()) "Quantidade é obrigatória" else ""
+                                            stockQuantity =
+                                                it.filter { c -> c.isDigit() || c == '.' }
+                                            stockQuantityError =
+                                                if (stockQuantity.isBlank()) "Quantidade é obrigatória" else ""
                                         },
                                         label = { Text("Quantidade em estoque") },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -677,12 +711,16 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                         OutlinedButton(onClick = { stockUnitExpanded = true }) {
                                             Text(stockUnit)
                                         }
-                                        DropdownMenu(expanded = stockUnitExpanded, onDismissRequest = { stockUnitExpanded = false }) {
+                                        DropdownMenu(
+                                            expanded = stockUnitExpanded,
+                                            onDismissRequest = { stockUnitExpanded = false }) {
                                             stockUnitOptions.forEach { option ->
-                                                DropdownMenuItem(text = { Text(option) }, onClick = {
-                                                    stockUnit = option
-                                                    stockUnitExpanded = false
-                                                })
+                                                DropdownMenuItem(
+                                                    text = { Text(option) },
+                                                    onClick = {
+                                                        stockUnit = option
+                                                        stockUnitExpanded = false
+                                                    })
                                             }
                                         }
                                     }
@@ -715,7 +753,13 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             title = { Text("Data futura selecionada") },
                             text = {
                                 Column {
-                                    Text("Você selecionou uma data no futuro (${DateValidator.formatDateString(startDate)}).")
+                                    Text(
+                                        "Você selecionou uma data no futuro (${
+                                            DateValidator.formatDateString(
+                                                startDate
+                                            )
+                                        })."
+                                    )
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text("Deseja continuar com esta data?")
                                 }
@@ -732,12 +776,21 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                                 medicine = medicineToSave!!,
                                                 onSuccess = {
                                                     isSaving = false // Finaliza o carregamento
-                                                    Toast.makeText(context, "Medicamento atualizado com sucesso!", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(
+                                                        context,
+                                                        "Medicamento atualizado com sucesso!",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
                                                     navController.popBackStack()
                                                 },
                                                 onError = { exception ->
-                                                    isSaving = false // Finaliza o carregamento mesmo em caso de erro
-                                                    Toast.makeText(context, "Erro ao atualizar: ${exception.message}", Toast.LENGTH_LONG).show()
+                                                    isSaving =
+                                                        false // Finaliza o carregamento mesmo em caso de erro
+                                                    Toast.makeText(
+                                                        context,
+                                                        "Erro ao atualizar: ${exception.message}",
+                                                        Toast.LENGTH_LONG
+                                                    ).show()
                                                 }
                                             )
                                         } else {
@@ -745,12 +798,21 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                                 medicine = medicineToSave!!,
                                                 onSuccess = {
                                                     isSaving = false // Finaliza o carregamento
-                                                    Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(
+                                                        context,
+                                                        "Medicamento salvo com sucesso!",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
                                                     navController.popBackStack()
                                                 },
                                                 onError = { exception ->
-                                                    isSaving = false // Finaliza o carregamento mesmo em caso de erro
-                                                    Toast.makeText(context, "Erro ao salvar: ${exception.message}", Toast.LENGTH_LONG).show()
+                                                    isSaving =
+                                                        false // Finaliza o carregamento mesmo em caso de erro
+                                                    Toast.makeText(
+                                                        context,
+                                                        "Erro ao salvar: ${exception.message}",
+                                                        Toast.LENGTH_LONG
+                                                    ).show()
                                                 }
                                             )
                                         }
@@ -770,12 +832,12 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                     }
 
 
-
                     // Botão de salvar
                     Button(
                         onClick = {
                             var isValid = true
 
+                            // Validações básicas (nome, dose)
                             if (name.isBlank()) {
                                 nameError = "Nome do medicamento é obrigatório"
                                 isValid = false
@@ -790,6 +852,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                 doseError = ""
                             }
 
+                            // Validações de frequência
                             if (frequencyType.value == "vezes_dia") {
                                 val timesValue = timesPerDay.toIntOrNull()
                                 if (timesValue == null || timesValue <= 0) {
@@ -798,9 +861,9 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                 } else {
                                     timesPerDayError = ""
                                 }
-                            } else {
-                                if (intervalHours.isBlank() || intervalHours.toIntOrNull() == null) {
-                                    intervalHoursError = "Intervalo é obrigatório"
+                            } else if (frequencyType.value == "intervalo" || frequencyType.value == "a_cada_x_horas"){
+                                if (intervalHours.isBlank() || intervalHours.toIntOrNull() == null || (intervalHours.toIntOrNull() ?: 0) <= 0) {
+                                    intervalHoursError = "Intervalo é obrigatório e deve ser maior que zero"
                                     isValid = false
                                 } else {
                                     intervalHoursError = ""
@@ -814,28 +877,54 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                 }
                             }
 
-                            // Validação de data
-                            if (startDate.length == 8) {
-                                val (isValidDate, message) = DateValidator.validateDate(startDate)
-                                if (!isValidDate) {
-                                    startDateError = message ?: "Data inválida"
-                                    isValid = false
-                                } else {
-                                    startDateError = ""
-                                }
-                            } else {
-                                startDateError = "Data incompleta. Use o formato DD/MM/AAAA"
+                            // Validação de data de início (MODIFICADA PARA AJUSTAR À DateValidator)
+                            // val finalStartDateForMedicineObject = startDate // REMOVIDA - INLINED
+
+                            if (startDate.isBlank()) {
+                                startDateError = "Data de início é obrigatória"
                                 isValid = false
+                            } else {
+                                var dateStringToValidate = startDate
+                                // Se a data do TextField já tem barras (ex: "13/05/2021"), removemos para enviar ao DateValidator
+                                if (startDate.length == 10 && startDate.count { it == '/' } == 2) {
+                                    dateStringToValidate = startDate.replace("/", "") // Transforma em "13052021"
+                                } else if (startDate.length != 8 || !startDate.all { it.isDigit() }) {
+                                    // Se não tem 10 chars com barras, E não tem 8 dígitos, então está em formato inesperado
+                                    startDateError = "Formato de data inválido. Use DD/MM/AAAA."
+                                    isValid = false
+                                    dateStringToValidate = "" // Evita que DateValidator seja chamado com lixo
+                                }
+                                // Se dateStringToValidate for vazio aqui, a validação acima já falhou.
+                                // Se isValid ainda for true, prosseguimos para DateValidator.
+
+                                if (isValid && dateStringToValidate.isNotEmpty()) {
+                                    val (isValidDate, message) = DateValidator.validateDate(dateStringToValidate)
+                                    if (!isValidDate) {
+                                        // A mensagem do DateValidator pode ser "Formato de data inválido (esperado 8 dígitos)."
+                                        // ou "Data inválida. Verifique dia, mês e ano."
+                                        startDateError = message ?: "Data inválida"
+                                        isValid = false
+                                    } else {
+                                        startDateError = "" // Limpa erro se passou
+                                        // Se DateValidator retornou true, mas com mensagem (data futura), lidamos com isso abaixo.
+                                    }
+                                } else if (isValid && dateStringToValidate.isEmpty()) {
+                                    // Este caso não deveria ocorrer se a lógica acima estiver correta,
+                                    // mas é uma salvaguarda.
+                                    startDateError = "Data de início inválida."
+                                    isValid = false
+                                }
                             }
 
-                            if (!isContinuousMedication && (duration.isBlank() || duration.toIntOrNull() == null)) {
-                                durationError = "Duração é obrigatória"
+                            // Validação de duração
+                            if (!isContinuousMedication && (duration.isBlank() || duration.toIntOrNull() == null || (duration.toIntOrNull() ?: 0) <= 0) ) {
+                                durationError = "Duração é obrigatória e deve ser maior que zero"
                                 isValid = false
                             } else {
                                 durationError = ""
                             }
 
-                            // Validação dos campos de rastreamento de estoque
+                            // Validação de estoque
                             if (trackStock && stockQuantity.isBlank()) {
                                 stockQuantityError = "Quantidade em estoque é obrigatória"
                                 isValid = false
@@ -845,23 +934,21 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
 
                             if (isValid) {
                                 val currentUserId = Firebase.auth.currentUser?.uid ?: ""
-                                // Dentro da função que cria o objeto Medicine para salvar
+                                // Usamos startDate (que mantém o formato com barras "dd/MM/yyyy")
+                                // para o objeto Medicine, pois o resto do sistema pode esperar isso.
                                 val medicine = Medicine(
-                                    id = null,
-                                    userId = currentUserId, // Certifique-se de que este campo foi adicionado
+                                    id = if (isEditing) medicineId else null,
+                                    userId = currentUserId,
                                     name = name,
                                     recipientName = recipientName.trim(),
                                     dose = dose,
                                     doseUnit = doseUnit,
                                     frequencyType = frequencyType.value,
-                                    startDate = startDate,
+                                    startDate = startDate, // USANDO startDate DIRETAMENTE
                                     duration = if (isContinuousMedication) -1 else duration.toIntOrNull() ?: 0,
                                     timesPerDay = if (frequencyType.value == "vezes_dia") timesPerDay.toIntOrNull() ?: 1 else 0,
                                     horarios = if (frequencyType.value == "vezes_dia") horarios.toList() else null,
-                                    // Aqui está a correção:
-                                    intervalHours = if (frequencyType.value == "intervalo" || frequencyType.value == "a_cada_x_horas")
-                                        intervalHours.toIntOrNull() ?: 0
-                                    else 0,
+                                    intervalHours = if (frequencyType.value == "intervalo" || frequencyType.value == "a_cada_x_horas") intervalHours.toIntOrNull() ?: 0 else 0,
                                     startTime = if (frequencyType.value == "intervalo" || frequencyType.value == "a_cada_x_horas") startTime else null,
                                     notes = notes,
                                     trackStock = trackStock,
@@ -869,30 +956,46 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                     stockUnit = stockUnit
                                 )
 
+                                // Verifica se a data é futura usando o DateValidator novamente, passando a string de 8 dígitos.
+                                // DateValidator retorna uma mensagem se for futura, mesmo que isValidDate seja true.
+                                var dateForFutureCheck = startDate // USANDO startDate DIRETAMENTE
+                                if (startDate.length == 10 && startDate.count { it == '/' } == 2) {
+                                    dateForFutureCheck = startDate.replace("/", "")
+                                }
+                                val (_, validationMessageFromValidator) = DateValidator.validateDate(dateForFutureCheck)
 
-                                // Verificar se a data é futura
-                                val (_, message) = DateValidator.validateDate(startDate)
-                                if (message != null && message.contains("futuro")) {
+                                if (validationMessageFromValidator != null && validationMessageFromValidator.contains("futuro")) {
                                     medicineToSave = medicine
                                     showFutureDateDialog = true
                                 } else {
-                                    // Definir isSaving como true antes de salvar
+                                    // Se DateValidator não retornou mensagem de futuro, e a data é válida (isValid = true)
+                                    // então podemos prosseguir com o salvamento.
                                     isSaving = true
                                     if (isEditing && medicineId != null) {
                                         MedicineRepository.updateMedicine(
                                             medicineId = medicineId,
                                             medicine = medicine,
                                             onSuccess = {
-                                                isSaving = false
                                                 coroutineScope.launch {
                                                     try {
-                                                        var lembretesAgendadosComSucesso = true // Para controlar o feedback
+                                                        var lembretesProcessadosComSucesso = true
+                                                        Log.d("MedicineFormScreen", "Iniciando atualização de lembretes para medId: $medicineId")
 
-                                                        // Só processa lembretes se for do tipo "vezes_dia" por enquanto
+                                                        val lembretesAntigos = lembreteDao.getLembretesByMedicamentoId(medicineId)
+                                                        if (lembretesAntigos.isNotEmpty()) {
+                                                            lembretesAntigos.forEach { lembreteAntigo ->
+                                                                AlarmScheduler.cancelAlarm(context, lembreteAntigo.id)
+                                                                Log.d("MedicineFormScreen", "Alarme cancelado para lembrete antigo ID: ${lembreteAntigo.id}")
+                                                            }
+                                                            lembreteDao.deleteLembretesByMedicamentoId(medicineId)
+                                                            Log.d("MedicineFormScreen", "Lembretes antigos deletados do Room para medId: $medicineId")
+                                                        } else {
+                                                            Log.d("MedicineFormScreen", "Nenhum lembrete antigo encontrado para medId: $medicineId")
+                                                        }
+
                                                         if (frequencyType.value == "vezes_dia") {
                                                             if (horarios.isEmpty()) {
-                                                                Log.w("MedicineFormScreen", "Nenhum horário definido para lembretes 'vezes_dia'.")
-                                                                // Você pode querer definir lembretesAgendadosComSucesso = false aqui se isso for um erro
+                                                                Log.w("MedicineFormScreen", "Nenhum horário definido para lembretes 'vezes_dia' na atualização.")
                                                             }
                                                             horarios.forEach { horarioStr ->
                                                                 val parts = horarioStr.split(":")
@@ -901,77 +1004,264 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                                                     val minuto = parts[1].toIntOrNull()
 
                                                                     if (hora != null && minuto != null) {
-                                                                        val calendar = Calendar.getInstance().apply {
+                                                                        val sdfDate = SimpleDateFormat("dd/MM/yyyy", Locale.US)
+                                                                        val dataInicioCalendar = Calendar.getInstance()
+                                                                        try {
+                                                                            val parsedDate: Date? = sdfDate.parse(startDate) // USANDO startDate DIRETAMENTE
+                                                                            dataInicioCalendar.time = parsedDate ?: Date()
+                                                                        } catch (e: Exception) {
+                                                                            Log.e("MedicineFormScreen", "Erro ao parsear startDate ($startDate) para lembrete 'vezes_dia'. Usando data atual.", e)
+                                                                            dataInicioCalendar.time = Date()
+                                                                        }
+
+                                                                        val lembreteCalendar = Calendar.getInstance().apply {
+                                                                            time = dataInicioCalendar.time
                                                                             set(Calendar.HOUR_OF_DAY, hora)
                                                                             set(Calendar.MINUTE, minuto)
                                                                             set(Calendar.SECOND, 0)
                                                                             set(Calendar.MILLISECOND, 0)
-                                                                            if (before(Calendar.getInstance())) {
-                                                                                add(Calendar.DAY_OF_MONTH, 1)
-                                                                            }
-                                                                            // TODO: Integrar com startDate aqui!
                                                                         }
 
+                                                                        while (lembreteCalendar.timeInMillis < System.currentTimeMillis()) {
+                                                                            lembreteCalendar.add(Calendar.DAY_OF_MONTH, 1)
+                                                                        }
+                                                                        val proximaOcorrenciaMillis = lembreteCalendar.timeInMillis
+
+                                                                        // MODIFICADO: Formatação da dose e inclusão do recipientName
+                                                                        val doseFormatada = "$dose $doseUnit".trim()
+
                                                                         val novoLembrete = Lembrete(
-                                                                            medicamentoId = medicineId, // ID do Firestore
+                                                                            id = 0,
+                                                                            medicamentoId = medicineId,
                                                                             nomeMedicamento = name,
+                                                                            recipientName = medicine.recipientName, // ADICIONADO: Nome da pessoa
                                                                             hora = hora,
                                                                             minuto = minuto,
-                                                                            dose = "$dose $doseUnit",
+                                                                            dose = doseFormatada, // MODIFICADO: Usa a dose formatada
                                                                             observacao = notes,
-                                                                            proximaOcorrenciaMillis = calendar.timeInMillis,
+                                                                            proximaOcorrenciaMillis = proximaOcorrenciaMillis,
                                                                             ativo = true
                                                                         )
-                                                                        val idLembreteSalvo = lembreteDao.insertLembrete(novoLembrete)
-                                                                        AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
-                                                                        Log.d("MedicineFormScreen", "Lembrete agendado para ${novoLembrete.nomeMedicamento} às $hora:$minuto")
-                                                                    } else {
-                                                                        Log.e("MedicineFormScreen", "Formato de horário inválido: $horarioStr")
-                                                                        lembretesAgendadosComSucesso = false
+                                                                        try {
+                                                                            val idLembreteSalvo = lembreteDao.insertLembrete(novoLembrete)
+                                                                            AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
+                                                                            Log.d("MedicineFormScreen", "Lembrete (vezes_dia) atualizado/agendado para medId: $medicineId, lembreteId: $idLembreteSalvo")
+                                                                        } catch (e: Exception) {
+                                                                            Log.e("MedicineFormScreen", "Erro ao salvar/agendar lembrete (vezes_dia) para medId: $medicineId", e)
+                                                                            lembretesProcessadosComSucesso = false
+                                                                        }
                                                                     }
-                                                                } else {
-                                                                    Log.e("MedicineFormScreen", "Formato de horário inválido: $horarioStr")
-                                                                    lembretesAgendadosComSucesso = false
                                                                 }
                                                             }
-                                                        } else if (frequencyType.value == "a_cada_x_horas" || frequencyType.value == "intervalo") {
-                                                            Log.w("MedicineFormScreen", "Agendamento para 'a cada X horas' ainda não implementado.")
-                                                            // Marcar como não totalmente sucesso se esta parte não estiver pronta
-                                                            // lembretesAgendadosComSucesso = false; // Descomente se quiser que isso afete o Toast final
+                                                        } else if (frequencyType.value == "intervalo" || frequencyType.value == "a_cada_x_horas") {
+                                                            // MODIFICADO: Lógica para "a cada X horas" usando DateTimeUtils
+                                                            val intervalH = medicine.intervalHours
+                                                            val startT = medicine.startTime
+                                                            if (intervalH != null && intervalH > 0 && startT != null) {
+                                                                val durationD = if (medicine.duration == -1) -1 else medicine.duration
+
+                                                                // Usar DateTimeUtils para calcular todas as ocorrências futuras
+                                                                val timestamps = DateTimeUtils.calcularProximasOcorrenciasIntervalo(
+                                                                    startDateString = medicine.startDate,
+                                                                    startTimeString = startT,
+                                                                    intervalHours = intervalH,
+                                                                    durationDays = durationD
+                                                                )
+
+                                                                // MODIFICADO: Formatação da dose
+                                                                val doseFormatada = "$dose $doseUnit".trim()
+
+                                                                // Criar um lembrete individual para cada timestamp
+                                                                timestamps.forEach { timestamp ->
+                                                                    val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
+                                                                    val novoLembrete = Lembrete(
+                                                                        id = 0,
+                                                                        medicamentoId = medicineId,
+                                                                        nomeMedicamento = name,
+                                                                        recipientName = medicine.recipientName, // ADICIONADO: Nome da pessoa
+                                                                        hora = cal.get(Calendar.HOUR_OF_DAY),
+                                                                        minuto = cal.get(Calendar.MINUTE),
+                                                                        dose = doseFormatada, // MODIFICADO: Usa a dose formatada
+                                                                        observacao = notes,
+                                                                        proximaOcorrenciaMillis = timestamp,
+                                                                        ativo = true
+                                                                    )
+
+                                                                    try {
+                                                                        val idLembreteSalvo = lembreteDao.insertLembrete(novoLembrete)
+                                                                        AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
+                                                                        Log.d("MedicineFormScreen", "Lembrete (a_cada_x_horas) atualizado/agendado para medId: $medicineId, lembreteId: $idLembreteSalvo, timestamp: $timestamp")
+                                                                    } catch (e: Exception) {
+                                                                        Log.e("MedicineFormScreen", "Erro ao salvar/agendar lembrete (a_cada_x_horas) para medId: $medicineId", e)
+                                                                        Log.e("PILLORA_DEBUG", "Criando lembrete para 'a cada X horas'. Intervalo: $intervalHours, Data início: $startDate")
+                                                                        lembretesProcessadosComSucesso = false
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                Log.e("MedicineFormScreen", "Dados inválidos para lembretes 'a_cada_x_horas': intervalH=$intervalH, startT=$startT")
+                                                                lembretesProcessadosComSucesso = false
+                                                            }
                                                         }
 
-                                                        // Feedback ao usuário e navegação
                                                         isSaving = false
-                                                        if (lembretesAgendadosComSucesso) {
-                                                            Toast.makeText(context, "Medicamento salvo e lembretes agendados!", Toast.LENGTH_LONG).show()
+                                                        if (lembretesProcessadosComSucesso) {
+                                                            Toast.makeText(context, "Medicamento atualizado com sucesso!", Toast.LENGTH_SHORT).show()
+                                                            navController.popBackStack()
                                                         } else {
-                                                            Toast.makeText(context, "Medicamento salvo, mas houve problema ao agendar alguns lembretes.", Toast.LENGTH_LONG).show()
+                                                            Toast.makeText(context, "Medicamento atualizado, mas houve problemas com os lembretes.", Toast.LENGTH_LONG).show()
+                                                            navController.popBackStack()
                                                         }
-                                                        navController.popBackStack()
-
                                                     } catch (e: Exception) {
                                                         isSaving = false
-                                                        Log.e("MedicineFormScreen", "Erro ao salvar/agendar lembretes", e)
-                                                        Toast.makeText(context, "Medicamento salvo, mas erro ao agendar lembretes: ${e.message}", Toast.LENGTH_LONG).show()
-                                                        navController.popBackStack() // Ou decida se quer que o usuário permaneça na tela
+                                                        Log.e("MedicineFormScreen", "Erro ao processar lembretes na atualização do medicamento", e)
+                                                        Toast.makeText(context, "Erro ao processar lembretes: ${e.message}", Toast.LENGTH_LONG).show()
+                                                        navController.popBackStack()
                                                     }
                                                 }
                                             },
                                             onError = { exception ->
-                                                isSaving = false // Finaliza o carregamento mesmo em caso de erro
+                                                isSaving = false
+                                                Log.e("MedicineFormScreen", "Erro ao atualizar medicamento", exception)
                                                 Toast.makeText(context, "Erro ao atualizar: ${exception.message}", Toast.LENGTH_LONG).show()
                                             }
                                         )
                                     } else {
                                         MedicineRepository.saveMedicine(
                                             medicine = medicine,
-                                            onSuccess = {
-                                                isSaving = false // Finaliza o carregamento
-                                                Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
-                                                navController.popBackStack()
+                                            onSuccess = { newMedicineId ->
+                                                coroutineScope.launch {
+                                                    try {
+                                                        var lembretesProcessadosComSucesso = true
+                                                        Log.d("MedicineFormScreen", "Iniciando criação de lembretes para novo medId: $newMedicineId")
+
+                                                        if (frequencyType.value == "vezes_dia") {
+                                                            if (horarios.isEmpty()) {
+                                                                Log.w("MedicineFormScreen", "Nenhum horário definido para lembretes 'vezes_dia' na criação.")
+                                                            }
+                                                            horarios.forEach { horarioStr ->
+                                                                val parts = horarioStr.split(":")
+                                                                if (parts.size == 2) {
+                                                                    val hora = parts[0].toIntOrNull()
+                                                                    val minuto = parts[1].toIntOrNull()
+
+                                                                    if (hora != null && minuto != null) {
+                                                                        val sdfDate = SimpleDateFormat("dd/MM/yyyy", Locale.US)
+                                                                        val dataInicioCalendar = Calendar.getInstance()
+                                                                        try {
+                                                                            val parsedDate: Date? = sdfDate.parse(startDate) // USANDO startDate DIRETAMENTE
+                                                                            dataInicioCalendar.time = parsedDate ?: Date()
+                                                                        } catch (e: Exception) {
+                                                                            Log.e("MedicineFormScreen", "Erro ao parsear startDate ($startDate) para lembrete 'vezes_dia'. Usando data atual.", e)
+                                                                            dataInicioCalendar.time = Date()
+                                                                        }
+
+                                                                        val lembreteCalendar = Calendar.getInstance().apply {
+                                                                            time = dataInicioCalendar.time
+                                                                            set(Calendar.HOUR_OF_DAY, hora)
+                                                                            set(Calendar.MINUTE, minuto)
+                                                                            set(Calendar.SECOND, 0)
+                                                                            set(Calendar.MILLISECOND, 0)
+                                                                        }
+
+                                                                        while (lembreteCalendar.timeInMillis < System.currentTimeMillis()) {
+                                                                            lembreteCalendar.add(Calendar.DAY_OF_MONTH, 1)
+                                                                        }
+                                                                        val proximaOcorrenciaMillis = lembreteCalendar.timeInMillis
+
+                                                                        // MODIFICADO: Formatação da dose e inclusão do recipientName
+                                                                        val doseFormatada = "$dose $doseUnit".trim()
+
+                                                                        val novoLembrete = Lembrete(
+                                                                            id = 0,
+                                                                            medicamentoId = newMedicineId,
+                                                                            nomeMedicamento = name,
+                                                                            recipientName = medicine.recipientName, // ADICIONADO: Nome da pessoa
+                                                                            hora = hora,
+                                                                            minuto = minuto,
+                                                                            dose = doseFormatada, // MODIFICADO: Usa a dose formatada
+                                                                            observacao = notes,
+                                                                            proximaOcorrenciaMillis = proximaOcorrenciaMillis,
+                                                                            ativo = true
+                                                                        )
+                                                                        try {
+                                                                            val idLembreteSalvo = lembreteDao.insertLembrete(novoLembrete)
+                                                                            AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
+                                                                            Log.d("MedicineFormScreen", "Lembrete (vezes_dia) criado/agendado para novo medId: $newMedicineId, lembreteId: $idLembreteSalvo")
+                                                                        } catch (e: Exception) {
+                                                                            Log.e("MedicineFormScreen", "Erro ao salvar/agendar lembrete (vezes_dia) para novo medId: $newMedicineId", e)
+                                                                            lembretesProcessadosComSucesso = false
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        } else if (frequencyType.value == "intervalo" || frequencyType.value == "a_cada_x_horas") {
+                                                            // MODIFICADO: Lógica para "a cada X horas" usando DateTimeUtils
+                                                            val intervalH = medicine.intervalHours
+                                                            val startT = medicine.startTime
+                                                            if (intervalH != null && intervalH > 0 && startT != null) {
+                                                                val durationD = if (medicine.duration == -1) -1 else medicine.duration
+
+                                                                // Usar DateTimeUtils para calcular todas as ocorrências futuras
+                                                                val timestamps = DateTimeUtils.calcularProximasOcorrenciasIntervalo(
+                                                                    startDateString = medicine.startDate,
+                                                                    startTimeString = startT,
+                                                                    intervalHours = intervalH,
+                                                                    durationDays = durationD
+                                                                )
+
+                                                                // MODIFICADO: Formatação da dose
+                                                                val doseFormatada = "$dose $doseUnit".trim()
+
+                                                                // Criar um lembrete individual para cada timestamp
+                                                                timestamps.forEach { timestamp ->
+                                                                    val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
+                                                                    val novoLembrete = Lembrete(
+                                                                        id = 0,
+                                                                        medicamentoId = newMedicineId,
+                                                                        nomeMedicamento = name,
+                                                                        recipientName = medicine.recipientName, // ADICIONADO: Nome da pessoa
+                                                                        hora = cal.get(Calendar.HOUR_OF_DAY),
+                                                                        minuto = cal.get(Calendar.MINUTE),
+                                                                        dose = doseFormatada, // MODIFICADO: Usa a dose formatada
+                                                                        observacao = notes,
+                                                                        proximaOcorrenciaMillis = timestamp,
+                                                                        ativo = true
+                                                                    )
+
+                                                                    try {
+                                                                        val idLembreteSalvo = lembreteDao.insertLembrete(novoLembrete)
+                                                                        AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
+                                                                        Log.d("MedicineFormScreen", "Lembrete (a_cada_x_horas) criado/agendado para novo medId: $newMedicineId, lembreteId: $idLembreteSalvo, timestamp: $timestamp")
+                                                                    } catch (e: Exception) {
+                                                                        Log.e("MedicineFormScreen", "Erro ao salvar/agendar lembrete (a_cada_x_horas) para novo medId: $newMedicineId", e)
+                                                                        lembretesProcessadosComSucesso = false
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                Log.e("MedicineFormScreen", "Dados inválidos para lembretes 'a_cada_x_horas': intervalH=$intervalH, startT=$startT")
+                                                                lembretesProcessadosComSucesso = false
+                                                            }
+                                                        }
+
+                                                        isSaving = false
+                                                        if (lembretesProcessadosComSucesso) {
+                                                            Toast.makeText(context, "Medicamento salvo com sucesso!", Toast.LENGTH_SHORT).show()
+                                                            navController.popBackStack()
+                                                        } else {
+                                                            Toast.makeText(context, "Medicamento salvo, mas houve problemas com os lembretes.", Toast.LENGTH_LONG).show()
+                                                            navController.popBackStack()
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        isSaving = false
+                                                        Log.e("MedicineFormScreen", "Erro ao processar lembretes na criação do medicamento", e)
+                                                        Toast.makeText(context, "Erro ao processar lembretes: ${e.message}", Toast.LENGTH_LONG).show()
+                                                        navController.popBackStack()
+                                                    }
+                                                }
                                             },
                                             onError = { exception ->
-                                                isSaving = false // Finaliza o carregamento mesmo em caso de erro
+                                                isSaving = false
+                                                Log.e("MedicineFormScreen", "Erro ao salvar medicamento", exception)
                                                 Toast.makeText(context, "Erro ao salvar: ${exception.message}", Toast.LENGTH_LONG).show()
                                             }
                                         )
@@ -980,17 +1270,9 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isSaving
+                        enabled = !isSaving // Desabilitar botão enquanto estiver salvando
                     ) {
-                        if (isSaving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                        }
-                        Text(if (isEditing) "Atualizar" else "Salvar")
+                        Text(if (isEditing) "Atualizar Medicamento" else "Salvar Medicamento")
                     }
                 }
             }
