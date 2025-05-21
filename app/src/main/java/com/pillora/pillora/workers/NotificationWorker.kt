@@ -43,9 +43,9 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         val titleFromIntent = inputData.getString(EXTRA_NOTIFICATION_TITLE)
         val messageFromIntent = inputData.getString(EXTRA_NOTIFICATION_MESSAGE)
         val recipientNameFromIntent = inputData.getString(EXTRA_RECIPIENT_NAME)
-        val isMedicineAlarm = inputData.getBoolean("IS_MEDICINE_ALARM", false)
+        inputData.getBoolean("IS_MEDICINE_ALARM", false)
 
-        Log.d("NotificationWorker", "Iniciando trabalho para lembreteId: $lembreteId, medicamentoId: $medicamentoId")
+        Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Iniciando para lembreteId=$lembreteId, medicamentoId=$medicamentoId")
 
         if (lembreteId == -1L) {
             Log.e("NotificationWorker", "ID do Lembrete inválido.")
@@ -90,7 +90,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         // Som de alarme para garantir que seja ouvido
         val alarmSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         // Fallback para som de notificação se o som de alarme não estiver disponível
-        val fallbackSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
         val builder = NotificationCompat.Builder(applicationContext, PilloraApplication.CHANNEL_LEMBRETES_MEDICAMENTOS_ID)
             .setSmallIcon(R.drawable.ic_notification_pill)
@@ -112,11 +112,14 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             return@withContext Result.failure()
         }
 
+        Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Exibindo notificação para lembreteId=$lembreteId, title=$finalTitle")
+
+
         try {
             NotificationManagerCompat.from(applicationContext).notify(notificationId, builder.build())
-            Log.d("NotificationWorker", "Notificação exibida para lembreteId: $lembreteId, medicamentoId: $medicamentoId, notificationId: $notificationId. Título: $finalTitle, Mensagem: $messageFromIntent")
+            Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Notificação exibida com sucesso para lembreteId=$lembreteId")
         } catch (e: Exception) {
-            Log.e("NotificationWorker", "Erro ao exibir notificação para lembreteId: $lembreteId", e)
+            Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Erro ao exibir notificação", e)
             return@withContext Result.failure()
         }
 

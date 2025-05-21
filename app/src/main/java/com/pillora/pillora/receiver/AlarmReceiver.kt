@@ -8,12 +8,16 @@ import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.pillora.pillora.workers.NotificationWorker
+import java.util.Locale
 
 class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context?, intent: Intent?) {
-        Log.d("AlarmReceiver", "Alarme recebido!")
-        if (context == null || intent == null) return
+        Log.e("PILLORA_DEBUG", "AlarmReceiver.onReceive: Alarme recebido!")
+        if (context == null || intent == null) {
+            Log.e("PILLORA_DEBUG", "AlarmReceiver.onReceive: context ou intent nulos")
+            return
+        }
 
         val lembreteId = intent.getLongExtra("LEMBRETE_ID", -1L)
         val medicamentoId = intent.getStringExtra("MEDICAMENTO_ID") // Importante para atualização de estoque
@@ -24,8 +28,12 @@ class AlarmReceiver : BroadcastReceiver() {
         val hora = intent.getIntExtra("HORA", -1)
         val minuto = intent.getIntExtra("MINUTO", -1)
 
+        Log.e("PILLORA_DEBUG", "AlarmReceiver.onReceive: lembreteId=$lembreteId, medicamentoId=$medicamentoId, title=$notificationTitle, message=$notificationMessage")
+        Log.e("PILLORA_DEBUG", "AlarmReceiver.onReceive: proximaOcorrencia=${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(java.util.Date(proximaOcorrenciaMillis))}")
+
+
         if (lembreteId != -1L) {
-            Log.d("AlarmReceiver", "Agendando NotificationWorker para lembreteId: $lembreteId, medicamentoId: $medicamentoId")
+            Log.e("PILLORA_DEBUG", "AlarmReceiver.onReceive: Agendando NotificationWorker para lembreteId: $lembreteId")
             val workData = Data.Builder()
                 .putLong(NotificationWorker.EXTRA_LEMBRETE_ID, lembreteId)
                 .putString(NotificationWorker.EXTRA_MEDICAMENTO_ID, medicamentoId) // Crucial para atualização de estoque
@@ -44,7 +52,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
             WorkManager.getInstance(context).enqueue(notificationWorkRequest)
         } else {
-            Log.e("AlarmReceiver", "ID do Lembrete inválido.")
+            Log.e("PILLORA_DEBUG", "AlarmReceiver.onReceive: NotificationWorker agendado com sucesso")
         }
     }
 }

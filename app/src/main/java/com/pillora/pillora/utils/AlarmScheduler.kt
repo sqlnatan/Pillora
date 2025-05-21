@@ -14,8 +14,13 @@ import java.util.Locale
 object AlarmScheduler {
 
     fun scheduleAlarm(context: Context, lembrete: Lembrete) {
+        Log.e("PILLORA_DEBUG", "Agendando alarme para lembreteId: ${lembrete.id}, medicamentoId: ${lembrete.medicamentoId}")
+        Log.e("PILLORA_DEBUG", "Detalhes do lembrete: hora=${lembrete.hora}, minuto=${lembrete.minuto}, proximaOcorrencia=${lembrete.proximaOcorrenciaMillis}")
+        Log.e("PILLORA_DEBUG", "Data/hora do alarme: ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(java.util.Date(lembrete.proximaOcorrenciaMillis))}")
+
+
         if (!lembrete.ativo) {
-            Log.d("AlarmScheduler", "Lembrete ${lembrete.id} está inativo, não agendando.")
+            Log.e("PILLORA_DEBUG", "Lembrete ${lembrete.id} está inativo, não agendando.")
             return
         }
 
@@ -67,54 +72,52 @@ object AlarmScheduler {
             // que também atualiza o lembrete.
         }
 
+        Log.e("PILLORA_DEBUG", "Verificando permissões para agendar alarme...")
+
+
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-                Log.w("AlarmScheduler", "Não pode agendar alarmes exatos. O usuário precisa conceder permissão.")
+                Log.e("PILLORA_DEBUG", "Não pode agendar alarmes exatos. O usuário precisa conceder permissão.")
                 // A MainActivity já deve ter guiado o usuário para as configurações.
                 // Se chegou aqui sem permissão, o alarme não será agendado.
                 return
             }
 
             // Usar setAlarmClock para garantir que o alarme toque mesmo em modo de economia de bateria
-            if (Build.VERSION.SDK_INT >= 23) { // Android 6.0 (M) ou superior
-                try {
-                    // Criar um PendingIntent para o showIntent (apenas para o AlarmClockInfo)
-                    val showIntent = Intent(context, AlarmReceiver::class.java)
-                    val showPendingIntent = PendingIntent.getBroadcast(
-                        context,
-                        lembrete.id.toInt() + 100000, // Usar um request code diferente do alarme principal
-                        showIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
+            // Android 6.0 (M) ou superior
+            try {
+                // Criar um PendingIntent para o showIntent (apenas para o AlarmClockInfo)
+                val showIntent = Intent(context, AlarmReceiver::class.java)
+                val showPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    lembrete.id.toInt() + 100000, // Usar um request code diferente do alarme principal
+                    showIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
 
-                    // Usar setAlarmClock para maior prioridade
-                    val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showPendingIntent)
-                    alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+                // Usar setAlarmClock para maior prioridade
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showPendingIntent)
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
 
-                    Log.d("AlarmScheduler", "Alarme agendado com setAlarmClock para Lembrete ID: ${lembrete.id}")
-                } catch (e: Exception) {
-                    Log.e("AlarmScheduler", "Erro ao agendar com setAlarmClock, tentando fallback", e)
-                    // Fallback para setExactAndAllowWhileIdle
-                    alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerAtMillis,
-                        pendingIntent
-                    )
-                    Log.d("AlarmScheduler", "Alarme agendado com setExactAndAllowWhileIdle para Lembrete ID: ${lembrete.id}")
-                }
-            } else {
-                // Para versões mais antigas do Android
-                alarmManager.setExact(
+                Log.d("AlarmScheduler", "Alarme agendado com setAlarmClock para Lembrete ID: ${lembrete.id}")
+
+                Log.e("PILLORA_DEBUG", "Alarme agendado com sucesso para lembreteId: ${lembrete.id} em ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(java.util.Date(triggerAtMillis))}")
+
+
+            } catch (e: Exception) {
+                Log.e("AlarmScheduler", "Erro ao agendar com setAlarmClock, tentando fallback", e)
+                // Fallback para setExactAndAllowWhileIdle
+                alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerAtMillis,
                     pendingIntent
                 )
-                Log.d("AlarmScheduler", "Alarme agendado com setExact para Lembrete ID: ${lembrete.id}")
+                Log.d("AlarmScheduler", "Alarme agendado com setExactAndAllowWhileIdle para Lembrete ID: ${lembrete.id}")
             }
 
             Log.d("AlarmScheduler", "Alarme agendado para Lembrete ID: ${lembrete.id} em $triggerAtMillis (${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(java.util.Date(triggerAtMillis))})")
         } catch (se: SecurityException) {
-            Log.e("AlarmScheduler", "SecurityException ao agendar alarme. Verifique permissões (SCHEDULE_EXACT_ALARM ou USE_EXACT_ALARM).", se)
+            Log.e("PILLORA_DEBUG", "SecurityException ao agendar alarme. Verifique permissões.", se)
 
             // Último fallback para set normal
             try {
