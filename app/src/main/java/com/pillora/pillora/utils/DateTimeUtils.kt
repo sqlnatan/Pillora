@@ -1,6 +1,6 @@
 package com.pillora.pillora.utils
 
-import android.util.Log // Import necessário para Log.e
+import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -8,6 +8,7 @@ import java.util.Locale
 
 object DateTimeUtils {
 
+    // Função existente para medicamentos
     fun calcularProximasOcorrenciasIntervalo(
         startDateString: String, // Formato "dd/MM/yyyy" ou "ddMMyyyy"
         startTimeString: String, // Formato "HH:mm"
@@ -126,5 +127,81 @@ object DateTimeUtils {
 
         Log.e("PILLORA_DEBUG", "Total de ${ocorrencias.size} ocorrências calculadas")
         return ocorrencias
+    }
+
+    // Nova função para calcular lembretes de consultas (24h e 2h antes)
+    fun calcularLembretesConsulta(
+        consultaDateString: String, // Formato "dd/MM/yyyy" ou "ddMMyyyy"
+        consultaTimeString: String  // Formato "HH:mm"
+    ): List<Long> {
+        val lembretes = mutableListOf<Long>()
+
+        Log.e("PILLORA_DEBUG", "Calculando lembretes para consulta: data=$consultaDateString, hora=$consultaTimeString")
+
+        // Formatar a data corretamente, independente do formato de entrada
+        var formattedConsultaDate = consultaDateString
+
+        // Se a data não contém barras e tem 8 dígitos, adicionar as barras
+        if (!consultaDateString.contains("/") && consultaDateString.length == 8 && consultaDateString.all { it.isDigit() }) {
+            formattedConsultaDate = "${consultaDateString.substring(0, 2)}/${consultaDateString.substring(2, 4)}/${consultaDateString.substring(4)}"
+            Log.e("PILLORA_DEBUG", "Data reformatada: $consultaDateString -> $formattedConsultaDate")
+        }
+
+        // Usar Locale.US para garantir consistência no parsing do formato de data/hora
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US)
+        val consultaDateTimeString = "$formattedConsultaDate $consultaTimeString"
+
+        try {
+            // Obter o timestamp da consulta
+            val consultaCalendar = Calendar.getInstance().apply {
+                time = dateFormat.parse(consultaDateTimeString) ?: run {
+                    Log.e("PILLORA_DEBUG", "Falha ao parsear data/hora da consulta: $consultaDateTimeString")
+                    return emptyList()
+                }
+            }
+
+            Log.e("PILLORA_DEBUG", "Data/hora da consulta parseada: ${dateFormat.format(consultaCalendar.time)}")
+
+            // Timestamp da consulta
+            val consultaTimestamp = consultaCalendar.timeInMillis
+
+            // Calcular timestamp para 24 horas antes
+            val lembrete24h = Calendar.getInstance().apply {
+                timeInMillis = consultaTimestamp
+                add(Calendar.HOUR_OF_DAY, -24) // 24 horas antes
+            }
+
+            // Calcular timestamp para 2 horas antes
+            val lembrete2h = Calendar.getInstance().apply {
+                timeInMillis = consultaTimestamp
+                add(Calendar.HOUR_OF_DAY, -2) // 2 horas antes
+            }
+
+            // Obter o timestamp atual
+            val now = Calendar.getInstance()
+            val currentTimestamp = now.timeInMillis
+
+            // Adicionar apenas lembretes futuros
+            if (lembrete24h.timeInMillis > currentTimestamp) {
+                lembretes.add(lembrete24h.timeInMillis)
+                Log.e("PILLORA_DEBUG", "Lembrete 24h antes adicionado: ${dateFormat.format(lembrete24h.time)}, timestamp: ${lembrete24h.timeInMillis}")
+            } else {
+                Log.e("PILLORA_DEBUG", "Lembrete 24h antes já passou: ${dateFormat.format(lembrete24h.time)}")
+            }
+
+            if (lembrete2h.timeInMillis > currentTimestamp) {
+                lembretes.add(lembrete2h.timeInMillis)
+                Log.e("PILLORA_DEBUG", "Lembrete 2h antes adicionado: ${dateFormat.format(lembrete2h.time)}, timestamp: ${lembrete2h.timeInMillis}")
+            } else {
+                Log.e("PILLORA_DEBUG", "Lembrete 2h antes já passou: ${dateFormat.format(lembrete2h.time)}")
+            }
+
+        } catch (e: Exception) {
+            Log.e("PILLORA_DEBUG", "Erro ao calcular lembretes para consulta $consultaDateTimeString", e)
+            return emptyList() // Retorna lista vazia em caso de erro
+        }
+
+        Log.e("PILLORA_DEBUG", "Total de ${lembretes.size} lembretes calculados para a consulta")
+        return lembretes
     }
 }

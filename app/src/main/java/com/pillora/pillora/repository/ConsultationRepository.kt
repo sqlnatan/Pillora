@@ -23,7 +23,7 @@ object ConsultationRepository {
 
     fun addConsultation(
         consultation: Consultation,
-        onSuccess: () -> Unit,
+        onSuccess: (String) -> Unit,
         onFailure: (Exception) -> Unit
     ) {
         val userId = currentUserId
@@ -37,9 +37,9 @@ object ConsultationRepository {
 
         db.collection(CONSULTATIONS_COLLECTION)
             .add(consultationWithUserId)
-            .addOnSuccessListener {
-                Log.d(TAG, "Consultation added successfully with ID: ${it.id}")
-                onSuccess()
+            .addOnSuccessListener { documentReference ->
+                Log.d(TAG, "Consultation added successfully with ID: ${documentReference.id}")
+                onSuccess(documentReference.id) // Aqui está a correção: passar o ID para o callback
             }
             .addOnFailureListener {
                 Log.e(TAG, "Error adding consultation", it)

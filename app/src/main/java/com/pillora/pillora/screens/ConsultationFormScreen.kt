@@ -3,24 +3,21 @@ package com.pillora.pillora.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions // Corrected import path
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
-// import androidx.compose.material.icons.filled.Save // No longer needed for Button content
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-// import androidx.compose.ui.Alignment //
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
-// import androidx.compose.ui.text.input.KeyboardOptions // Removed incorrect import
-// import androidx.compose.ui.text.input.KeyboardType // Removed unused import
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pillora.pillora.data.dao.LembreteDao
 import com.pillora.pillora.viewmodel.ConsultationViewModel
 import kotlinx.coroutines.launch
 
@@ -35,6 +32,10 @@ fun ConsultationFormScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    // Obter o LembreteDao
+    val database = remember { com.pillora.pillora.data.local.AppDatabase.getDatabase(context) }
+    val lembreteDao: LembreteDao = remember { database.lembreteDao() }
 
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -53,7 +54,7 @@ fun ConsultationFormScreen(
     LaunchedEffect(consultationId) {
         consultationId?.let {
             if (it.isNotEmpty()) {
-                viewModel.loadConsultation(it) // Call loadConsultation from ViewModel
+                viewModel.loadConsultation(it)
             }
         }
     }
@@ -62,7 +63,7 @@ fun ConsultationFormScreen(
     LaunchedEffect(navigateBack) {
         if (navigateBack) {
             navController.popBackStack()
-            viewModel.onNavigationHandled() // Reset the flag
+            viewModel.onNavigationHandled()
         }
     }
 
@@ -72,7 +73,7 @@ fun ConsultationFormScreen(
             scope.launch {
                 snackbarHostState.showSnackbar(message = it, duration = SnackbarDuration.Short)
             }
-            viewModel.onErrorShown() // Call onErrorShown from ViewModel
+            viewModel.onErrorShown()
         }
     }
 
@@ -88,8 +89,7 @@ fun ConsultationFormScreen(
                 }
             )
         }
-    ) {
-            padding ->
+    ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             Column(
                 modifier = Modifier
@@ -171,43 +171,34 @@ fun ConsultationFormScreen(
                 )
 
                 OutlinedTextField(
-                    value = patientName.value, // Ou apenas patientName, dependendo de como você pegou o estado no passo anterior
-                    onValueChange = { viewModel.onPatientNameChange(it) }, // Chama a função que criamos no ViewModel
+                    value = patientName.value,
+                    onValueChange = { viewModel.onPatientNameChange(it) },
                     label = { Text("Nome do Paciente") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true, // Para que o nome seja em uma única linha
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Words // Para capitalizar cada palavra automaticamente
+                        capitalization = KeyboardCapitalization.Words
                     )
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
-                    onClick = { viewModel.saveConsultation() },
+                    onClick = { viewModel.saveConsultation(context, lembreteDao) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading // Disable button while loading/saving
+                    enabled = !isLoading
                 ) {
-                    // Corrected loading indicator implementation
                     if (isLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
-                            color = MaterialTheme.colorScheme.onPrimary, // Match MedicineFormScreen color
+                            color = MaterialTheme.colorScheme.onPrimary,
                             strokeWidth = 2.dp
                         )
-                        Spacer(modifier = Modifier.width(8.dp)) // Add space
+                        Spacer(modifier = Modifier.width(8.dp))
                     }
-                    // Always display text
                     Text(if (consultationId == null) "Salvar Consulta" else "Atualizar Consulta")
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
-
-            // Optional: Keep a general loading indicator for initial load if needed
-            // This might be different from the button's saving state
-            // if (isLoading && consultationId != null) { // Example: Show only when loading existing data
-            //     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            // }
         }
     }
 }
-
