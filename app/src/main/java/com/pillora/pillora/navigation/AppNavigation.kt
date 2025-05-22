@@ -34,7 +34,10 @@ const val RECIPE_LIST_ROUTE = "recipe_list"
 const val RECIPE_FORM_ROUTE = "recipe_form_screen"
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    openConsultationEdit: Boolean = false,
+    consultationId: String? = null
+) {
     val navController = rememberNavController()
     val context = LocalContext.current
     val prefs = remember {
@@ -119,8 +122,8 @@ fun AppNavigation() {
                     }
                 )
             ) { backStackEntry ->
-                val consultationId = backStackEntry.arguments?.getString("id")
-                ConsultationFormScreen(navController = navController, consultationId = consultationId)
+                val consultationIdFromRoute = backStackEntry.arguments?.getString("id")
+                ConsultationFormScreen(navController = navController, consultationId = consultationIdFromRoute)
             }
 
             // Vaccine list screen (Nova rota adicionada)
@@ -165,9 +168,15 @@ fun AppNavigation() {
                 RecipeFormScreen(navController = navController, recipeId = actualRecipeId)
             }
         }
+
+        // Navegar para a tela de edição de consulta se necessário
+        if (openConsultationEdit && consultationId != null) {
+            LaunchedEffect(key1 = Unit) {
+                navController.navigate("${Screen.ConsultationForm.route}?id=$consultationId")
+            }
+        }
     } else {
         // Opcional: Mostrar um indicador de carregamento ou tela vazia enquanto determina a rota inicial
         // No entanto, a SplashActivity nativa já deve estar cobrindo este tempo.
     }
 }
-

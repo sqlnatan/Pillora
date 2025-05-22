@@ -13,11 +13,9 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.pillora.pillora.MainActivity
-import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.R
 import com.pillora.pillora.receiver.NotificationActionReceiver
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import java.util.Locale
 
 class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
@@ -42,25 +40,34 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         const val EXTRA_HORA_CONSULTA = "EXTRA_HORA_CONSULTA"
     }
 
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+    override suspend fun doWork(): Result {
+        // Obter parâmetros da notificação
         val lembreteId = inputData.getLong(EXTRA_LEMBRETE_ID, -1L)
-        val medicamentoId = inputData.getString(EXTRA_MEDICAMENTO_ID)
-        val consultaId = inputData.getString(EXTRA_CONSULTA_ID)
         val notificationId = lembreteId.toInt() // Usar ID do lembrete como ID da notificação para unicidade
+        val notificationTitle = inputData.getString(EXTRA_NOTIFICATION_TITLE) ?: "Lembrete"
+        val notificationMessage = inputData.getString(EXTRA_NOTIFICATION_MESSAGE) ?: ""
+        val medicamentoId = inputData.getString(EXTRA_MEDICAMENTO_ID) ?: ""
+        val recipientName = inputData.getString(EXTRA_RECIPIENT_NAME) ?: ""
+        val hora = inputData.getInt(EXTRA_HORA, -1)
+        val minuto = inputData.getInt(EXTRA_MINUTO, -1)
 
-        val titleFromIntent = inputData.getString(EXTRA_NOTIFICATION_TITLE)
-        val messageFromIntent = inputData.getString(EXTRA_NOTIFICATION_MESSAGE)
-        val recipientNameFromIntent = inputData.getString(EXTRA_RECIPIENT_NAME)
-        val isConsulta = inputData.getBoolean(EXTRA_IS_CONSULTA, false)
-        val tipoLembrete = inputData.getString(EXTRA_TIPO_LEMBRETE)
-        val especialidade = inputData.getString(EXTRA_ESPECIALIDADE)
-        val horaConsulta = inputData.getString(EXTRA_HORA_CONSULTA)
+        Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: lembreteId=$lembreteId, title=$notificationTitle, message=$notificationMessage, hora=$hora, minuto=$minuto")
 
-        Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Iniciando para lembreteId=$lembreteId, medicamentoId=$medicamentoId, consultaId=$consultaId, isConsulta=$isConsulta")
+        // Verificar se é uma consulta pelo título
+        val isConsulta = notificationTitle.contains("Consulta:", ignoreCase = true)
 
-        if (lembreteId == -1L) {
-            Log.e("NotificationWorker", "ID do Lembrete inválido.")
-            return@withContext Result.failure()
+        // Extrair especialidade da consulta (se for consulta)
+        val especialidade = if (isConsulta) {
+            notificationTitle.replace("Hora de: Consulta:", "", ignoreCase = true).trim()
+        } else {
+            ""
+        }
+
+        // Formatar a hora da consulta corretamente usando Locale para evitar avisos
+        val horaConsulta = if (hora >= 0 && minuto >= 0) {
+            String.format(Locale.getDefault(), "%02d:%02d", hora, minuto)
+        } else {
+            "12:00" // Valor padrão se hora/minuto não estiverem disponíveis
         }
 
         // Intent para abrir o app ao clicar na notificação
@@ -75,34 +82,39 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         )
 
         // Determinar título e mensagem com base no tipo (consulta ou medicamento)
-        var finalTitle: String
+        val finalTitle: String
         val finalMessage: String
 
         if (isConsulta) {
             // Formatação para notificações de consulta
-            val nome = if (!recipientNameFromIntent.isNullOrBlank()) recipientNameFromIntent else "Você"
+            val nome = recipientName.ifBlank { "Você" }
 
-            finalTitle = "$nome, você tem consulta com $especialidade"
+            // Título sem repetição do "você"
+            finalTitle = "$nome tem consulta com $especialidade"
 
-            finalMessage = when (tipoLembrete) {
-                "24 horas antes" -> "Amanhã às $horaConsulta"
-                "2 horas antes" -> "Hoje às $horaConsulta"
-                "3 horas depois" -> "Você compareceu à consulta?"
-                else -> messageFromIntent ?: ""
+            // Mensagem baseada no tipo de lembrete (24h antes, 2h antes, 3h depois)
+            finalMessage = when {
+                notificationMessage.contains("24 horas antes", ignoreCase = true) -> "Amanhã às $horaConsulta"
+                notificationMessage.contains("2 horas antes", ignoreCase = true) -> "Hoje às $horaConsulta"
+                notificationMessage.contains("3 horas depois", ignoreCase = true) -> "Você compareceu à consulta?"
+                else -> notificationMessage
             }
+
+            Log.e("PILLORA_DEBUG", "Consulta detectada: especialidade=$especialidade, tipo=${notificationMessage}, mensagem final=$finalMessage")
         } else {
-            // Formatação para notificações de medicamento (mantém o formato atual)
-            finalTitle = if (!recipientNameFromIntent.isNullOrBlank()) {
-                "$recipientNameFromIntent, ${titleFromIntent?.replaceFirst("Hora de: ", "hora de tomar ") ?: ""}"
+            // Formatação para notificações de medicamento
+            finalTitle = if (recipientName.isNotBlank()) {
+                "${recipientName}, hora de tomar $notificationTitle"
             } else {
-                titleFromIntent ?: ""
+                "Hora de: $notificationTitle"
             }
-            finalTitle = finalTitle.replace("Consulta:", "")
-            finalMessage = messageFromIntent ?: ""
+            finalMessage = notificationMessage
         }
 
+        Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Preparando notificação: title=$finalTitle, message=$finalMessage, isConsulta=$isConsulta")
+
         // Configurar ações com base no tipo (consulta ou medicamento)
-        val builder = NotificationCompat.Builder(applicationContext, PilloraApplication.CHANNEL_LEMBRETES_MEDICAMENTOS_ID)
+        val builder = NotificationCompat.Builder(applicationContext, "lembretes_medicamentos_channel")
             .setSmallIcon(R.drawable.ic_notification_pill)
             .setContentTitle(finalTitle)
             .setContentText(finalMessage)
@@ -117,13 +129,13 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             .setFullScreenIntent(pendingIntent, true)
 
         if (isConsulta) {
-            if (tipoLembrete == "3 horas depois") {
+            if (notificationMessage.contains("3 horas depois", ignoreCase = true)) {
                 // Ação "Sim, excluir consulta"
                 val excluirIntent = Intent(applicationContext, NotificationActionReceiver::class.java).apply {
                     action = ACTION_CONSULTA_COMPARECEU
                     putExtra(EXTRA_LEMBRETE_ID, lembreteId)
                     putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-                    putExtra(EXTRA_CONSULTA_ID, consultaId)
+                    putExtra(EXTRA_MEDICAMENTO_ID, medicamentoId) // Usar medicamentoId como consultaId
                 }
                 val excluirPendingIntent = PendingIntent.getBroadcast(
                     applicationContext,
@@ -137,7 +149,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
                     action = ACTION_CONSULTA_REMARCAR
                     putExtra(EXTRA_LEMBRETE_ID, lembreteId)
                     putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-                    putExtra(EXTRA_CONSULTA_ID, consultaId)
+                    putExtra(EXTRA_MEDICAMENTO_ID, medicamentoId) // Usar medicamentoId como consultaId
                 }
                 val remarcarPendingIntent = PendingIntent.getBroadcast(
                     applicationContext,
@@ -170,19 +182,19 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
 
         if (ActivityCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             Log.e("NotificationWorker", "Permissão POST_NOTIFICATIONS não concedida. A notificação não será exibida.")
-            return@withContext Result.failure()
+            return Result.failure()
         }
 
-        Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Exibindo notificação para lembreteId=$lembreteId, title=$finalTitle")
+        Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Exibindo notificação para lembreteId=$lembreteId, title=$finalTitle, message=$finalMessage")
 
         try {
             NotificationManagerCompat.from(applicationContext).notify(notificationId, builder.build())
             Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Notificação exibida com sucesso para lembreteId=$lembreteId")
         } catch (e: Exception) {
             Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Erro ao exibir notificação", e)
-            return@withContext Result.failure()
+            return Result.failure()
         }
 
-        return@withContext Result.success()
+        return Result.success()
     }
 }

@@ -27,10 +27,21 @@ class AlarmReceiver : BroadcastReceiver() {
         val proximaOcorrenciaMillis = intent.getLongExtra("PROXIMA_OCORRENCIA_MILLIS", -1L)
         val hora = intent.getIntExtra("HORA", -1)
         val minuto = intent.getIntExtra("MINUTO", -1)
+        val observacao = intent.getStringExtra("OBSERVACAO") ?: ""
 
         Log.e("PILLORA_DEBUG", "AlarmReceiver.onReceive: lembreteId=$lembreteId, medicamentoId=$medicamentoId, title=$notificationTitle, message=$notificationMessage")
+        Log.e("PILLORA_DEBUG", "AlarmReceiver.onReceive: hora=$hora, minuto=$minuto, observacao=$observacao")
         Log.e("PILLORA_DEBUG", "AlarmReceiver.onReceive: proximaOcorrencia=${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(java.util.Date(proximaOcorrenciaMillis))}")
 
+        // Verificar se é uma consulta pelo título
+        val isConsulta = notificationTitle.contains("Consulta:", ignoreCase = true)
+
+        // Extrair especialidade da consulta (se for consulta)
+        val especialidade = if (isConsulta) {
+            notificationTitle.replace("Hora de: Consulta:", "", ignoreCase = true).trim()
+        } else {
+            ""
+        }
 
         if (lembreteId != -1L) {
             Log.e("PILLORA_DEBUG", "AlarmReceiver.onReceive: Agendando NotificationWorker para lembreteId: $lembreteId")
@@ -43,7 +54,10 @@ class AlarmReceiver : BroadcastReceiver() {
                 .putLong(NotificationWorker.EXTRA_PROXIMA_OCORRENCIA_MILLIS, proximaOcorrenciaMillis)
                 .putInt(NotificationWorker.EXTRA_HORA, hora)
                 .putInt(NotificationWorker.EXTRA_MINUTO, minuto)
-                .putBoolean("IS_MEDICINE_ALARM", true) // Flag para indicar que é um alarme de medicamento
+                .putBoolean(NotificationWorker.EXTRA_IS_CONSULTA, isConsulta)
+                .putString(NotificationWorker.EXTRA_TIPO_LEMBRETE, notificationMessage)
+                .putString(NotificationWorker.EXTRA_ESPECIALIDADE, especialidade)
+                .putString("EXTRA_OBSERVACAO", observacao)
                 .build()
 
             val notificationWorkRequest = OneTimeWorkRequestBuilder<NotificationWorker>()
@@ -51,8 +65,9 @@ class AlarmReceiver : BroadcastReceiver() {
                 .build()
 
             WorkManager.getInstance(context).enqueue(notificationWorkRequest)
-        } else {
             Log.e("PILLORA_DEBUG", "AlarmReceiver.onReceive: NotificationWorker agendado com sucesso")
+        } else {
+            Log.e("PILLORA_DEBUG", "AlarmReceiver.onReceive: Erro - lembreteId inválido")
         }
     }
 }

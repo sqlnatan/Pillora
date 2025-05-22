@@ -20,13 +20,14 @@ class HandleNotificationActionWorker(appContext: Context, workerParams: WorkerPa
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val lembreteId = inputData.getLong(NotificationWorker.EXTRA_LEMBRETE_ID, -1L)
-        val medicamentoId = inputData.getString(NotificationWorker.EXTRA_MEDICAMENTO_ID) // Recebe o ID do Medicamento
+        val medicamentoId = inputData.getString(NotificationWorker.EXTRA_MEDICAMENTO_ID)
+        val consultaId = inputData.getString(NotificationWorker.EXTRA_CONSULTA_ID)
         val actionType = inputData.getString("ACTION_TYPE") // Vem do NotificationActionReceiver
 
-        Log.d("HandleActionWorker", "Processando ação '$actionType' para lembreteId: $lembreteId, medicamentoId: $medicamentoId")
+        Log.d("HandleActionWorker", "Processando ação '$actionType' para lembreteId: $lembreteId, medicamentoId: $medicamentoId, consultaId: $consultaId")
 
-        if (lembreteId == -1L || medicamentoId == null || actionType == null) {
-            Log.e("HandleActionWorker", "Dados inválidos para processar ação (lembreteId, medicamentoId ou actionType nulos).")
+        if (lembreteId == -1L || actionType == null) {
+            Log.e("HandleActionWorker", "Dados inválidos para processar ação (lembreteId ou actionType nulos).")
             return@withContext Result.failure()
         }
 
@@ -35,12 +36,17 @@ class HandleNotificationActionWorker(appContext: Context, workerParams: WorkerPa
 
         if (lembrete == null) {
             Log.w("HandleActionWorker", "Lembrete não encontrado no banco de dados local para o ID: $lembreteId. Pode já ter sido processado.")
-            // Mesmo que o lembrete local tenha sido deletado (ex: edição rápida), tentamos atualizar o estoque se a ação for TOMADO
+            // Mesmo que o lembrete local tenha sido deletado, tentamos processar a ação
         }
 
         when (actionType) {
             NotificationWorker.ACTION_MEDICAMENTO_TOMADO -> {
                 try {
+                    if (medicamentoId == null) {
+                        Log.e("HandleActionWorker", "ID do Medicamento inválido.")
+                        return@withContext Result.failure()
+                    }
+
                     val userId = Firebase.auth.currentUser?.uid
                     if (userId == null) {
                         Log.e("HandleActionWorker", "Usuário não logado. Não é possível atualizar o estoque.")
@@ -97,9 +103,6 @@ class HandleNotificationActionWorker(appContext: Context, workerParams: WorkerPa
                     if (lembrete != null) {
                         lembreteDao.updateLembrete(lembrete.copy(ativo = false))
                         Log.d("HandleActionWorker", "Lembrete $lembreteId marcado como inativo.")
-                        // Não é necessário cancelar o alarme aqui, pois ele já disparou.
-                        // O AlarmScheduler só agenda alarmes para lembretes ativos e com proximaOcorrenciaMillis no futuro.
-                        // A criação de lembretes futuros (para "a cada X horas" ou próximos dias) já é feita no MedicineFormScreen.
                     }
 
                 } catch (e: Exception) {
@@ -107,7 +110,50 @@ class HandleNotificationActionWorker(appContext: Context, workerParams: WorkerPa
                     return@withContext Result.failure()
                 }
             }
-            // Adicionar outros cases de ação aqui se necessário (ex: Adiar)
+
+            NotificationWorker.ACTION_CONSULTA_COMPARECEU -> {
+                try {
+                    if (consultaId == null) {
+                        Log.e("HandleActionWorker", "ID da Consulta inválido.")
+                        return@withContext Result.failure()
+                    }
+
+                    val userId = Firebase.auth.currentUser?.uid
+                    if (userId == null) {
+                        Log.e("HandleActionWorker", "Usuário não logado.")
+                        return@withContext Result.failure()
+                    }
+
+                    // Excluir a consulta do Firestore
+                    val firestore = FirebaseFirestore.getInstance()
+                    firestore.collection("users").document(userId)
+                        .collection("consultations").document(consultaId)
+                        .delete()
+                        .await()
+
+                    // Marcar o lembrete como inativo
+                    if (lembrete != null) {
+                        lembreteDao.updateLembrete(lembrete.copy(ativo = false))
+                    }
+
+                    Log.d("HandleActionWorker", "Consulta $consultaId excluída com sucesso.")
+                    return@withContext Result.success()
+                } catch (e: Exception) {
+                    Log.e("HandleActionWorker", "Erro ao processar ACTION_CONSULTA_COMPARECEU", e)
+                    return@withContext Result.failure()
+                }
+            }
+
+            NotificationWorker.ACTION_CONSULTA_REMARCAR -> {
+                // Para remarcar, apenas marcamos o lembrete como inativo
+                // A navegação para a tela de edição é feita no NotificationActionReceiver
+                if (lembrete != null) {
+                    lembreteDao.updateLembrete(lembrete.copy(ativo = false))
+                    Log.d("HandleActionWorker", "Lembrete $lembreteId marcado como inativo para remarcar consulta.")
+                }
+                return@withContext Result.success()
+            }
+
             else -> {
                 Log.w("HandleActionWorker", "ActionType '$actionType' desconhecido para lembreteId $lembreteId")
             }

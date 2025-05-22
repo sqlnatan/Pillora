@@ -52,6 +52,14 @@ class MainActivity : ComponentActivity() {
         analytics.logEvent(FirebaseAnalytics.Event.APP_OPEN, null)
         enableEdgeToEdge()
 
+        // Verificar se deve abrir a tela de edição de consulta
+        val openConsultationEdit = intent?.getBooleanExtra("OPEN_CONSULTATION_EDIT", false) ?: false
+        val consultationId = intent?.getStringExtra("CONSULTATION_ID")
+
+        if (openConsultationEdit && consultationId != null) {
+            Log.d("MainActivity", "Abrindo tela de edição para consulta: $consultationId")
+        }
+
         setContent {
             var currentThemePreference by remember { mutableStateOf(getInitialThemePreference()) }
             val context = LocalContext.current
@@ -123,7 +131,11 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                AppNavigation()
+                // Passar os parâmetros de navegação para consulta, se existirem
+                AppNavigation(
+                    openConsultationEdit = openConsultationEdit,
+                    consultationId = consultationId
+                )
             }
         }
     }
