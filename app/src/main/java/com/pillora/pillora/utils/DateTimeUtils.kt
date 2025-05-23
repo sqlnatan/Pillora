@@ -129,7 +129,7 @@ object DateTimeUtils {
         return ocorrencias
     }
 
-    // Nova função para calcular lembretes de consultas (24h e 2h antes)
+    // Função para calcular lembretes de consultas (24h antes, 2h antes e 3h depois)
     fun calcularLembretesConsulta(
         consultaDateString: String, // Formato "dd/MM/yyyy" ou "ddMMyyyy"
         consultaTimeString: String  // Formato "HH:mm"
@@ -177,6 +177,12 @@ object DateTimeUtils {
                 add(Calendar.HOUR_OF_DAY, -2) // 2 horas antes
             }
 
+            // Calcular timestamp para 3 horas depois
+            val lembrete3hDepois = Calendar.getInstance().apply {
+                timeInMillis = consultaTimestamp
+                add(Calendar.HOUR_OF_DAY, 3) // 3 horas depois
+            }
+
             // Obter o timestamp atual
             val now = Calendar.getInstance()
             val currentTimestamp = now.timeInMillis
@@ -194,6 +200,13 @@ object DateTimeUtils {
                 Log.e("PILLORA_DEBUG", "Lembrete 2h antes adicionado: ${dateFormat.format(lembrete2h.time)}, timestamp: ${lembrete2h.timeInMillis}")
             } else {
                 Log.e("PILLORA_DEBUG", "Lembrete 2h antes já passou: ${dateFormat.format(lembrete2h.time)}")
+            }
+
+            if (lembrete3hDepois.timeInMillis > currentTimestamp) {
+                lembretes.add(lembrete3hDepois.timeInMillis)
+                Log.e("PILLORA_DEBUG", "Lembrete 3h depois adicionado: ${dateFormat.format(lembrete3hDepois.time)}, timestamp: ${lembrete3hDepois.timeInMillis}")
+            } else {
+                Log.e("PILLORA_DEBUG", "Lembrete 3h depois já passou: ${dateFormat.format(lembrete3hDepois.time)}")
             }
 
         } catch (e: Exception) {

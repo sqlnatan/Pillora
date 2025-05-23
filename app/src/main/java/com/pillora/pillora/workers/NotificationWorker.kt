@@ -15,6 +15,9 @@ import androidx.work.WorkerParameters
 import com.pillora.pillora.MainActivity
 import com.pillora.pillora.R
 import com.pillora.pillora.receiver.NotificationActionReceiver
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
@@ -38,6 +41,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         const val EXTRA_TIPO_LEMBRETE = "EXTRA_TIPO_LEMBRETE"
         const val EXTRA_ESPECIALIDADE = "EXTRA_ESPECIALIDADE"
         const val EXTRA_HORA_CONSULTA = "EXTRA_HORA_CONSULTA"
+        const val EXTRA_MINUTO_CONSULTA = "EXTRA_MINUTO_CONSULTA"
     }
 
     override suspend fun doWork(): Result {
@@ -51,10 +55,19 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         val hora = inputData.getInt(EXTRA_HORA, -1)
         val minuto = inputData.getInt(EXTRA_MINUTO, -1)
 
+        // Obter o horário real da consulta
+        val horaConsulta = inputData.getInt(EXTRA_HORA_CONSULTA, -1)
+        val minutoConsulta = inputData.getInt(EXTRA_MINUTO_CONSULTA, -1)
+
         Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: lembreteId=$lembreteId, title=$notificationTitle, message=$notificationMessage, hora=$hora, minuto=$minuto")
+        Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: horaConsulta=$horaConsulta, minutoConsulta=$minutoConsulta")
 
         // Verificar se é uma consulta pelo título
-        val isConsulta = notificationTitle.contains("Consulta:", ignoreCase = true)
+        val isConsulta = inputData.getBoolean(EXTRA_IS_CONSULTA, false) ||
+                notificationTitle.contains("Consulta:", ignoreCase = true)
+
+        // Verificar se é uma notificação pós-consulta (3 horas depois)
+        val isPosConsulta = notificationMessage.contains("3 horas depois", ignoreCase = true)
 
         // Extrair especialidade da consulta (se for consulta)
         val especialidade = if (isConsulta) {
@@ -63,11 +76,12 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             ""
         }
 
-        // Formatar a hora da consulta corretamente usando Locale para evitar avisos
-        val horaConsulta = if (hora >= 0 && minuto >= 0) {
-            String.format(Locale.getDefault(), "%02d:%02d", hora, minuto)
+        // Formatar o horário real da consulta
+        val horarioRealConsulta = if (horaConsulta >= 0 && minutoConsulta >= 0) {
+            String.format(Locale.getDefault(), "%02d:%02d", horaConsulta, minutoConsulta)
         } else {
-            "12:00" // Valor padrão se hora/minuto não estiverem disponíveis
+            // Fallback para o horário do lembrete se não tiver o horário real
+            String.format(Locale.getDefault(), "%02d:%02d", hora, minuto)
         }
 
         // Intent para abrir o app ao clicar na notificação
@@ -92,11 +106,54 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             // Título sem repetição do "você"
             finalTitle = "$nome tem consulta com $especialidade"
 
-            // Mensagem baseada no tipo de lembrete (24h antes, 2h antes, 3h depois)
+            // Verificar se é hoje ou amanhã
+            val hoje = Calendar.getInstance()
+            val amanha = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }
+
+            // Criar calendário para a data da consulta
+            val dataConsulta = Calendar.getInstance()
+
+            // Se temos o horário real da consulta, usamos ele
+            if (horaConsulta >= 0 && minutoConsulta >= 0) {
+                // Precisamos determinar a data da consulta com base no tipo de lembrete
+                if (notificationMessage.contains("24 horas antes", ignoreCase = true)) {
+                    // Se é 24h antes, a consulta é amanhã
+                    dataConsulta.add(Calendar.DAY_OF_YEAR, 1)
+                } else if (notificationMessage.contains("2 horas antes", ignoreCase = true)) {
+                    // Se é 2h antes, a consulta é hoje
+                    // Não precisamos ajustar a data
+                } else if (isPosConsulta) {
+                    // Se é 3h depois, a consulta já aconteceu hoje
+                    // Não precisamos ajustar a data
+                }
+
+                // Definir a hora e minuto da consulta
+                dataConsulta.set(Calendar.HOUR_OF_DAY, horaConsulta)
+                dataConsulta.set(Calendar.MINUTE, minutoConsulta)
+            }
+
+            val formatoData = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+            val dataHoje = formatoData.format(hoje.time)
+            val dataAmanha = formatoData.format(amanha.time)
+            val dataConsultaStr = formatoData.format(dataConsulta.time)
+
+            // Mensagem baseada no tipo de lembrete
             finalMessage = when {
-                notificationMessage.contains("24 horas antes", ignoreCase = true) -> "Amanhã às $horaConsulta"
-                notificationMessage.contains("2 horas antes", ignoreCase = true) -> "Hoje às $horaConsulta"
-                notificationMessage.contains("3 horas depois", ignoreCase = true) -> "Você compareceu à consulta?"
+                isPosConsulta -> "Você compareceu à consulta?"
+
+                notificationMessage.contains("24 horas antes", ignoreCase = true) ->
+                    "Amanhã às $horarioRealConsulta"
+
+                notificationMessage.contains("2 horas antes", ignoreCase = true) -> {
+                    if (dataConsultaStr == dataHoje) {
+                        "Hoje às $horarioRealConsulta"
+                    } else if (dataConsultaStr == dataAmanha) {
+                        "Amanhã às $horarioRealConsulta"
+                    } else {
+                        "Em ${formatoData.format(dataConsulta.time)} às $horarioRealConsulta"
+                    }
+                }
+
                 else -> notificationMessage
             }
 
@@ -111,7 +168,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             finalMessage = notificationMessage
         }
 
-        Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Preparando notificação: title=$finalTitle, message=$finalMessage, isConsulta=$isConsulta")
+        Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Preparando notificação: title=$finalTitle, message=$finalMessage, isConsulta=$isConsulta, isPosConsulta=$isPosConsulta")
 
         // Configurar ações com base no tipo (consulta ou medicamento)
         val builder = NotificationCompat.Builder(applicationContext, "lembretes_medicamentos_channel")
@@ -119,17 +176,27 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             .setContentTitle(finalTitle)
             .setContentText(finalMessage)
             .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setCategory(if (isPosConsulta) NotificationCompat.CATEGORY_REMINDER else NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
-            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
-            .setVibrate(longArrayOf(0, 1000, 500, 1000, 500, 1000))
-            .setLights(0xFF0000FF.toInt(), 1000, 500)
-            .setFullScreenIntent(pendingIntent, true)
+
+        // Configurar som e vibração apenas para lembretes que não são pós-consulta
+        if (!isPosConsulta) {
+            builder
+                .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
+                .setVibrate(longArrayOf(0, 1000, 500, 1000, 500, 1000))
+                .setLights(0xFF0000FF.toInt(), 1000, 500)
+                .setFullScreenIntent(pendingIntent, true)
+        } else {
+            // Para notificação pós-consulta, usar som de notificação normal
+            builder
+                .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
+                .setVibrate(longArrayOf(0, 300, 200, 300))
+        }
 
         if (isConsulta) {
-            if (notificationMessage.contains("3 horas depois", ignoreCase = true)) {
+            if (isPosConsulta) {
                 // Ação "Sim, excluir consulta"
                 val excluirIntent = Intent(applicationContext, NotificationActionReceiver::class.java).apply {
                     action = ACTION_CONSULTA_COMPARECEU
@@ -160,6 +227,8 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
 
                 builder.addAction(R.drawable.ic_action_check, "Sim, excluir consulta", excluirPendingIntent)
                 builder.addAction(R.drawable.ic_action_check, "Remarcar consulta", remarcarPendingIntent)
+
+                Log.e("PILLORA_DEBUG", "Adicionados botões para notificação pós-consulta")
             }
             // Para lembretes de 24h e 2h antes, não adicionamos botões
         } else {

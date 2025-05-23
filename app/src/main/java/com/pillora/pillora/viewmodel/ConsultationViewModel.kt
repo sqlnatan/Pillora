@@ -1,27 +1,38 @@
 package com.pillora.pillora.viewmodel
 
+import android.app.AlarmManager
 import android.app.DatePickerDialog
+import android.app.PendingIntent
 import android.app.TimePickerDialog
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.util.Log
 import android.widget.DatePicker
 import android.widget.Toast
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.Data
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.google.firebase.auth.FirebaseAuth
 import com.pillora.pillora.model.Consultation
 import com.pillora.pillora.model.Lembrete
+import com.pillora.pillora.receiver.AlarmReceiver
 import com.pillora.pillora.repository.ConsultationRepository
 import com.pillora.pillora.utils.AlarmScheduler
 import com.pillora.pillora.utils.DateTimeUtils
 import com.pillora.pillora.data.dao.LembreteDao
+import com.pillora.pillora.workers.NotificationWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 class ConsultationViewModel : ViewModel() {
 
@@ -205,7 +216,7 @@ class ConsultationViewModel : ViewModel() {
                         onSuccess = { newConsultationId: String ->
                             Log.d(tag, "Consultation added successfully with ID: $newConsultationId")
 
-                            // Agendar lembretes para a consulta (24h e 2h antes)
+                            // Agendar lembretes para a consulta (24h e 2h antes, 3h depois)
                             agendarLembretesConsulta(context, lembreteDao, newConsultationId, consultation)
 
                             _isLoading.value = false
@@ -230,7 +241,7 @@ class ConsultationViewModel : ViewModel() {
                         onSuccess = {
                             Log.d(tag, "Consultation updated successfully")
 
-                            // Atualizar lembretes para a consulta (24h e 2h antes)
+                            // Atualizar lembretes para a consulta (24h e 2h antes, 3h depois)
                             atualizarLembretesConsulta(context, lembreteDao, currentConsultationId!!, consultation)
 
                             _isLoading.value = false
@@ -251,7 +262,7 @@ class ConsultationViewModel : ViewModel() {
         }
     }
 
-    // Nova função para agendar lembretes de consulta
+    // Função para agendar lembretes de consulta
     private fun agendarLembretesConsulta(context: Context, lembreteDao: LembreteDao, newConsultationId: String, consultation: Consultation) {
         viewModelScope.launch {
             try {
@@ -265,7 +276,16 @@ class ConsultationViewModel : ViewModel() {
                     return@launch
                 }
 
-                // Calcular timestamps para os lembretes (24h e 2h antes)
+                // Extrair hora e minuto da consulta para passar nos extras
+                val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+                val consultaTimeObj = timeFormat.parse(consultaTime)
+                val consultaCalendar = Calendar.getInstance().apply {
+                    time = consultaTimeObj ?: Date()
+                }
+                val horaConsulta = consultaCalendar.get(Calendar.HOUR_OF_DAY)
+                val minutoConsulta = consultaCalendar.get(Calendar.MINUTE)
+
+                // Calcular timestamps para os lembretes (24h antes, 2h antes e 3h depois)
                 val timestamps = DateTimeUtils.calcularLembretesConsulta(
                     consultaDateString = consultaDate,
                     consultaTimeString = consultaTime
@@ -282,7 +302,12 @@ class ConsultationViewModel : ViewModel() {
                 var lembretesProcessadosComSucesso = true
                 timestamps.forEachIndexed { index, timestamp ->
                     val calendar = Calendar.getInstance().apply { timeInMillis = timestamp }
-                    val tipoLembrete = if (index == 0) "24 horas antes" else "2 horas antes"
+                    val tipoLembrete = when(index) {
+                        0 -> "24 horas antes"
+                        1 -> "2 horas antes"
+                        2 -> "3 horas depois"
+                        else -> "lembrete"
+                    }
 
                     // Criar lembrete adaptado ao modelo existente
                     val lembrete = Lembrete(
@@ -301,9 +326,18 @@ class ConsultationViewModel : ViewModel() {
                     try {
                         // Salvar lembrete no banco de dados
                         val lembreteId = lembreteDao.insertLembrete(lembrete)
+                        val lembreteComId = lembrete.copy(id = lembreteId)
 
-                        // Agendar alarme
-                        AlarmScheduler.scheduleAlarm(context, lembrete.copy(id = lembreteId))
+                        // Usar agendamento diferente para lembrete pós-consulta (3h depois)
+                        if (tipoLembrete == "3 horas depois") {
+                            // Usar WorkManager para notificação silenciosa pós-consulta
+                            agendarNotificacaoPosConsulta(context, lembreteComId, horaConsulta, minutoConsulta)
+                            Log.d(tag, "Notificação pós-consulta agendada via WorkManager para Lembrete ID: $lembreteId")
+                        } else {
+                            // Usar AlarmManager para lembretes de 24h e 2h antes (com alarme)
+                            agendarAlarmeConsulta(context, lembreteComId, horaConsulta, minutoConsulta)
+                            Log.d(tag, "Alarme de consulta agendado para Lembrete ID: $lembreteId")
+                        }
 
                         Log.d(tag, "Lembrete de consulta ($tipoLembrete) agendado: ID=$lembreteId, timestamp=$timestamp")
                     } catch (e: Exception) {
@@ -331,7 +365,148 @@ class ConsultationViewModel : ViewModel() {
         }
     }
 
-    // Nova função para atualizar lembretes de consulta
+    // Função para agendar notificação pós-consulta (3h depois) usando WorkManager
+    private fun agendarNotificacaoPosConsulta(context: Context, lembrete: Lembrete, horaConsulta: Int, minutoConsulta: Int) {
+        try {
+            // Calcular o atraso até o momento da notificação
+            val agora = System.currentTimeMillis()
+            val atraso = lembrete.proximaOcorrenciaMillis - agora
+
+            if (atraso <= 0) {
+                Log.w(tag, "Atraso para notificação pós-consulta é negativo ou zero, ajustando para 1 minuto")
+                return
+            }
+
+            // Preparar dados para o WorkManager
+            val workData = Data.Builder()
+                .putLong(NotificationWorker.EXTRA_LEMBRETE_ID, lembrete.id)
+                .putString(NotificationWorker.EXTRA_MEDICAMENTO_ID, lembrete.medicamentoId)
+                .putString(NotificationWorker.EXTRA_NOTIFICATION_TITLE, "Hora de: ${lembrete.nomeMedicamento}")
+                .putString(NotificationWorker.EXTRA_NOTIFICATION_MESSAGE, lembrete.dose)
+                .putString(NotificationWorker.EXTRA_RECIPIENT_NAME, lembrete.recipientName)
+                .putLong(NotificationWorker.EXTRA_PROXIMA_OCORRENCIA_MILLIS, lembrete.proximaOcorrenciaMillis)
+                .putInt(NotificationWorker.EXTRA_HORA, lembrete.hora)
+                .putInt(NotificationWorker.EXTRA_MINUTO, lembrete.minuto)
+                .putBoolean(NotificationWorker.EXTRA_IS_CONSULTA, true)
+                .putInt(NotificationWorker.EXTRA_HORA_CONSULTA, horaConsulta)
+                .putInt(NotificationWorker.EXTRA_MINUTO_CONSULTA, minutoConsulta)
+                .build()
+
+            // Criar e agendar o trabalho
+            val notificationWorkRequest = OneTimeWorkRequestBuilder<NotificationWorker>()
+                .setInputData(workData)
+                .setInitialDelay(atraso, TimeUnit.MILLISECONDS)
+                .build()
+
+            WorkManager.getInstance(context).enqueue(notificationWorkRequest)
+
+            Log.d(tag, "Notificação pós-consulta agendada via WorkManager para ${lembrete.id} em ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date(lembrete.proximaOcorrenciaMillis))}")
+        } catch (e: Exception) {
+            Log.e(tag, "Erro ao agendar notificação pós-consulta via WorkManager", e)
+        }
+    }
+
+    // Função para agendar alarme de consulta com horário real (para lembretes de 24h e 2h antes)
+    private fun agendarAlarmeConsulta(context: Context, lembrete: Lembrete, horaConsulta: Int, minutoConsulta: Int) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
+            // Passar todos os dados necessários para o AlarmReceiver
+            putExtra("LEMBRETE_ID", lembrete.id)
+            putExtra("MEDICAMENTO_ID", lembrete.medicamentoId)
+            putExtra("NOTIFICATION_TITLE", "Hora de: ${lembrete.nomeMedicamento}")
+            putExtra("NOTIFICATION_MESSAGE", lembrete.dose)
+            putExtra("RECIPIENT_NAME", lembrete.recipientName)
+            putExtra("PROXIMA_OCORRENCIA_MILLIS", lembrete.proximaOcorrenciaMillis)
+            putExtra("HORA", lembrete.hora)
+            putExtra("MINUTO", lembrete.minuto)
+            putExtra("HORA_CONSULTA", horaConsulta)
+            putExtra("MINUTO_CONSULTA", minutoConsulta)
+            putExtra("OBSERVACAO", lembrete.observacao)
+            // Adicionar flag para indicar que este é um alarme de consulta
+            putExtra("IS_MEDICINE_ALARM", false)
+            putExtra("IS_CONSULTATION_ALARM", true)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            lembrete.id.toInt(), // Usar ID do lembrete como request code único
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        var triggerAtMillis = lembrete.proximaOcorrenciaMillis
+        val now = System.currentTimeMillis()
+
+        // Se a próxima ocorrência já passou, tenta ajustar para a próxima válida.
+        if (triggerAtMillis < now) {
+            Log.w("AlarmScheduler", "Lembrete ${lembrete.id} com proximaOcorrenciaMillis ($triggerAtMillis) no passado (agora: $now). Ajustando...")
+            val calendar = Calendar.getInstance().apply {
+                timeInMillis = triggerAtMillis
+                // Mantém a hora e minuto originais do lembrete
+                set(Calendar.HOUR_OF_DAY, lembrete.hora)
+                set(Calendar.MINUTE, lembrete.minuto)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+
+                // Avança dia a dia até encontrar uma data/hora futura
+                while (before(Calendar.getInstance().apply { timeInMillis = now })) {
+                    add(Calendar.DAY_OF_MONTH, 1)
+                }
+            }
+            triggerAtMillis = calendar.timeInMillis
+            Log.d("AlarmScheduler", "ProximaOcorrenciaMillis ajustada para: $triggerAtMillis")
+        }
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                Log.e("PILLORA_DEBUG", "Não pode agendar alarmes exatos. O usuário precisa conceder permissão.")
+                return
+            }
+
+            // Usar setAlarmClock para garantir que o alarme toque mesmo em modo de economia de bateria
+            try {
+                // Criar um PendingIntent para o showIntent (apenas para o AlarmClockInfo)
+                val showIntent = Intent(context, AlarmReceiver::class.java)
+                val showPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    lembrete.id.toInt() + 100000, // Usar um request code diferente do alarme principal
+                    showIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                // Usar setAlarmClock para maior prioridade
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showPendingIntent)
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+
+                Log.d("AlarmScheduler", "Alarme de consulta agendado com setAlarmClock para Lembrete ID: ${lembrete.id}")
+            } catch (e: Exception) {
+                Log.e("AlarmScheduler", "Erro ao agendar com setAlarmClock, tentando fallback", e)
+                // Fallback para setExactAndAllowWhileIdle
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+                Log.d("AlarmScheduler", "Alarme de consulta agendado com setExactAndAllowWhileIdle para Lembrete ID: ${lembrete.id}")
+            }
+        } catch (se: SecurityException) {
+            Log.e("PILLORA_DEBUG", "SecurityException ao agendar alarme. Verifique permissões.", se)
+
+            // Último fallback para set normal
+            try {
+                alarmManager.set(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+                Log.d("AlarmScheduler", "Último fallback: Alarme de consulta agendado com set para Lembrete ID: ${lembrete.id}")
+            } catch (e2: Exception) {
+                Log.e("AlarmScheduler", "Erro no último fallback", e2)
+            }
+        }
+    }
+
+    // Função para atualizar lembretes de consulta
     private fun atualizarLembretesConsulta(context: Context, lembreteDao: LembreteDao, consultationId: String, consultation: Consultation) {
         viewModelScope.launch {
             try {
