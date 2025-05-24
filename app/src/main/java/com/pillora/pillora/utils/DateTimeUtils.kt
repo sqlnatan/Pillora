@@ -6,9 +6,16 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+// Data class to hold timestamp and its type
+data class LembreteInfo(val timestamp: Long, val tipo: String)
+
 object DateTimeUtils {
 
-    // Função existente para medicamentos
+    const val TIPO_24H_ANTES = "24 horas antes"
+    const val TIPO_2H_ANTES = "2 horas antes"
+    const val TIPO_3H_DEPOIS = "3 horas depois"
+
+    // Função existente para medicamentos (mantida como está)
     fun calcularProximasOcorrenciasIntervalo(
         startDateString: String, // Formato "dd/MM/yyyy" ou "ddMMyyyy"
         startTimeString: String, // Formato "HH:mm"
@@ -16,205 +23,134 @@ object DateTimeUtils {
         durationDays: Int // -1 para contínuo
     ): List<Long> {
         val ocorrencias = mutableListOf<Long>()
-
-        Log.e("PILLORA_DEBUG", "Calculando ocorrências: startDate=$startDateString, startTime=$startTimeString, intervalHours=$intervalHours, durationDays=$durationDays")
-
+        Log.d("DateTimeUtils", "Calculando ocorrências: startDate=$startDateString, startTime=$startTimeString, intervalHours=$intervalHours, durationDays=$durationDays")
         if (intervalHours <= 0) {
-            Log.e("PILLORA_DEBUG", "Intervalo de horas inválido: $intervalHours")
+            Log.e("DateTimeUtils", "Intervalo de horas inválido: $intervalHours")
             return ocorrencias
         }
-
-        // Formatar a data corretamente, independente do formato de entrada
         var formattedStartDate = startDateString
-
-        // Se a data não contém barras e tem 8 dígitos, adicionar as barras
         if (!startDateString.contains("/") && startDateString.length == 8 && startDateString.all { it.isDigit() }) {
             formattedStartDate = "${startDateString.substring(0, 2)}/${startDateString.substring(2, 4)}/${startDateString.substring(4)}"
-            Log.e("PILLORA_DEBUG", "Data reformatada: $startDateString -> $formattedStartDate")
         }
-
-        // Usar Locale.US para garantir consistência no parsing do formato de data/hora
         val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US)
         val startDateTimeString = "$formattedStartDate $startTimeString"
-
         try {
-            // Obter o timestamp da data/hora inicial configurada
             val initialCalendar = Calendar.getInstance().apply {
                 time = dateFormat.parse(startDateTimeString) ?: run {
-                    Log.e("PILLORA_DEBUG", "Falha ao parsear data/hora de início: $startDateTimeString")
+                    Log.e("DateTimeUtils", "Falha ao parsear data/hora de início: $startDateTimeString")
                     return emptyList()
                 }
             }
-
-            Log.e("PILLORA_DEBUG", "Data/hora inicial parseada: ${dateFormat.format(initialCalendar.time)}")
-
-            // Obter o timestamp atual
             val now = Calendar.getInstance()
-            Log.e("PILLORA_DEBUG", "Data/hora atual: ${dateFormat.format(now.time)}")
-
-            // Calcular quantos intervalos já se passaram desde a data inicial até agora
             val initialTimestamp = initialCalendar.timeInMillis
             val currentTimestamp = now.timeInMillis
-            val elapsedMillis = currentTimestamp - initialTimestamp
-
-            // Se a data inicial é futura, começamos dela
             if (initialTimestamp > currentTimestamp) {
-                Log.e("PILLORA_DEBUG", "Data inicial é futura, começando dela")
                 ocorrencias.add(initialTimestamp)
             } else {
-                // Calcular quantos intervalos completos já se passaram
                 val intervalMillis = intervalHours * 60 * 60 * 1000L
+                val elapsedMillis = currentTimestamp - initialTimestamp
                 val completedIntervals = elapsedMillis / intervalMillis
-
-                Log.e("PILLORA_DEBUG", "Já se passaram $completedIntervals intervalos completos desde a data inicial")
-
-                // Calcular o próximo horário a partir da data inicial + intervalos completos + 1
                 val nextCalendar = Calendar.getInstance().apply {
                     timeInMillis = initialTimestamp
                     add(Calendar.HOUR_OF_DAY, (completedIntervals + 1).toInt() * intervalHours)
                 }
-
-                // Verificar se o próximo horário calculado é futuro
                 if (nextCalendar.timeInMillis <= currentTimestamp) {
-                    // Se ainda não for futuro, adicionar mais um intervalo
                     nextCalendar.add(Calendar.HOUR_OF_DAY, intervalHours)
                 }
-
-                Log.e("PILLORA_DEBUG", "Próximo horário calculado: ${dateFormat.format(nextCalendar.time)}")
                 ocorrencias.add(nextCalendar.timeInMillis)
             }
-
-            // Calcular os próximos horários a partir do primeiro
             val calendar = Calendar.getInstance().apply {
                 timeInMillis = ocorrencias[0]
             }
-
-            // Definir o limite de cálculo
             val dataLimiteCalculo = Calendar.getInstance().apply {
-                time = calendar.time // Começa do primeiro horário calculado
+                time = calendar.time
                 if (durationDays == -1) {
-                    // Para tratamento contínuo, calculamos para um período padrão (ex: 30 dias)
                     add(Calendar.DAY_OF_MONTH, 30)
-                    Log.e("PILLORA_DEBUG", "Tratamento contínuo, calculando para os próximos 30 dias.")
                 } else if (durationDays > 0) {
                     add(Calendar.DAY_OF_MONTH, durationDays)
-                    Log.e("PILLORA_DEBUG", "Calculando para duração de $durationDays dias.")
                 } else {
-                    Log.e("PILLORA_DEBUG", "Duração em dias inválida ($durationDays), retornando lista vazia.")
                     return emptyList()
                 }
             }
-
-            // Já adicionamos o primeiro horário, agora calculamos os próximos
-            Log.e("PILLORA_DEBUG", "Primeira ocorrência adicionada: ${dateFormat.format(Date(ocorrencias[0]))}, timestamp: ${ocorrencias[0]}")
-
-            // Calcular os próximos horários
             while (true) {
                 calendar.add(Calendar.HOUR_OF_DAY, intervalHours)
                 if (calendar.timeInMillis < dataLimiteCalculo.timeInMillis) {
                     ocorrencias.add(calendar.timeInMillis)
-                    Log.e("PILLORA_DEBUG", "Próxima ocorrência adicionada: ${dateFormat.format(calendar.time)}, timestamp: ${calendar.timeInMillis}")
                 } else {
-                    Log.e("PILLORA_DEBUG", "Limite de cálculo atingido: ${dateFormat.format(dataLimiteCalculo.time)}")
                     break
                 }
             }
-
         } catch (e: Exception) {
-            Log.e("PILLORA_DEBUG", "Erro ao calcular ocorrências para $startDateTimeString com intervalo $intervalHours", e)
-            return emptyList() // Retorna lista vazia em caso de erro
+            Log.e("DateTimeUtils", "Erro ao calcular ocorrências para $startDateTimeString com intervalo $intervalHours", e)
+            return emptyList()
         }
-
-        Log.e("PILLORA_DEBUG", "Total de ${ocorrencias.size} ocorrências calculadas")
+        Log.d("DateTimeUtils", "Total de ${ocorrencias.size} ocorrências calculadas")
         return ocorrencias
     }
 
-    // Função para calcular lembretes de consultas (24h antes, 2h antes e 3h depois)
+    // Função para calcular lembretes de consultas (retorna lista de LembreteInfo)
     fun calcularLembretesConsulta(
         consultaDateString: String, // Formato "dd/MM/yyyy" ou "ddMMyyyy"
         consultaTimeString: String  // Formato "HH:mm"
-    ): List<Long> {
-        val lembretes = mutableListOf<Long>()
+    ): List<LembreteInfo> {
+        val lembretes = mutableListOf<LembreteInfo>()
+        Log.d("DateTimeUtils", "Calculando lembretes para consulta: data=$consultaDateString, hora=$consultaTimeString")
 
-        Log.e("PILLORA_DEBUG", "Calculando lembretes para consulta: data=$consultaDateString, hora=$consultaTimeString")
-
-        // Formatar a data corretamente, independente do formato de entrada
         var formattedConsultaDate = consultaDateString
-
-        // Se a data não contém barras e tem 8 dígitos, adicionar as barras
         if (!consultaDateString.contains("/") && consultaDateString.length == 8 && consultaDateString.all { it.isDigit() }) {
             formattedConsultaDate = "${consultaDateString.substring(0, 2)}/${consultaDateString.substring(2, 4)}/${consultaDateString.substring(4)}"
-            Log.e("PILLORA_DEBUG", "Data reformatada: $consultaDateString -> $formattedConsultaDate")
         }
 
-        // Usar Locale.US para garantir consistência no parsing do formato de data/hora
         val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US)
         val consultaDateTimeString = "$formattedConsultaDate $consultaTimeString"
 
         try {
-            // Obter o timestamp da consulta
             val consultaCalendar = Calendar.getInstance().apply {
                 time = dateFormat.parse(consultaDateTimeString) ?: run {
-                    Log.e("PILLORA_DEBUG", "Falha ao parsear data/hora da consulta: $consultaDateTimeString")
+                    Log.e("DateTimeUtils", "Falha ao parsear data/hora da consulta: $consultaDateTimeString")
                     return emptyList()
                 }
             }
-
-            Log.e("PILLORA_DEBUG", "Data/hora da consulta parseada: ${dateFormat.format(consultaCalendar.time)}")
-
-            // Timestamp da consulta
             val consultaTimestamp = consultaCalendar.timeInMillis
+            Log.d("DateTimeUtils", "Data/hora da consulta parseada: ${dateFormat.format(consultaCalendar.time)}, timestamp: $consultaTimestamp")
+
+            val now = Calendar.getInstance().timeInMillis
 
             // Calcular timestamp para 24 horas antes
-            val lembrete24h = Calendar.getInstance().apply {
-                timeInMillis = consultaTimestamp
-                add(Calendar.HOUR_OF_DAY, -24) // 24 horas antes
+            val lembrete24hTs = consultaTimestamp - (24 * 60 * 60 * 1000L)
+            if (lembrete24hTs > now) {
+                lembretes.add(LembreteInfo(lembrete24hTs, TIPO_24H_ANTES))
+                Log.d("DateTimeUtils", "Lembrete 24h antes adicionado: ${dateFormat.format(Date(lembrete24hTs))}, timestamp: $lembrete24hTs")
+            } else {
+                Log.d("DateTimeUtils", "Lembrete 24h antes já passou: ${dateFormat.format(Date(lembrete24hTs))}")
             }
 
             // Calcular timestamp para 2 horas antes
-            val lembrete2h = Calendar.getInstance().apply {
-                timeInMillis = consultaTimestamp
-                add(Calendar.HOUR_OF_DAY, -2) // 2 horas antes
+            val lembrete2hTs = consultaTimestamp - (2 * 60 * 60 * 1000L)
+            if (lembrete2hTs > now) {
+                lembretes.add(LembreteInfo(lembrete2hTs, TIPO_2H_ANTES))
+                Log.d("DateTimeUtils", "Lembrete 2h antes adicionado: ${dateFormat.format(Date(lembrete2hTs))}, timestamp: $lembrete2hTs")
+            } else {
+                Log.d("DateTimeUtils", "Lembrete 2h antes já passou: ${dateFormat.format(Date(lembrete2hTs))}")
             }
 
             // Calcular timestamp para 3 horas depois
-            val lembrete3hDepois = Calendar.getInstance().apply {
-                timeInMillis = consultaTimestamp
-                add(Calendar.HOUR_OF_DAY, 3) // 3 horas depois
-            }
-
-            // Obter o timestamp atual
-            val now = Calendar.getInstance()
-            val currentTimestamp = now.timeInMillis
-
-            // Adicionar apenas lembretes futuros
-            if (lembrete24h.timeInMillis > currentTimestamp) {
-                lembretes.add(lembrete24h.timeInMillis)
-                Log.e("PILLORA_DEBUG", "Lembrete 24h antes adicionado: ${dateFormat.format(lembrete24h.time)}, timestamp: ${lembrete24h.timeInMillis}")
+            val lembrete3hDepoisTs = consultaTimestamp + (3 * 60 * 60 * 1000L)
+            if (lembrete3hDepoisTs > now) {
+                lembretes.add(LembreteInfo(lembrete3hDepoisTs, TIPO_3H_DEPOIS))
+                Log.d("DateTimeUtils", "Lembrete 3h depois adicionado: ${dateFormat.format(Date(lembrete3hDepoisTs))}, timestamp: $lembrete3hDepoisTs")
             } else {
-                Log.e("PILLORA_DEBUG", "Lembrete 24h antes já passou: ${dateFormat.format(lembrete24h.time)}")
-            }
-
-            if (lembrete2h.timeInMillis > currentTimestamp) {
-                lembretes.add(lembrete2h.timeInMillis)
-                Log.e("PILLORA_DEBUG", "Lembrete 2h antes adicionado: ${dateFormat.format(lembrete2h.time)}, timestamp: ${lembrete2h.timeInMillis}")
-            } else {
-                Log.e("PILLORA_DEBUG", "Lembrete 2h antes já passou: ${dateFormat.format(lembrete2h.time)}")
-            }
-
-            if (lembrete3hDepois.timeInMillis > currentTimestamp) {
-                lembretes.add(lembrete3hDepois.timeInMillis)
-                Log.e("PILLORA_DEBUG", "Lembrete 3h depois adicionado: ${dateFormat.format(lembrete3hDepois.time)}, timestamp: ${lembrete3hDepois.timeInMillis}")
-            } else {
-                Log.e("PILLORA_DEBUG", "Lembrete 3h depois já passou: ${dateFormat.format(lembrete3hDepois.time)}")
+                Log.d("DateTimeUtils", "Lembrete 3h depois já passou: ${dateFormat.format(Date(lembrete3hDepoisTs))}")
             }
 
         } catch (e: Exception) {
-            Log.e("PILLORA_DEBUG", "Erro ao calcular lembretes para consulta $consultaDateTimeString", e)
-            return emptyList() // Retorna lista vazia em caso de erro
+            Log.e("DateTimeUtils", "Erro ao calcular lembretes para consulta $consultaDateTimeString", e)
+            return emptyList()
         }
 
-        Log.e("PILLORA_DEBUG", "Total de ${lembretes.size} lembretes calculados para a consulta")
-        return lembretes
+        Log.d("DateTimeUtils", "Total de ${lembretes.size} lembretes calculados para a consulta")
+        // Ordenar por timestamp para garantir a ordem correta
+        return lembretes.sortedBy { it.timestamp }
     }
 }
+

@@ -15,6 +15,7 @@ import androidx.work.WorkerParameters
 import com.pillora.pillora.MainActivity
 import com.pillora.pillora.R
 import com.pillora.pillora.receiver.NotificationActionReceiver
+import com.pillora.pillora.utils.DateTimeUtils
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -29,59 +30,42 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         const val ACTION_CONSULTA_REMARCAR = "com.pillora.pillora.ACTION_CONSULTA_REMARCAR"
         const val EXTRA_LEMBRETE_ID = "EXTRA_LEMBRETE_ID"
         const val EXTRA_MEDICAMENTO_ID = "EXTRA_MEDICAMENTO_ID"
-        const val EXTRA_CONSULTA_ID = "EXTRA_CONSULTA_ID"
+        const val EXTRA_CONSULTA_ID = "EXTRA_CONSULTA_ID" // Pode ser o mesmo que medicamentoId para consultas
         const val EXTRA_NOTIFICATION_ID = "EXTRA_NOTIFICATION_ID"
         const val EXTRA_NOTIFICATION_TITLE = "EXTRA_NOTIFICATION_TITLE"
-        const val EXTRA_NOTIFICATION_MESSAGE = "EXTRA_NOTIFICATION_MESSAGE"
+        const val EXTRA_NOTIFICATION_MESSAGE = "EXTRA_NOTIFICATION_MESSAGE" // Usado para observação da consulta
         const val EXTRA_RECIPIENT_NAME = "EXTRA_RECIPIENT_NAME"
         const val EXTRA_PROXIMA_OCORRENCIA_MILLIS = "EXTRA_PROXIMA_OCORRENCIA_MILLIS"
-        const val EXTRA_HORA = "EXTRA_HORA"
-        const val EXTRA_MINUTO = "EXTRA_MINUTO"
+        const val EXTRA_HORA = "EXTRA_HORA" // Hora do lembrete
+        const val EXTRA_MINUTO = "EXTRA_MINUTO" // Minuto do lembrete
         const val EXTRA_IS_CONSULTA = "EXTRA_IS_CONSULTA"
-        const val EXTRA_TIPO_LEMBRETE = "EXTRA_TIPO_LEMBRETE"
-        const val EXTRA_ESPECIALIDADE = "EXTRA_ESPECIALIDADE"
-        const val EXTRA_HORA_CONSULTA = "EXTRA_HORA_CONSULTA"
-        const val EXTRA_MINUTO_CONSULTA = "EXTRA_MINUTO_CONSULTA"
+        const val EXTRA_TIPO_LEMBRETE = "EXTRA_TIPO_LEMBRETE" // Chave para o tipo explícito
+        const val EXTRA_HORA_CONSULTA = "EXTRA_HORA_CONSULTA" // Hora real da consulta
+        const val EXTRA_MINUTO_CONSULTA = "EXTRA_MINUTO_CONSULTA" // Minuto real da consulta
     }
 
     override suspend fun doWork(): Result {
+        Log.d("NotificationWorker", "NotificationWorker.doWork: Iniciando execução...")
+
         // Obter parâmetros da notificação
         val lembreteId = inputData.getLong(EXTRA_LEMBRETE_ID, -1L)
-        val notificationId = lembreteId.toInt() // Usar ID do lembrete como ID da notificação para unicidade
+        val notificationId = lembreteId.toInt() // Usar ID do lembrete como ID da notificação
         val notificationTitle = inputData.getString(EXTRA_NOTIFICATION_TITLE) ?: "Lembrete"
-        val notificationMessage = inputData.getString(EXTRA_NOTIFICATION_MESSAGE) ?: ""
+        val notificationMessage = inputData.getString(EXTRA_NOTIFICATION_MESSAGE) ?: "" // Observação da consulta
         val medicamentoId = inputData.getString(EXTRA_MEDICAMENTO_ID) ?: ""
         val recipientName = inputData.getString(EXTRA_RECIPIENT_NAME) ?: ""
-        val hora = inputData.getInt(EXTRA_HORA, -1)
-        val minuto = inputData.getInt(EXTRA_MINUTO, -1)
-
-        // Obter o horário real da consulta
+        val proximaOcorrenciaMillis = inputData.getLong(EXTRA_PROXIMA_OCORRENCIA_MILLIS, 0L)
         val horaConsulta = inputData.getInt(EXTRA_HORA_CONSULTA, -1)
         val minutoConsulta = inputData.getInt(EXTRA_MINUTO_CONSULTA, -1)
+        val isConsulta = inputData.getBoolean(EXTRA_IS_CONSULTA, false)
+        val tipoLembrete = inputData.getString(EXTRA_TIPO_LEMBRETE) ?: "tipo_desconhecido"
 
-        Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: lembreteId=$lembreteId, title=$notificationTitle, message=$notificationMessage, hora=$hora, minuto=$minuto")
-        Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: horaConsulta=$horaConsulta, minutoConsulta=$minutoConsulta")
+        Log.d("NotificationWorker", "Recebido: lembreteId=$lembreteId, tipo=$tipoLembrete, title=$notificationTitle, message(obs)=$notificationMessage")
+        Log.d("NotificationWorker", "Recebido: horaConsulta=$horaConsulta, minutoConsulta=$minutoConsulta, isConsulta=$isConsulta")
 
-        // Verificar se é uma consulta pelo título
-        val isConsulta = inputData.getBoolean(EXTRA_IS_CONSULTA, false) ||
-                notificationTitle.contains("Consulta:", ignoreCase = true)
-
-        // Verificar se é uma notificação pós-consulta (3 horas depois)
-        val isPosConsulta = notificationMessage.contains("3 horas depois", ignoreCase = true)
-
-        // Extrair especialidade da consulta (se for consulta)
-        val especialidade = if (isConsulta) {
-            notificationTitle.replace("Hora de: Consulta:", "", ignoreCase = true).trim()
-        } else {
-            ""
-        }
-
-        // Formatar o horário real da consulta
-        val horarioRealConsulta = if (horaConsulta >= 0 && minutoConsulta >= 0) {
-            String.format(Locale.getDefault(), "%02d:%02d", horaConsulta, minutoConsulta)
-        } else {
-            // Fallback para o horário do lembrete se não tiver o horário real
-            String.format(Locale.getDefault(), "%02d:%02d", hora, minuto)
+        if (tipoLembrete == "tipo_desconhecido" && isConsulta) {
+            Log.e("NotificationWorker", "ERRO! Tipo de lembrete de consulta desconhecido para Lembrete ID: $lembreteId. Abortando.")
+            return Result.failure()
         }
 
         // Intent para abrir o app ao clicar na notificação
@@ -100,139 +84,112 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         val finalMessage: String
 
         if (isConsulta) {
-            // Formatação para notificações de consulta
+            Log.d("NotificationWorker", "Processando como CONSULTA")
             val nome = recipientName.ifBlank { "Você" }
-
-            // Título sem repetição do "você"
+            val especialidade = notificationTitle.replace("Consulta:", "", ignoreCase = true).trim()
             finalTitle = "$nome tem consulta com $especialidade"
 
-            // Verificar se é hoje ou amanhã
-            val hoje = Calendar.getInstance()
-            val amanha = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }
-
-            // Criar calendário para a data da consulta
-            val dataConsulta = Calendar.getInstance()
-
-            // Se temos o horário real da consulta, usamos ele
-            if (horaConsulta >= 0 && minutoConsulta >= 0) {
-                // Precisamos determinar a data da consulta com base no tipo de lembrete
-                if (notificationMessage.contains("24 horas antes", ignoreCase = true)) {
-                    // Se é 24h antes, a consulta é amanhã
-                    dataConsulta.add(Calendar.DAY_OF_YEAR, 1)
-                } else if (notificationMessage.contains("2 horas antes", ignoreCase = true)) {
-                    // Se é 2h antes, a consulta é hoje
-                    // Não precisamos ajustar a data
-                } else if (isPosConsulta) {
-                    // Se é 3h depois, a consulta já aconteceu hoje
-                    // Não precisamos ajustar a data
-                }
-
-                // Definir a hora e minuto da consulta
-                dataConsulta.set(Calendar.HOUR_OF_DAY, horaConsulta)
-                dataConsulta.set(Calendar.MINUTE, minutoConsulta)
-            }
-
-            val formatoData = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-            val dataHoje = formatoData.format(hoje.time)
-            val dataAmanha = formatoData.format(amanha.time)
-            val dataConsultaStr = formatoData.format(dataConsulta.time)
-
-            // Mensagem baseada no tipo de lembrete
-            finalMessage = when {
-                isPosConsulta -> "Você compareceu à consulta?"
-
-                notificationMessage.contains("24 horas antes", ignoreCase = true) ->
-                    "Amanhã às $horarioRealConsulta"
-
-                notificationMessage.contains("2 horas antes", ignoreCase = true) -> {
-                    if (dataConsultaStr == dataHoje) {
-                        "Hoje às $horarioRealConsulta"
-                    } else if (dataConsultaStr == dataAmanha) {
-                        "Amanhã às $horarioRealConsulta"
-                    } else {
-                        "Em ${formatoData.format(dataConsulta.time)} às $horarioRealConsulta"
-                    }
-                }
-
-                else -> notificationMessage
-            }
-
-            Log.e("PILLORA_DEBUG", "Consulta detectada: especialidade=$especialidade, tipo=${notificationMessage}, mensagem final=$finalMessage")
-        } else {
-            // Formatação para notificações de medicamento
-            finalTitle = if (recipientName.isNotBlank()) {
-                "${recipientName}, hora de tomar $notificationTitle"
+            val horarioRealConsultaStr = if (horaConsulta >= 0 && minutoConsulta >= 0) {
+                String.format(Locale.getDefault(), "%02d:%02d", horaConsulta, minutoConsulta)
             } else {
-                "Hora de: $notificationTitle"
+                Log.w("NotificationWorker", "Horário real da consulta inválido ($horaConsulta:$minutoConsulta).")
+                "" // Não exibir horário se inválido
             }
-            finalMessage = notificationMessage
+
+            finalMessage = when (tipoLembrete) {
+                DateTimeUtils.TIPO_3H_DEPOIS -> "Você compareceu à consulta?"
+                DateTimeUtils.TIPO_24H_ANTES -> "Amanhã às $horarioRealConsultaStr"
+                DateTimeUtils.TIPO_2H_ANTES -> {
+                    // Para 2h antes, sempre consideramos "Hoje"
+                    "Hoje às $horarioRealConsultaStr"
+                }
+                else -> {
+                    Log.w("NotificationWorker", "Tipo de lembrete de consulta inesperado: $tipoLembrete. Usando observação.")
+                    notificationMessage // Fallback para a observação
+                }
+            }
+            Log.d("NotificationWorker", "Mensagem final para consulta ($tipoLembrete) = $finalMessage")
+        } else {
+            Log.d("NotificationWorker", "Processando como MEDICAMENTO")
+            finalTitle = if (recipientName.isNotBlank()) {
+                "${recipientName}, hora de tomar ${notificationTitle.replace("Hora de:", "").trim()}"
+            } else {
+                notificationTitle // Já vem formatado como "Hora de: ..."
+            }
+            finalMessage = notificationMessage // Mensagem original (dose/observação do medicamento)
+            Log.d("NotificationWorker", "Mensagem final para medicamento = $finalMessage")
         }
 
-        Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Preparando notificação: title=$finalTitle, message=$finalMessage, isConsulta=$isConsulta, isPosConsulta=$isPosConsulta")
+        Log.d("NotificationWorker", "Preparando notificação final: title=$finalTitle, message=$finalMessage")
 
-        // Configurar ações com base no tipo (consulta ou medicamento)
+        // Configurar builder da notificação
         val builder = NotificationCompat.Builder(applicationContext, "lembretes_medicamentos_channel")
             .setSmallIcon(R.drawable.ic_notification_pill)
             .setContentTitle(finalTitle)
             .setContentText(finalMessage)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(if (isPosConsulta) NotificationCompat.CATEGORY_REMINDER else NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
 
-        // Configurar som e vibração apenas para lembretes que não são pós-consulta
-        if (!isPosConsulta) {
+        // Configurar som, vibração e prioridade com base no tipo
+        if (isConsulta && tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) {
+            Log.d("NotificationWorker", "Configurando notificação como SILENCIOSA (pós-consulta)")
             builder
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
+                .setVibrate(longArrayOf(0, 300, 200, 300))
+        } else {
+            Log.d("NotificationWorker", "Configurando notificação como ALARME (pré-consulta ou medicamento)")
+            builder
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
                 .setVibrate(longArrayOf(0, 1000, 500, 1000, 500, 1000))
                 .setLights(0xFF0000FF.toInt(), 1000, 500)
-                .setFullScreenIntent(pendingIntent, true)
-        } else {
-            // Para notificação pós-consulta, usar som de notificação normal
-            builder
-                .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
-                .setVibrate(longArrayOf(0, 300, 200, 300))
+                .setFullScreenIntent(pendingIntent, true) // Apenas para alarmes
         }
 
-        if (isConsulta) {
-            if (isPosConsulta) {
-                // Ação "Sim, excluir consulta"
-                val excluirIntent = Intent(applicationContext, NotificationActionReceiver::class.java).apply {
-                    action = ACTION_CONSULTA_COMPARECEU
-                    putExtra(EXTRA_LEMBRETE_ID, lembreteId)
-                    putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-                    putExtra(EXTRA_MEDICAMENTO_ID, medicamentoId) // Usar medicamentoId como consultaId
-                }
-                val excluirPendingIntent = PendingIntent.getBroadcast(
-                    applicationContext,
-                    notificationId * 10 + 1,
-                    excluirIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
+        // Adicionar botões de ação
+        if (isConsulta && tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) {
+            Log.d("NotificationWorker", "Adicionando botões para notificação PÓS-CONSULTA")
+            val consultaId = medicamentoId // Usar medicamentoId como consultaId
 
-                // Ação "Remarcar consulta"
-                val remarcarIntent = Intent(applicationContext, NotificationActionReceiver::class.java).apply {
-                    action = ACTION_CONSULTA_REMARCAR
-                    putExtra(EXTRA_LEMBRETE_ID, lembreteId)
-                    putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-                    putExtra(EXTRA_MEDICAMENTO_ID, medicamentoId) // Usar medicamentoId como consultaId
-                }
-                val remarcarPendingIntent = PendingIntent.getBroadcast(
-                    applicationContext,
-                    notificationId * 10 + 2,
-                    remarcarIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-
-                builder.addAction(R.drawable.ic_action_check, "Sim, excluir consulta", excluirPendingIntent)
-                builder.addAction(R.drawable.ic_action_check, "Remarcar consulta", remarcarPendingIntent)
-
-                Log.e("PILLORA_DEBUG", "Adicionados botões para notificação pós-consulta")
+            // Ação "Sim, excluir consulta"
+            val excluirIntent = Intent(applicationContext, NotificationActionReceiver::class.java).apply {
+                action = ACTION_CONSULTA_COMPARECEU
+                putExtra(EXTRA_LEMBRETE_ID, lembreteId)
+                putExtra(EXTRA_NOTIFICATION_ID, notificationId)
+                putExtra(EXTRA_CONSULTA_ID, consultaId)
+                Log.d("NotificationWorker", "Intent EXCLUIR para Lembrete ID: $lembreteId, Consulta ID: $consultaId")
             }
-            // Para lembretes de 24h e 2h antes, não adicionamos botões
-        } else {
-            // Ação "Tomei" para medicamentos
+            val excluirPendingIntent = PendingIntent.getBroadcast(
+                applicationContext,
+                notificationId * 10 + 1, // Request code único
+                excluirIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            // Ação "Remarcar consulta"
+            val remarcarIntent = Intent(applicationContext, NotificationActionReceiver::class.java).apply {
+                action = ACTION_CONSULTA_REMARCAR
+                putExtra(EXTRA_LEMBRETE_ID, lembreteId)
+                putExtra(EXTRA_NOTIFICATION_ID, notificationId)
+                putExtra(EXTRA_CONSULTA_ID, consultaId)
+                Log.d("NotificationWorker", "Intent REMARCAR para Lembrete ID: $lembreteId, Consulta ID: $consultaId")
+            }
+            val remarcarPendingIntent = PendingIntent.getBroadcast(
+                applicationContext,
+                notificationId * 10 + 2, // Request code único
+                remarcarIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            builder.addAction(R.drawable.ic_action_check, "Sim, excluir consulta", excluirPendingIntent)
+            builder.addAction(R.drawable.ic_action_edit, "Remarcar consulta", remarcarPendingIntent) // Ícone de edição
+
+        } else if (!isConsulta) {
+            Log.d("NotificationWorker", "Adicionando botão 'Tomei' para MEDICAMENTO")
             val tomarIntent = Intent(applicationContext, NotificationActionReceiver::class.java).apply {
                 action = ACTION_MEDICAMENTO_TOMADO
                 putExtra(EXTRA_LEMBRETE_ID, lembreteId)
@@ -241,29 +198,34 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             }
             val tomarPendingIntent = PendingIntent.getBroadcast(
                 applicationContext,
-                notificationId * 10 + 1,
+                notificationId * 10 + 1, // Request code único
                 tomarIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-
             builder.addAction(R.drawable.ic_action_check, "Tomei", tomarPendingIntent)
+        } else {
+            Log.d("NotificationWorker", "Nenhum botão adicionado (lembrete pré-consulta)")
         }
 
+        // Verificar permissão antes de notificar
         if (ActivityCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            Log.e("NotificationWorker", "Permissão POST_NOTIFICATIONS não concedida. A notificação não será exibida.")
+            Log.e("NotificationWorker", "ERRO! Permissão POST_NOTIFICATIONS não concedida. A notificação não será exibida.")
+            // Considerar solicitar permissão ou notificar o usuário de outra forma
             return Result.failure()
         }
 
-        Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Exibindo notificação para lembreteId=$lembreteId, title=$finalTitle, message=$finalMessage")
+        Log.d("NotificationWorker", "Exibindo notificação final para lembreteId=$lembreteId, title=$finalTitle, message=$finalMessage")
 
         try {
             NotificationManagerCompat.from(applicationContext).notify(notificationId, builder.build())
-            Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Notificação exibida com sucesso para lembreteId=$lembreteId")
+            Log.d("NotificationWorker", "Notificação exibida com sucesso para lembreteId=$lembreteId")
         } catch (e: Exception) {
-            Log.e("PILLORA_DEBUG", "NotificationWorker.doWork: Erro ao exibir notificação", e)
+            Log.e("NotificationWorker", "ERRO ao exibir notificação", e)
             return Result.failure()
         }
 
+        Log.d("NotificationWorker", "Execução concluída com sucesso.")
         return Result.success()
     }
 }
+
