@@ -1,5 +1,6 @@
 package com.pillora.pillora.screens
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,7 +13,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
-import androidx.compose.runtime.* // CORREÇÃO: Restaurar import wildcard para resolver referências
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -23,37 +24,36 @@ import androidx.navigation.NavController
 import com.pillora.pillora.model.Consultation
 import com.pillora.pillora.repository.ConsultationRepository
 import com.pillora.pillora.navigation.Screen
-import kotlinx.coroutines.flow.map // Import map operator
-import kotlinx.coroutines.flow.catch
+import com.pillora.pillora.viewmodel.ConsultationListUiState
+import com.pillora.pillora.viewmodel.ConsultationViewModel
 import kotlinx.coroutines.launch
-import android.util.Log // CORREÇÃO: Adicionar import do Log
-
-// Define states for the screen based on Flow emission
-/* // REMOVIDO: Simplificando a coleta de estado
-sealed interface ConsultationListUiState {
-    data object Loading : ConsultationListUiState
-    data class Success(val consultations: List<Consultation>) : ConsultationListUiState
-    data class Error(val message: String) : ConsultationListUiState
-}
-*/
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConsultationListScreen(navController: NavController) {
-
+fun ConsultationListScreen(
+    navController: NavController,
+    // IMPORTANTE: Receber o ViewModel compartilhado do NavHost em vez de criar um novo
+    viewModel: ConsultationViewModel
+) {
     // --- State Management --- //
-    // Collect the raw flow from the repository
-    val consultationsFlow = remember { ConsultationRepository.getAllConsultationsFlow() }
-    // Use collectAsStateWithLifecycle for lifecycle-aware collection
-    // Colete diretamente a lista (ou null se ainda carregando/erro inicial)
-    val consultationsResult: List<Consultation>? = consultationsFlow
-        .catch { exception ->
-            // TODO: Tratar erro de forma mais robusta (ex: exibir Snackbar, logar)
-            Log.e("ConsultationListScreen", "Erro ao coletar fluxo de consultas", exception)
-            // Emitir lista vazia em caso de erro para evitar crash, mas idealmente mostrar erro
-            emit(emptyList()) // Ou null para mostrar loading/erro
+    // Coletar o estado da UI da lista diretamente do ViewModel compartilhado
+    val consultationListState by viewModel.consultationListUiState.collectAsStateWithLifecycle()
+
+    // Log para depuração - verificar se o estado está sendo atualizado
+    LaunchedEffect(consultationListState) {
+        when (consultationListState) {
+            is ConsultationListUiState.Success -> {
+                val consultations = (consultationListState as ConsultationListUiState.Success).consultations
+                Log.d("ConsultationListScreen", "Estado atualizado: ${consultations.size} consultas")
+            }
+            is ConsultationListUiState.Loading -> {
+                Log.d("ConsultationListScreen", "Estado: Carregando")
+            }
+            is ConsultationListUiState.Error -> {
+                Log.d("ConsultationListScreen", "Estado: Erro - ${(consultationListState as ConsultationListUiState.Error).message}")
+            }
         }
-        .collectAsStateWithLifecycle(initialValue = null).value // Coleta o valor do Flow
+    }
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var consultationToDelete by remember { mutableStateOf<Consultation?>(null) }
@@ -118,15 +118,31 @@ fun ConsultationListScreen(navController: NavController) {
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // CORREÇÃO: Adaptar UI com base no consultationsResult (List<Consultation>?)
-            when (consultationsResult) {
-                null -> {
-                    // Estado de Carregamento (quando consultationsResult é null)
+            when (consultationListState) {
+                is ConsultationListUiState.Loading -> {
+                    // Estado de Carregamento
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
-                else -> {
-                    // Estado de Sucesso (quando consultationsResult não é null)
-                    val consultations = consultationsResult.sortedBy { it.dateTime }
+                is ConsultationListUiState.Error -> {
+                    // Estado de Erro
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = (consultationListState as ConsultationListUiState.Error).message,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        // TODO: Consider adding a retry button here
+                    }
+                }
+                is ConsultationListUiState.Success -> {
+                    // Estado de Sucesso
+                    val consultations = (consultationListState as ConsultationListUiState.Success).consultations // Lista já vem ordenada do ViewModel
                     if (consultations.isEmpty()) {
                         // Lista Vazia
                         Column(
@@ -247,4 +263,3 @@ fun ConsultationListItem(
         }
     }
 }
-

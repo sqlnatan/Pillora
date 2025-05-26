@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -26,6 +27,7 @@ import com.pillora.pillora.screens.RecipeFormScreen // Import RecipeFormScreen
 import com.pillora.pillora.screens.RecipeListScreen // Import RecipeListScreen
 import com.pillora.pillora.screens.VaccineFormScreen
 import com.pillora.pillora.screens.VaccineListScreen
+import com.pillora.pillora.viewmodel.ConsultationViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -46,6 +48,10 @@ fun AppNavigation(
 
     // Estado para armazenar a rota inicial, começando com um valor temporário
     var startRoute by remember { mutableStateOf<String?>(null) }
+
+    // IMPORTANTE: Criar uma única instância do ConsultationViewModel no escopo do NavHost
+    // Isso garante que todas as telas compartilhem a mesma instância e vejam as mesmas atualizações
+    val sharedConsultationViewModel: ConsultationViewModel = viewModel()
 
     // Determinar a rota inicial de forma assíncrona ou síncrona
     LaunchedEffect(key1 = Unit) {
@@ -108,7 +114,11 @@ fun AppNavigation(
 
             // Consultation list screen
             composable(Screen.ConsultationList.route) {
-                ConsultationListScreen(navController = navController)
+                // Passar o ViewModel compartilhado para a tela de lista de consultas
+                ConsultationListScreen(
+                    navController = navController,
+                    viewModel = sharedConsultationViewModel
+                )
             }
 
             // Consultation form screen (handles both add and edit)
@@ -123,7 +133,12 @@ fun AppNavigation(
                 )
             ) { backStackEntry ->
                 val consultationIdFromRoute = backStackEntry.arguments?.getString("id")
-                ConsultationFormScreen(navController = navController, consultationId = consultationIdFromRoute)
+                ConsultationFormScreen(
+                    navController = navController,
+                    consultationId = consultationIdFromRoute,
+                    // Opcional: passar o mesmo ViewModel se a tela de formulário também precisar dele
+                    // viewModel = sharedConsultationViewModel
+                )
             }
 
             // Vaccine list screen (Nova rota adicionada)

@@ -27,12 +27,23 @@ import com.pillora.pillora.data.dao.LembreteDao
 import com.pillora.pillora.workers.NotificationWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted // Import necessário
+import kotlinx.coroutines.flow.catch // Import necessário
+import kotlinx.coroutines.flow.map // Import necessário
+import kotlinx.coroutines.flow.stateIn // Import necessário
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+
+// Define os estados possíveis da UI para a lista de consultas (Adicionado para a lista)
+sealed interface ConsultationListUiState {
+    data object Loading : ConsultationListUiState
+    data class Success(val consultations: List<Consultation>) : ConsultationListUiState
+    data class Error(val message: String) : ConsultationListUiState
+}
 
 class ConsultationViewModel : ViewModel() {
 
@@ -60,6 +71,22 @@ class ConsultationViewModel : ViewModel() {
 
     private var currentConsultationId: String? = null
     private var currentConsultationUserId: String? = null
+
+    // --- StateFlow para a lista de consultas (Adicionado) ---
+    val consultationListUiState: StateFlow<ConsultationListUiState> = ConsultationRepository.getAllConsultationsFlow()
+        .map<List<Consultation>, ConsultationListUiState> { consultations ->
+            Log.d(tag, "Flow (in ViewModel) emitted ${consultations.size} consultations")
+            ConsultationListUiState.Success(consultations.sortedBy { it.dateTime }) // Ordena aqui
+        }
+        .catch { e ->
+            Log.e(tag, "Error collecting consultations flow in ViewModel", e)
+            emit(ConsultationListUiState.Error(e.localizedMessage ?: "Erro desconhecido ao carregar consultas"))
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000), // Mantém o flow ativo por 5s após o último coletor parar
+            initialValue = ConsultationListUiState.Loading // Estado inicial
+        )
 
     // --- Form Input Update Functions ---
     fun onPatientNameChange(newName: String) {
