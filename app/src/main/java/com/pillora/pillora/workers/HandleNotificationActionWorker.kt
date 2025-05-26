@@ -112,34 +112,47 @@ class HandleNotificationActionWorker(appContext: Context, workerParams: WorkerPa
             }
 
             NotificationWorker.ACTION_CONSULTA_COMPARECEU -> {
+                // CORREÇÃO: Adicionar logs e tratamento de erro mais detalhados
+                Log.d("HandleActionWorker", "Iniciando processamento de ACTION_CONSULTA_COMPARECEU para consultaId: $consultaId")
                 try {
                     if (consultaId == null) {
-                        Log.e("HandleActionWorker", "ID da Consulta inválido.")
+                        Log.e("HandleActionWorker", "Erro: ID da Consulta (consultaId) é nulo.")
                         return@withContext Result.failure()
                     }
 
                     val userId = Firebase.auth.currentUser?.uid
                     if (userId == null) {
-                        Log.e("HandleActionWorker", "Usuário não logado.")
+                        Log.e("HandleActionWorker", "Erro: Usuário não autenticado no Firebase.")
                         return@withContext Result.failure()
                     }
+                    Log.d("HandleActionWorker", "Usuário autenticado: $userId")
 
                     // Excluir a consulta do Firestore
                     val firestore = FirebaseFirestore.getInstance()
-                    firestore.collection("users").document(userId)
+                    val consultationRef = firestore.collection("users").document(userId)
                         .collection("consultations").document(consultaId)
-                        .delete()
-                        .await()
 
-                    // Marcar o lembrete como inativo
+                    Log.d("HandleActionWorker", "Tentando excluir consulta no Firestore: ${consultationRef.path}")
+                    consultationRef.delete().await()
+                    Log.d("HandleActionWorker", "Consulta $consultaId excluída do Firestore com sucesso.")
+
+                    // Marcar o lembrete local como inativo (ou excluir)
                     if (lembrete != null) {
-                        lembreteDao.updateLembrete(lembrete.copy(ativo = false))
+                        try {
+                            lembreteDao.updateLembrete(lembrete.copy(ativo = false))
+                            Log.d("HandleActionWorker", "Lembrete local $lembreteId marcado como inativo.")
+                        } catch (dbError: Exception) {
+                            Log.e("HandleActionWorker", "Erro ao marcar lembrete local $lembreteId como inativo", dbError)
+                            // Continuar mesmo se houver erro no DB local, pois o Firestore foi atualizado
+                        }
+                    } else {
+                        Log.w("HandleActionWorker", "Lembrete local $lembreteId não encontrado para marcar como inativo.")
                     }
 
-                    Log.d("HandleActionWorker", "Consulta $consultaId excluída com sucesso.")
+                    Log.d("HandleActionWorker", "Processamento de ACTION_CONSULTA_COMPARECEU concluído com sucesso para consulta $consultaId.")
                     return@withContext Result.success()
                 } catch (e: Exception) {
-                    Log.e("HandleActionWorker", "Erro ao processar ACTION_CONSULTA_COMPARECEU", e)
+                    Log.e("HandleActionWorker", "Erro GERAL ao processar ACTION_CONSULTA_COMPARECEU para consultaId $consultaId", e)
                     return@withContext Result.failure()
                 }
             }

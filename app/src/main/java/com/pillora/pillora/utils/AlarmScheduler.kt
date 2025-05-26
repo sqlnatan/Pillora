@@ -10,6 +10,7 @@ import com.pillora.pillora.model.Lembrete
 import com.pillora.pillora.receiver.AlarmReceiver
 import java.util.Calendar
 import java.util.Locale
+import com.pillora.pillora.workers.NotificationWorker
 
 object AlarmScheduler {
 
@@ -27,16 +28,20 @@ object AlarmScheduler {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             // Passar todos os dados necessários para o AlarmReceiver
-            putExtra("LEMBRETE_ID", lembrete.id)
-            putExtra("MEDICAMENTO_ID", lembrete.medicamentoId) // Adicionado para o HandleNotificationActionWorker
-            putExtra("NOTIFICATION_TITLE", "Hora de: ${lembrete.nomeMedicamento}")
-            putExtra("NOTIFICATION_MESSAGE", "Dose: ${lembrete.dose}") // A dose já vem formatada de MedicineFormScreen
-            putExtra("RECIPIENT_NAME", lembrete.recipientName) // Adicionado
-            putExtra("PROXIMA_OCORRENCIA_MILLIS", lembrete.proximaOcorrenciaMillis) // Adicionado para NotificationWorker
-            putExtra("HORA", lembrete.hora) // Adicionado para NotificationWorker
-            putExtra("MINUTO", lembrete.minuto) // Adicionado para NotificationWorker
-            // Adicionar flag para indicar que este é um alarme de medicamento
-            putExtra("IS_MEDICINE_ALARM", true)
+            // Usar constantes do NotificationWorker para consistência
+            putExtra(NotificationWorker.EXTRA_LEMBRETE_ID, lembrete.id)
+            putExtra(NotificationWorker.EXTRA_MEDICAMENTO_ID, lembrete.medicamentoId)
+            // CORREÇÃO: Garantir que o título e mensagem corretos sejam passados
+            putExtra(NotificationWorker.EXTRA_NOTIFICATION_TITLE, lembrete.nomeMedicamento) // nomeMedicamento já contém "Hora de: ..." ou similar
+            putExtra(NotificationWorker.EXTRA_NOTIFICATION_MESSAGE, lembrete.dose) // Passar a dose/observação aqui
+            putExtra(NotificationWorker.EXTRA_RECIPIENT_NAME, lembrete.recipientName)
+            putExtra(NotificationWorker.EXTRA_PROXIMA_OCORRENCIA_MILLIS, lembrete.proximaOcorrenciaMillis)
+            putExtra(NotificationWorker.EXTRA_HORA, lembrete.hora)
+            putExtra(NotificationWorker.EXTRA_MINUTO, lembrete.minuto)
+            // CORREÇÃO: Explicitar que NÃO é consulta
+            putExtra("IS_CONSULTATION_ALARM", false)
+            // Passar tipo de lembrete (pode ser útil para diferenciar no futuro, mas não essencial para medicação agora)
+            // putExtra(NotificationWorker.EXTRA_TIPO_LEMBRETE, "MEDICAMENTO") // Exemplo
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
