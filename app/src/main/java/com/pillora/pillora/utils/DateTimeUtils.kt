@@ -14,6 +14,7 @@ object DateTimeUtils {
     const val TIPO_24H_ANTES = "24 horas antes"
     const val TIPO_2H_ANTES = "2 horas antes"
     const val TIPO_3H_DEPOIS = "3 horas depois"
+    const val TIPO_CONFIRMACAO = "confirmação" // Tipo específico para vacina 3h depois
 
     // Função existente para medicamentos (mantida como está)
     fun calcularProximasOcorrenciasIntervalo(
@@ -152,5 +153,69 @@ object DateTimeUtils {
         // Ordenar por timestamp para garantir a ordem correta
         return lembretes.sortedBy { it.timestamp }
     }
-}
 
+    // Nova função para calcular lembretes de vacina (retorna lista de LembreteInfo)
+    fun calcularLembretesVacina(
+        vacinaDateString: String, // Formato "dd/MM/yyyy" ou "ddMMyyyy"
+        vacinaTimeString: String  // Formato "HH:mm"
+    ): List<LembreteInfo> {
+        val lembretes = mutableListOf<LembreteInfo>()
+        Log.d("DateTimeUtils", "Calculando lembretes para vacina: data=$vacinaDateString, hora=$vacinaTimeString")
+
+        var formattedVacinaDate = vacinaDateString
+        if (!vacinaDateString.contains("/") && vacinaDateString.length == 8 && vacinaDateString.all { it.isDigit() }) {
+            formattedVacinaDate = "${vacinaDateString.substring(0, 2)}/${vacinaDateString.substring(2, 4)}/${vacinaDateString.substring(4)}"
+        }
+
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US)
+        val vacinaDateTimeString = "$formattedVacinaDate $vacinaTimeString"
+
+        try {
+            val vacinaCalendar = Calendar.getInstance().apply {
+                time = dateFormat.parse(vacinaDateTimeString) ?: run {
+                    Log.e("DateTimeUtils", "Falha ao parsear data/hora da vacina: $vacinaDateTimeString")
+                    return emptyList()
+                }
+            }
+            val vacinaTimestamp = vacinaCalendar.timeInMillis
+            Log.d("DateTimeUtils", "Data/hora da vacina parseada: ${dateFormat.format(vacinaCalendar.time)}, timestamp: $vacinaTimestamp")
+
+            val now = Calendar.getInstance().timeInMillis
+
+            // Calcular timestamp para 24 horas antes
+            val lembrete24hTs = vacinaTimestamp - (24 * 60 * 60 * 1000L)
+            if (lembrete24hTs > now) {
+                lembretes.add(LembreteInfo(lembrete24hTs, TIPO_24H_ANTES))
+                Log.d("DateTimeUtils", "Lembrete 24h antes adicionado: ${dateFormat.format(Date(lembrete24hTs))}, timestamp: $lembrete24hTs")
+            } else {
+                Log.d("DateTimeUtils", "Lembrete 24h antes já passou: ${dateFormat.format(Date(lembrete24hTs))}")
+            }
+
+            // Calcular timestamp para 2 horas antes
+            val lembrete2hTs = vacinaTimestamp - (2 * 60 * 60 * 1000L)
+            if (lembrete2hTs > now) {
+                lembretes.add(LembreteInfo(lembrete2hTs, TIPO_2H_ANTES))
+                Log.d("DateTimeUtils", "Lembrete 2h antes adicionado: ${dateFormat.format(Date(lembrete2hTs))}, timestamp: $lembrete2hTs")
+            } else {
+                Log.d("DateTimeUtils", "Lembrete 2h antes já passou: ${dateFormat.format(Date(lembrete2hTs))}")
+            }
+
+            // Calcular timestamp para 3 horas depois (usando tipo específico TIPO_CONFIRMACAO)
+            val lembreteConfirmacaoTs = vacinaTimestamp + (3 * 60 * 60 * 1000L)
+            if (lembreteConfirmacaoTs > now) {
+                lembretes.add(LembreteInfo(lembreteConfirmacaoTs, TIPO_CONFIRMACAO))
+                Log.d("DateTimeUtils", "Lembrete de confirmação (3h depois) adicionado: ${dateFormat.format(Date(lembreteConfirmacaoTs))}, timestamp: $lembreteConfirmacaoTs")
+            } else {
+                Log.d("DateTimeUtils", "Lembrete de confirmação (3h depois) já passou: ${dateFormat.format(Date(lembreteConfirmacaoTs))}")
+            }
+
+        } catch (e: Exception) {
+            Log.e("DateTimeUtils", "Erro ao calcular lembretes para vacina $vacinaDateTimeString", e)
+            return emptyList()
+        }
+
+        Log.d("DateTimeUtils", "Total de ${lembretes.size} lembretes calculados para a vacina")
+        // Ordenar por timestamp para garantir a ordem correta
+        return lembretes.sortedBy { it.timestamp }
+    }
+}

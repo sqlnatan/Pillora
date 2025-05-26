@@ -9,15 +9,16 @@ import com.pillora.pillora.data.local.ListIntConverter
 @TypeConverters(ListIntConverter::class)
 data class Lembrete(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val medicamentoId: String,
-    val nomeMedicamento: String,
-    val recipientName: String? = null, // Novo campo para o nome do destinatário
+    val medicamentoId: String, // Para vacinas, este será o vaccineId
+    val nomeMedicamento: String, // Para vacinas, será "Vacina: [Nome da Vacina]"
+    val recipientName: String? = null, // Nome do paciente
     val hora: Int,
     val minuto: Int,
-    val dose: String, // Ex: "1 Cápsula", "5 ml"
+    val dose: String, // Para vacinas, armazenará o tipo de lembrete ("24 horas antes", "2 horas antes", "confirmação")
     val observacao: String? = null,
-    val diasDaSemana: List<Int>? = null,
+    val diasDaSemana: List<Int>? = null, // Não usado para vacinas
     var proximaOcorrenciaMillis: Long,
-    var ativo: Boolean = true
+    var ativo: Boolean = true,
+    val isVacina: Boolean = false, // Flag para identificar se é um lembrete de vacina
+    val isConfirmacao: Boolean = false // Flag para identificar se é um lembrete de confirmação (3h depois)
 )
-
