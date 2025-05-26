@@ -13,6 +13,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.pillora.pillora.MainActivity
+import com.pillora.pillora.PilloraApplication // Importação necessária
 import com.pillora.pillora.R
 import com.pillora.pillora.receiver.NotificationActionReceiver
 import com.pillora.pillora.utils.DateTimeUtils
@@ -51,7 +52,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         val lembreteId = inputData.getLong(EXTRA_LEMBRETE_ID, -1L)
         val notificationId = lembreteId.toInt() // Usar ID do lembrete como ID da notificação
         val notificationTitle = inputData.getString(EXTRA_NOTIFICATION_TITLE) ?: "Lembrete"
-        val notificationMessage = inputData.getString(EXTRA_NOTIFICATION_MESSAGE) ?: "" // Observação da consulta
+        val notificationMessage = inputData.getString(EXTRA_NOTIFICATION_MESSAGE) ?: "" // Observação da consulta ou dose/obs do medicamento
         val medicamentoId = inputData.getString(EXTRA_MEDICAMENTO_ID) ?: ""
         val recipientName = inputData.getString(EXTRA_RECIPIENT_NAME) ?: ""
         val proximaOcorrenciaMillis = inputData.getLong(EXTRA_PROXIMA_OCORRENCIA_MILLIS, 0L)
@@ -60,7 +61,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         val isConsulta = inputData.getBoolean(EXTRA_IS_CONSULTA, false)
         val tipoLembrete = inputData.getString(EXTRA_TIPO_LEMBRETE) ?: "tipo_desconhecido"
 
-        Log.d("NotificationWorker", "Recebido: lembreteId=$lembreteId, tipo=$tipoLembrete, title=$notificationTitle, message(obs)=$notificationMessage")
+        Log.d("NotificationWorker", "Recebido: lembreteId=$lembreteId, tipo=$tipoLembrete, title=$notificationTitle, message(obs/dose)=$notificationMessage")
         Log.d("NotificationWorker", "Recebido: horaConsulta=$horaConsulta, minutoConsulta=$minutoConsulta, isConsulta=$isConsulta")
 
         if (tipoLembrete == "tipo_desconhecido" && isConsulta) {
@@ -79,11 +80,13 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Determinar título e mensagem com base no tipo (consulta ou medicamento)
+        // Determinar título, mensagem e CANAL com base no tipo (consulta ou medicamento)
         val finalTitle: String
         val finalMessage: String
+        val channelId: String
 
         if (isConsulta) {
+            // ===== FLUXO DE CONSULTA =====
             Log.d("NotificationWorker", "Processando como CONSULTA")
             val nome = recipientName.ifBlank { "Você" }
             val especialidade = notificationTitle.replace("Consulta:", "", ignoreCase = true).trim()
@@ -108,47 +111,71 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
                     notificationMessage // Fallback para a observação
                 }
             }
-            Log.d("NotificationWorker", "Mensagem final para consulta ($tipoLembrete) = $finalMessage")
+
+            // CORREÇÃO: Usar o canal de CONSULTAS para pós-consulta (som padrão) e MEDICAMENTOS para pré-consulta (alarme)
+            channelId = if (tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) {
+                PilloraApplication.CHANNEL_LEMBRETES_CONSULTAS_ID // Canal com som padrão (ou sem som definido)
+            } else {
+                PilloraApplication.CHANNEL_LEMBRETES_MEDICAMENTOS_ID // Canal com som de alarme
+            }
+
+            Log.d("NotificationWorker", "Mensagem final para consulta ($tipoLembrete) = $finalMessage, canal: $channelId")
         } else {
+            // ===== FLUXO DE MEDICAMENTO =====
             Log.d("NotificationWorker", "Processando como MEDICAMENTO")
+
+            // CORREÇÃO: Restaurar a lógica original de medicamentos
+            // Título: "Nome, hora de tomar Medicamento" ou "Hora de: Medicamento"
             finalTitle = if (recipientName.isNotBlank()) {
                 "${recipientName}, hora de tomar ${notificationTitle.replace("Hora de:", "").trim()}"
             } else {
                 notificationTitle // Já vem formatado como "Hora de: ..."
             }
-            finalMessage = notificationMessage // Mensagem original (dose/observação do medicamento)
-            Log.d("NotificationWorker", "Mensagem final para medicamento = $finalMessage")
+
+            // Mensagem: Dose/observação do medicamento (vem em notificationMessage)
+            finalMessage = notificationMessage
+
+            // Medicamentos sempre usam o canal de alarme
+            channelId = PilloraApplication.CHANNEL_LEMBRETES_MEDICAMENTOS_ID
+
+            Log.d("NotificationWorker", "Mensagem final para medicamento = $finalMessage, canal: $channelId")
         }
 
-        Log.d("NotificationWorker", "Preparando notificação final: title=$finalTitle, message=$finalMessage")
+        Log.d("NotificationWorker", "Preparando notificação final: title=$finalTitle, message=$finalMessage, canal=$channelId")
 
-        // Configurar builder da notificação
-        val builder = NotificationCompat.Builder(applicationContext, "lembretes_medicamentos_channel")
+        // CORREÇÃO: Usar o channelId determinado acima
+        val builder = NotificationCompat.Builder(applicationContext, channelId)
             .setSmallIcon(R.drawable.ic_notification_pill)
             .setContentTitle(finalTitle)
             .setContentText(finalMessage)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setContentIntent(pendingIntent)
             .setAutoCancel(true)
 
-        // Configurar som, vibração e prioridade com base no tipo
+        // Configurar prioridade e vibração (som é definido pelo CANAL)
         if (isConsulta && tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) {
-            Log.d("NotificationWorker", "Configurando notificação como SILENCIOSA (pós-consulta)")
+            Log.d("NotificationWorker", "Configurando notificação como PADRÃO (pós-consulta)")
             builder
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
-                .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
                 .setVibrate(longArrayOf(0, 300, 200, 300))
+            // Não definir som aqui, deixar o canal cuidar disso
         } else {
             Log.d("NotificationWorker", "Configurando notificação como ALARME (pré-consulta ou medicamento)")
             builder
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
-                .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
                 .setVibrate(longArrayOf(0, 1000, 500, 1000, 500, 1000))
                 .setLights(0xFF0000FF.toInt(), 1000, 500)
-                .setFullScreenIntent(pendingIntent, true) // Apenas para alarmes
+            // Não definir som aqui, deixar o canal cuidar disso
+
+            // Apenas para alarmes (não para notificação pós-consulta)
+            if (!isConsulta || tipoLembrete != DateTimeUtils.TIPO_3H_DEPOIS) {
+                builder.setFullScreenIntent(pendingIntent, true)
+            }
         }
+
+        // Adicionar intent de clique padrão
+        builder.setContentIntent(pendingIntent)
 
         // Adicionar botões de ação
         if (isConsulta && tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) {
@@ -228,4 +255,3 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         return Result.success()
     }
 }
-
