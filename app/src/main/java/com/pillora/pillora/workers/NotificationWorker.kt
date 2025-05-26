@@ -123,6 +123,8 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         } else {
             // ===== FLUXO DE MEDICAMENTO =====
             Log.d("NotificationWorker", "Processando como MEDICAMENTO")
+            // Log para verificar dados recebidos para medicamento
+            Log.d("NotificationWorker", "Med Data: title=\'$notificationTitle\', message=\'$notificationMessage\', recipient=\'$recipientName\', medId=\'$medicamentoId\'")
 
             // CORREÇÃO: Restaurar a lógica original de medicamentos
             // Título: "Nome, hora de tomar Medicamento" ou "Hora de: Medicamento"
@@ -197,15 +199,15 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            // Ação "Remarcar consulta"
-            val remarcarIntent = Intent(applicationContext, NotificationActionReceiver::class.java).apply {
-                action = ACTION_CONSULTA_REMARCAR
-                putExtra(EXTRA_LEMBRETE_ID, lembreteId)
-                putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-                putExtra(EXTRA_CONSULTA_ID, consultaId)
-                Log.d("NotificationWorker", "Intent REMARCAR para Lembrete ID: $lembreteId, Consulta ID: $consultaId")
+            // Ação "Remarcar consulta" - CORREÇÃO: Usar PendingIntent.getActivity para abrir MainActivity
+            val remarcarIntent = Intent(applicationContext, MainActivity::class.java).apply {
+                action = ACTION_CONSULTA_REMARCAR // Manter a action para identificação se necessário
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK // Manter flags
+                putExtra("OPEN_CONSULTATION_EDIT", true)
+                putExtra("CONSULTATION_ID", consultaId)
+                Log.d("NotificationWorker", "Intent REMARCAR (Activity) para Consulta ID: $consultaId")
             }
-            val remarcarPendingIntent = PendingIntent.getBroadcast(
+            val remarcarPendingIntent = PendingIntent.getActivity(
                 applicationContext,
                 notificationId * 10 + 2, // Request code único
                 remarcarIntent,

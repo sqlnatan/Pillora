@@ -33,15 +33,15 @@ class NotificationActionReceiver : BroadcastReceiver() {
             NotificationManagerCompat.from(context).cancel(notificationId)
         }
 
-        // Se for a ação de remarcar consulta, abrir a tela de edição
-        if (intent.action == NotificationWorker.ACTION_CONSULTA_REMARCAR && consultaId != null) {
-            val editIntent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                putExtra("OPEN_CONSULTATION_EDIT", true)
-                putExtra("CONSULTATION_ID", consultaId)
-            }
-            context.startActivity(editIntent)
-        }
+        // CORREÇÃO: Remover a lógica de startActivity daqui, pois agora é feito pelo PendingIntent.getActivity na notificação
+        // if (intent.action == NotificationWorker.ACTION_CONSULTA_REMARCAR && consultaId != null) {
+        //     val editIntent = Intent(context, MainActivity::class.java).apply {
+        //         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        //         putExtra("OPEN_CONSULTATION_EDIT", true)
+        //         putExtra("CONSULTATION_ID", consultaId)
+        //     }
+        //     context.startActivity(editIntent)
+        // }
 
         // Delegar para um Worker
         val workData = Data.Builder()
