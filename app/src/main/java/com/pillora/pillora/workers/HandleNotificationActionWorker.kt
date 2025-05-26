@@ -132,9 +132,19 @@ class HandleNotificationActionWorker(appContext: Context, workerParams: WorkerPa
                     val consultationRef = firestore.collection("users").document(userId)
                         .collection("consultations").document(consultaId)
 
-                    Log.d("HandleActionWorker", "Tentando excluir consulta no Firestore: ${consultationRef.path}")
-                    consultationRef.delete().await()
-                    Log.d("HandleActionWorker", "Consulta $consultaId excluída do Firestore com sucesso.")
+                    // Log DETALHADO antes da exclusão
+                    Log.i("HandleActionWorker", "Tentando excluir consulta no Firestore. Path: ${consultationRef.path}, UserID: $userId, ConsultaID: $consultaId")
+
+                    try {
+                        consultationRef.delete().await()
+                        // Log de SUCESSO
+                        Log.i("HandleActionWorker", "Consulta $consultaId excluída do Firestore com SUCESSO.")
+                    } catch (firestoreError: Exception) {
+                        // Log de ERRO específico do Firestore
+                        Log.e("HandleActionWorker", "ERRO ao excluir consulta $consultaId do Firestore", firestoreError)
+                        // Retornar falha se a exclusão do Firestore falhar
+                        return@withContext Result.failure()
+                    }
 
                     // Marcar o lembrete local como inativo (ou excluir)
                     if (lembrete != null) {
