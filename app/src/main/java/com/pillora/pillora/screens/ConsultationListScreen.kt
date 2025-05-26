@@ -12,7 +12,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.* // CORREÇÃO: Restaurar import wildcard para resolver referências
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -26,34 +26,41 @@ import com.pillora.pillora.navigation.Screen
 import kotlinx.coroutines.flow.map // Import map operator
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import android.util.Log // CORREÇÃO: Adicionar import do Log
 
 // Define states for the screen based on Flow emission
+/* // REMOVIDO: Simplificando a coleta de estado
 sealed interface ConsultationListUiState {
     data object Loading : ConsultationListUiState
     data class Success(val consultations: List<Consultation>) : ConsultationListUiState
     data class Error(val message: String) : ConsultationListUiState
 }
+*/
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConsultationListScreen(navController: NavController) {
 
-    // Collect the flow, map success/error to UI states
-    val uiState by ConsultationRepository.getAllConsultationsFlow()
-        .map<List<Consultation>, ConsultationListUiState> { consultations -> // Map successful list emission to Success state
-            ConsultationListUiState.Success(consultations)
+    // --- State Management --- //
+    // Collect the raw flow from the repository
+    val consultationsFlow = remember { ConsultationRepository.getAllConsultationsFlow() }
+    // Use collectAsStateWithLifecycle for lifecycle-aware collection
+    // Colete diretamente a lista (ou null se ainda carregando/erro inicial)
+    val consultationsResult: List<Consultation>? = consultationsFlow
+        .catch { exception ->
+            // TODO: Tratar erro de forma mais robusta (ex: exibir Snackbar, logar)
+            Log.e("ConsultationListScreen", "Erro ao coletar fluxo de consultas", exception)
+            // Emitir lista vazia em caso de erro para evitar crash, mas idealmente mostrar erro
+            emit(emptyList()) // Ou null para mostrar loading/erro
         }
-        .catch { exception -> // Catch exceptions from the flow or the map operator
-            // Emit Error state. This is now valid as the flow type is Flow<ConsultationListUiState>
-            emit(ConsultationListUiState.Error("Erro ao carregar consultas: ${exception.message}"))
-        }
-        // Start with Loading state, collectAsStateWithLifecycle handles the initial value.
-        .collectAsStateWithLifecycle(initialValue = ConsultationListUiState.Loading)
+        .collectAsStateWithLifecycle(initialValue = null).value // Coleta o valor do Flow
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var consultationToDelete by remember { mutableStateOf<Consultation?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    // --- UI Components --- //
 
     // Delete confirmation dialog (remains the same)
     if (showDeleteDialog && consultationToDelete != null) {
@@ -111,30 +118,17 @@ fun ConsultationListScreen(navController: NavController) {
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // Adapt the UI based on the collected uiState (remains the same)
-            when (val state = uiState) {
-                is ConsultationListUiState.Loading -> {
+            // CORREÇÃO: Adaptar UI com base no consultationsResult (List<Consultation>?)
+            when (consultationsResult) {
+                null -> {
+                    // Estado de Carregamento (quando consultationsResult é null)
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
-                is ConsultationListUiState.Error -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = state.message,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        // Consider adding a retry button
-                    }
-                }
-                is ConsultationListUiState.Success -> {
-                    val consultations = state.consultations.sortedBy { it.dateTime }
+                else -> {
+                    // Estado de Sucesso (quando consultationsResult não é null)
+                    val consultations = consultationsResult.sortedBy { it.dateTime }
                     if (consultations.isEmpty()) {
+                        // Lista Vazia
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -148,6 +142,7 @@ fun ConsultationListScreen(navController: NavController) {
                             )
                         }
                     } else {
+                        // Lista com Consultas
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(16.dp),

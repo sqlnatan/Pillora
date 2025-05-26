@@ -70,9 +70,20 @@ object ConsultationRepository {
                 }
 
                 if (snapshot != null) {
+                    // LOG DETALHADO: Informações sobre o snapshot
+                    Log.i(TAG, "Snapshot received. Metadata: hasPendingWrites=${snapshot.metadata.hasPendingWrites()}, isFromCache=${snapshot.metadata.isFromCache}")
+                    Log.i(TAG, "Snapshot size: ${snapshot.size()} documents.")
+                    snapshot.documentChanges.forEach { change ->
+                        Log.i(TAG, "  Change: type=${change.type}, docId=${change.document.id}")
+                    }
+
                     val consultations = snapshot.toObjects(Consultation::class.java)
-                    Log.d(TAG, "Consultation snapshot received. Found ${consultations.size} consultations.")
-                    trySend(consultations)
+                    // LOG DETALHADO: Lista de consultas após conversão
+                    val consultationIds = consultations.joinToString { it.id }
+                    Log.i(TAG, "Parsed ${consultations.size} consultations. IDs: [$consultationIds]")
+                    Log.d(TAG, "Attempting to send ${consultations.size} consultations via trySend.")
+                    val sendResult = trySend(consultations)
+                    Log.d(TAG, "trySend result: isSuccess=${sendResult.isSuccess}, isClosed=${sendResult.isClosed}")
                 } else {
                     Log.d(TAG, "Consultation snapshot was null")
                     trySend(emptyList())
