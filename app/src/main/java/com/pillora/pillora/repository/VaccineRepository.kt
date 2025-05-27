@@ -25,9 +25,10 @@ object VaccineRepository {
         get() = auth.currentUser?.uid
 
     // --- CREATE ---
+    // <<< MODIFICADO: onSuccess agora recebe o ID (String) >>>
     fun addVaccine(
         vaccine: Vaccine,
-        onSuccess: () -> Unit,
+        onSuccess: (String) -> Unit, // <<< ALTERADO AQUI
         onFailure: (Exception) -> Unit
     ) {
         val userId = currentUserId
@@ -37,16 +38,22 @@ object VaccineRepository {
             return
         }
 
-        val vaccineWithUserId = vaccine.copy(userId = userId)
+        // Gerar um novo ID se a vacina ainda não tiver um (importante para consistência)
+        // Usar o ID existente se já houver um (caso de re-salvar após erro, etc.)
+        val newDocumentRef = if (vaccine.id.isEmpty()) {
+            db.collection(VACCINES_COLLECTION).document()
+        } else {
+            db.collection(VACCINES_COLLECTION).document(vaccine.id)
+        }
+        val vaccineWithUserIdAndId = vaccine.copy(userId = userId, id = newDocumentRef.id)
 
-        db.collection(VACCINES_COLLECTION)
-            .add(vaccineWithUserId)
-            .addOnSuccessListener { documentReference ->
-                Log.d(TAG, "Vaccine reminder added successfully with ID: ${documentReference.id}")
-                onSuccess()
+        newDocumentRef.set(vaccineWithUserIdAndId) // Salvar o objeto completo com ID
+            .addOnSuccessListener {
+                Log.d(TAG, "Vaccine reminder added/updated successfully with ID: ${vaccineWithUserIdAndId.id}")
+                onSuccess(vaccineWithUserIdAndId.id) // <<< ALTERADO AQUI: Passar o ID
             }
             .addOnFailureListener { exception ->
-                Log.e(TAG, "Error adding vaccine reminder", exception)
+                Log.e(TAG, "Error adding/updating vaccine reminder", exception)
                 onFailure(exception)
             }
     }
@@ -65,12 +72,11 @@ object VaccineRepository {
 
         db.collection(VACCINES_COLLECTION)
             .whereEqualTo("userId", userId)
-            .orderBy("reminderDate", Query.Direction.ASCENDING)
+            .orderBy("reminderDate", Query.Direction.ASCENDING) // Ordenar por data
             .get()
             .addOnSuccessListener { documents ->
                 val vaccines = documents.mapNotNull { doc ->
                     try {
-                        // Use toObject<T>() - Removed safe call as per latest warning
                         doc.toObject<Vaccine>().copy(id = doc.id)
                     } catch (e: Exception) {
                         Log.e(TAG, "Error converting document ${doc.id} to Vaccine", e)
@@ -92,12 +98,11 @@ object VaccineRepository {
 
         return db.collection(VACCINES_COLLECTION)
             .whereEqualTo("userId", userId)
-            .orderBy("reminderDate", Query.Direction.ASCENDING)
-            .snapshots() // Use snapshots() from main module
+            .orderBy("reminderDate", Query.Direction.ASCENDING) // Ordenar por data
+            .snapshots()
             .map { snapshot ->
                 snapshot.documents.mapNotNull { doc ->
                     try {
-                        // Use toObject<T>() from the main module with safe call (kept here as warning was specific to getAllVaccines)
                         doc.toObject<Vaccine>()?.copy(id = doc.id)
                     } catch (e: Exception) {
                         Log.e(TAG, "Error converting document ${doc.id} to Vaccine", e)
@@ -135,15 +140,13 @@ object VaccineRepository {
             .addOnSuccessListener { document ->
                 if (document != null && document.exists()) {
                     try {
-                        // Use toObject<T>() from the main module with safe call (kept here)
                         val vaccine = document.toObject<Vaccine>()?.copy(id = document.id)
-                        // Security check: Ensure the fetched vaccine belongs to the current user
-                        if (vaccine != null && vaccine.userId == userId) { // Check vaccine is not null after potential failed conversion
+                        if (vaccine != null && vaccine.userId == userId) {
                             Log.d(TAG, "Fetched vaccine reminder: ${vaccine.id}")
                             onSuccess(vaccine)
                         } else {
                             Log.w(TAG, "User $userId attempted to fetch vaccine reminder ${document.id} belonging to ${vaccine?.userId} or vaccine is null")
-                            onSuccess(null)
+                            onSuccess(null) // Não encontrado ou pertence a outro usuário
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error converting document ${document.id} to Vaccine", e)
@@ -161,9 +164,10 @@ object VaccineRepository {
     }
 
     // --- UPDATE ---
+    // <<< MODIFICADO: onSuccess agora recebe o ID (String) para consistência >>>
     fun updateVaccine(
         vaccine: Vaccine,
-        onSuccess: () -> Unit,
+        onSuccess: (String) -> Unit, // <<< ALTERADO AQUI
         onFailure: (Exception) -> Unit
     ) {
         val userId = currentUserId
@@ -172,6 +176,7 @@ object VaccineRepository {
             onFailure(IllegalArgumentException("ID do lembrete de vacina está faltando para atualização"))
             return
         }
+        // Garantir que o userId da vacina seja o do usuário logado
         if (userId == null || vaccine.userId != userId) {
             Log.w(TAG, "User not logged in or trying to update another user's vaccine reminder")
             onFailure(SecurityException("Erro de autorização ou dados inválidos para atualização"))
@@ -180,10 +185,10 @@ object VaccineRepository {
 
         db.collection(VACCINES_COLLECTION)
             .document(vaccine.id)
-            .set(vaccine)
+            .set(vaccine) // Usar set para sobrescrever completamente
             .addOnSuccessListener {
                 Log.d(TAG, "Vaccine reminder updated successfully: ${vaccine.id}")
-                onSuccess()
+                onSuccess(vaccine.id) // <<< ALTERADO AQUI: Passar o ID
             }
             .addOnFailureListener { exception ->
                 Log.e(TAG, "Error updating vaccine reminder", exception)
@@ -209,17 +214,30 @@ object VaccineRepository {
             return
         }
 
-        db.collection(VACCINES_COLLECTION)
-            .document(vaccineId)
-            .delete()
-            .addOnSuccessListener {
-                Log.d(TAG, "Vaccine reminder deleted successfully: $vaccineId")
-                onSuccess()
+        // Primeiro, verificar se a vacina pertence ao usuário atual antes de deletar
+        getVaccineById(vaccineId, { vaccine ->
+            if (vaccine != null) { // Vacina encontrada e pertence ao usuário
+                db.collection(VACCINES_COLLECTION)
+                    .document(vaccineId)
+                    .delete()
+                    .addOnSuccessListener {
+                        Log.d(TAG, "Vaccine reminder deleted successfully: $vaccineId")
+                        onSuccess()
+                    }
+                    .addOnFailureListener { exception ->
+                        Log.e(TAG, "Error deleting vaccine reminder", exception)
+                        onFailure(exception)
+                    }
+            } else {
+                // Vacina não encontrada ou não pertence ao usuário
+                Log.w(TAG, "Vaccine reminder $vaccineId not found or access denied for deletion.")
+                onFailure(Exception("Lembrete de vacina não encontrado ou acesso negado."))
             }
-            .addOnFailureListener { exception ->
-                Log.e(TAG, "Error deleting vaccine reminder", exception)
-                onFailure(exception)
-            }
+        }, { exception ->
+            // Erro ao tentar buscar a vacina antes de deletar
+            Log.e(TAG, "Error checking vaccine ownership before deletion", exception)
+            onFailure(exception)
+        })
     }
 }
 

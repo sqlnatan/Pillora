@@ -17,6 +17,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel // Ensure this import is present
 import androidx.navigation.NavController
+import com.pillora.pillora.data.local.AppDatabase // Import AppDatabase
 import com.pillora.pillora.viewmodel.VaccineViewModel
 import kotlinx.coroutines.launch
 
@@ -30,6 +31,11 @@ fun VaccineFormScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() } // Correct SnackbarHostState
     val scope = rememberCoroutineScope()
+
+    // --- Obter LembreteDao --- <<< ADICIONADO
+    val database = remember { AppDatabase.getDatabase(context) }
+    val lembreteDao = remember { database.lembreteDao() }
+    // ------------------------
 
     // Collect states from ViewModel
     val isLoading by viewModel.isLoading.collectAsState()
@@ -170,7 +176,9 @@ fun VaccineFormScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
-                    onClick = { viewModel.saveVaccine() }, // Correct call to ViewModel function
+                    // --- Modificar onClick --- <<< MODIFICADO
+                    onClick = { viewModel.saveVaccine(context, lembreteDao) },
+                    // -------------------------
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isLoading // Correct usage of collected state
                 ) {

@@ -466,7 +466,7 @@ class VaccineViewModel : ViewModel() {
                         WorkManager.getInstance(context).cancelAllWorkByTag("vacina_${vaccineId}_${lembreteAntigo.id}")
                         Log.d(tag, "Alarme/Trabalho cancelado para lembrete ID: ${lembreteAntigo.id}")
                     }
-                    lembreteDao.deleteLembretesByMedicamentoIdAndType(vaccineId, isVacina = true)
+                    lembreteDao.deleteLembretesByMedicamentoId(vaccineId)
                     Log.d(tag, "Excluídos ${lembretesAntigos.size} lembretes antigos de vacina do DB para vacina $vaccineId")
                 }
                 Log.d(tag, "Agendando novos lembretes para vacina $vaccineId")
