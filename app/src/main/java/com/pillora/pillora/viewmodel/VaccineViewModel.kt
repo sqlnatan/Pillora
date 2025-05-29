@@ -425,7 +425,7 @@ class VaccineViewModel : ViewModel() {
                 .putBoolean(NotificationWorker.EXTRA_IS_VACINA, true)
                 .putBoolean(NotificationWorker.EXTRA_IS_CONFIRMACAO, true)
                 .putString(NotificationWorker.EXTRA_TIPO_LEMBRETE, lembrete.dose)
-                .putString(NotificationWorker.EXTRA_HORA_VACINA, horaVacina)
+                .putString(NotificationWorker.EXTRA_VACCINE_TIME, horaVacina)
                 .build()
 
             val notificationWorkRequest = OneTimeWorkRequestBuilder<NotificationWorker>()
@@ -460,7 +460,7 @@ class VaccineViewModel : ViewModel() {
                 putExtra(NotificationWorker.EXTRA_RECIPIENT_NAME, lembrete.recipientName)
                 putExtra(NotificationWorker.EXTRA_IS_VACINA, true)
                 putExtra(NotificationWorker.EXTRA_TIPO_LEMBRETE, lembrete.dose)
-                putExtra(NotificationWorker.EXTRA_HORA_VACINA, horaVacina)
+                putExtra(NotificationWorker.EXTRA_VACCINE_TIME, horaVacina)
             }
 
             val pendingIntent = PendingIntent.getBroadcast(
