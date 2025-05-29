@@ -15,7 +15,7 @@ import com.google.firebase.firestore.DocumentId
  * @property patientName Name of the patient for whom the consultation is scheduled. // Added patientName field
  */
 data class Consultation(
-    @DocumentId val id: String = "",
+    val id: String = "",
     val userId: String = "",
     val specialty: String = "",
     val doctorName: String = "",
