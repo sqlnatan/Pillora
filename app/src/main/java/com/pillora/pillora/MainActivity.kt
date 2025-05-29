@@ -52,12 +52,18 @@ class MainActivity : ComponentActivity() {
         analytics.logEvent(FirebaseAnalytics.Event.APP_OPEN, null)
         enableEdgeToEdge()
 
-        // Verificar se deve abrir a tela de edição de consulta
+        // *** CORREÇÃO: Verificar parâmetros para edição de consulta E vacina ***
         val openConsultationEdit = intent?.getBooleanExtra("OPEN_CONSULTATION_EDIT", false) ?: false
         val consultationId = intent?.getStringExtra("CONSULTATION_ID")
+        val openVaccineEdit = intent?.getBooleanExtra("OPEN_VACCINE_EDIT", false) ?: false
+        val vaccineId = intent?.getStringExtra("VACCINE_ID")
 
         if (openConsultationEdit && consultationId != null) {
             Log.d("MainActivity", "Abrindo tela de edição para consulta: $consultationId")
+        }
+        // *** CORREÇÃO: Adicionar log para edição de vacina ***
+        if (openVaccineEdit && vaccineId != null) {
+            Log.d("MainActivity", "Abrindo tela de edição para vacina: $vaccineId")
         }
 
         setContent {
@@ -99,8 +105,6 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // Lógica para Permissão de Alarme Exato (Android 12+)
-                // Esta verificação é feita uma vez quando o Composable é lançado.
-                // Se a permissão for negada, o diálogo será mostrado.
                 LaunchedEffect(Unit) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         val alarmManager = ContextCompat.getSystemService(context, AlarmManager::class.java)
@@ -115,7 +119,6 @@ class MainActivity : ComponentActivity() {
                         onDismiss = { showExactAlarmPermissionDialog = false },
                         onConfirm = {
                             showExactAlarmPermissionDialog = false
-                            // Intent para levar o usuário às configurações de permissão de alarme do app
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                 val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
                                     data = Uri.fromParts("package", context.packageName, null)
@@ -124,17 +127,18 @@ class MainActivity : ComponentActivity() {
                                     context.startActivity(intent)
                                 } catch (e: Exception) {
                                     Log.e("Permissions", "Não foi possível abrir as configurações de alarme exato", e)
-                                    // Opcional: mostrar um Toast ou outra mensagem se não puder abrir as configurações
                                 }
                             }
                         }
                     )
                 }
 
-                // Passar os parâmetros de navegação para consulta, se existirem
+                // *** CORREÇÃO: Passar os parâmetros de navegação para consulta E vacina ***
                 AppNavigation(
                     openConsultationEdit = openConsultationEdit,
-                    consultationId = consultationId
+                    consultationId = consultationId,
+                    openVaccineEdit = openVaccineEdit, // Passar parâmetro de vacina
+                    vaccineId = vaccineId // Passar ID da vacina
                 )
             }
         }
@@ -142,17 +146,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Verificar novamente a permissão de alarme exato quando o app retorna para o primeiro plano,
-        // caso o usuário a tenha concedido nas configurações e retornado.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
             if (!alarmManager.canScheduleExactAlarms()) {
-                // Se ainda não tem permissão, e o diálogo não estiver visível, pode mostrá-lo novamente
-                // ou ter uma lógica mais sutil, dependendo da UX desejada.
-                // Por ora, vamos apenas logar.
                 Log.d("Permissions", "Permissão de alarme exato ainda não concedida no onResume.")
             } else {
-                // Permissão concedida, esconder o diálogo se estiver visível
                 if (showExactAlarmPermissionDialog) {
                     showExactAlarmPermissionDialog = false
                 }
@@ -202,3 +200,4 @@ fun ExactAlarmPermissionDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
         }
     )
 }
+

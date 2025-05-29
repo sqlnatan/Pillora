@@ -8,7 +8,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.pillora.pillora.MainActivity
+import com.pillora.pillora.MainActivity // Keep this import if needed elsewhere, though not directly used here for navigation anymore
 import com.pillora.pillora.workers.HandleNotificationActionWorker
 import com.pillora.pillora.workers.NotificationWorker
 
@@ -16,12 +16,16 @@ class NotificationActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
         if (context == null || intent == null || intent.action == null) return
 
+        // Extract all relevant IDs from the intent
         val lembreteId = intent.getLongExtra(NotificationWorker.EXTRA_LEMBRETE_ID, -1L)
         val notificationId = intent.getIntExtra(NotificationWorker.EXTRA_NOTIFICATION_ID, -1)
         val medicamentoId = intent.getStringExtra(NotificationWorker.EXTRA_MEDICAMENTO_ID)
         val consultaId = intent.getStringExtra(NotificationWorker.EXTRA_CONSULTA_ID)
+        // *** CORREÇÃO: Extrair o ID da vacina ***
+        val vacinaId = intent.getStringExtra(NotificationWorker.EXTRA_VACINA_ID)
 
-        Log.d("ActionReceiver", "Ação '${intent.action}' recebida para lembreteId: $lembreteId, medicamentoId: $medicamentoId, consultaId: $consultaId")
+        // *** CORREÇÃO: Incluir vacinaId no log ***
+        Log.d("ActionReceiver", "Ação '	${intent.action}	' recebida para lembreteId: $lembreteId, medId: $medicamentoId, consultaId: $consultaId, vacinaId: $vacinaId")
 
         if (lembreteId == -1L) {
             Log.e("ActionReceiver", "ID do Lembrete inválido na ação.")
@@ -33,29 +37,27 @@ class NotificationActionReceiver : BroadcastReceiver() {
             NotificationManagerCompat.from(context).cancel(notificationId)
         }
 
-        // CORREÇÃO: Remover a lógica de startActivity daqui, pois agora é feito pelo PendingIntent.getActivity na notificação
-        // if (intent.action == NotificationWorker.ACTION_CONSULTA_REMARCAR && consultaId != null) {
-        //     val editIntent = Intent(context, MainActivity::class.java).apply {
-        //         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        //         putExtra("OPEN_CONSULTATION_EDIT", true)
-        //         putExtra("CONSULTATION_ID", consultaId)
-        //     }
-        //     context.startActivity(editIntent)
-        // }
+        // A navegação para edição (consulta/vacina) agora é feita pelo PendingIntent.getActivity na notificação
 
         // Delegar para um Worker
-        val workData = Data.Builder()
+        val workDataBuilder = Data.Builder()
             .putLong(NotificationWorker.EXTRA_LEMBRETE_ID, lembreteId)
-            .putString(NotificationWorker.EXTRA_MEDICAMENTO_ID, medicamentoId)
-            .putString(NotificationWorker.EXTRA_CONSULTA_ID, consultaId)
             .putString("ACTION_TYPE", intent.action)
-            .build()
+
+        // *** CORREÇÃO: Incluir IDs específicos apenas se não forem nulos ***
+        medicamentoId?.let { workDataBuilder.putString(NotificationWorker.EXTRA_MEDICAMENTO_ID, it) }
+        consultaId?.let { workDataBuilder.putString(NotificationWorker.EXTRA_CONSULTA_ID, it) }
+        vacinaId?.let { workDataBuilder.putString(NotificationWorker.EXTRA_VACINA_ID, it) } // Passar vacinaId
+
+        val workData = workDataBuilder.build()
 
         val actionWorkRequest = OneTimeWorkRequestBuilder<HandleNotificationActionWorker>()
             .setInputData(workData)
             .build()
 
         WorkManager.getInstance(context).enqueue(actionWorkRequest)
-        Log.d("ActionReceiver", "HandleNotificationActionWorker agendado para lembreteId: $lembreteId, medicamentoId: $medicamentoId, consultaId: $consultaId, ação: ${intent.action}")
+        // *** CORREÇÃO: Incluir vacinaId no log de agendamento ***
+        Log.d("ActionReceiver", "HandleNotificationActionWorker agendado para lembreteId: $lembreteId, medId: $medicamentoId, consultaId: $consultaId, vacinaId: $vacinaId, ação: 	${intent.action}	")
     }
 }
+

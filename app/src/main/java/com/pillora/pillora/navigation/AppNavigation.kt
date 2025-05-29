@@ -37,8 +37,12 @@ const val RECIPE_FORM_ROUTE = "recipe_form_screen"
 
 @Composable
 fun AppNavigation(
+    // Parâmetros para navegação direta de consulta
     openConsultationEdit: Boolean = false,
-    consultationId: String? = null
+    consultationId: String? = null,
+    // *** CORREÇÃO: Adicionar parâmetros para navegação direta de vacina ***
+    openVaccineEdit: Boolean = false,
+    vaccineId: String? = null
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
@@ -157,8 +161,8 @@ fun AppNavigation(
                     }
                 )
             ) { backStackEntry ->
-                val vaccineId = backStackEntry.arguments?.getString("id")
-                VaccineFormScreen(navController = navController, vaccineId = vaccineId)
+                val vaccineIdFromRoute = backStackEntry.arguments?.getString("id")
+                VaccineFormScreen(navController = navController, vaccineId = vaccineIdFromRoute)
             }
 
             // Recipe list screen (Nova rota adicionada)
@@ -184,14 +188,20 @@ fun AppNavigation(
             }
         }
 
-        // Navegar para a tela de edição de consulta se necessário
+        // *** CORREÇÃO: Navegar para a tela de edição de consulta OU vacina se necessário ***
         if (openConsultationEdit && consultationId != null) {
-            LaunchedEffect(key1 = Unit) {
+            LaunchedEffect(key1 = "consultation_$consultationId") { // Use uma chave única
                 navController.navigate("${Screen.ConsultationForm.route}?id=$consultationId")
             }
+        } else if (openVaccineEdit && vaccineId != null) {
+            LaunchedEffect(key1 = "vaccine_$vaccineId") { // Use uma chave única
+                navController.navigate("${Screen.VaccineForm.route}?id=$vaccineId")
+            }
         }
+
     } else {
         // Opcional: Mostrar um indicador de carregamento ou tela vazia enquanto determina a rota inicial
         // No entanto, a SplashActivity nativa já deve estar cobrindo este tempo.
     }
 }
+
