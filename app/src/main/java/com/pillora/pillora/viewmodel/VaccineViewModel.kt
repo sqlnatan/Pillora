@@ -227,45 +227,55 @@ class VaccineViewModel : ViewModel() {
             notes = notes.value.trim()
         )
 
-        val onSuccess = { newVaccineId: String ->
-            Log.d(tag, "Vaccine ${if (isEditing) "updated" else "added"} successfully with ID: $newVaccineId")
-
-            // Agendar ou atualizar lembretes para a vacina
-            if (isEditing) {
-                atualizarLembretesVacina(context, lembreteDao, currentVaccineId!!, vaccine)
-            } else {
-                agendarLembretesVacina(context, lembreteDao, newVaccineId, vaccine)
-            }
-
-            _isLoading.value = false
-            resetFormFields()
-            _navigateBack.value = true
-        }
-
-        val onFailure = { exception: Exception ->
-            Log.e(tag, "Error ${if (isEditing) "updating" else "adding"} vaccine", exception)
-            _isLoading.value = false
-            // Use the specific error message from the repository if available
-            _error.value = exception.message ?: "Erro desconhecido ao salvar."
-        }
-
         viewModelScope.launch {
             if (isEditing) {
                 Log.d(tag, "Attempting to update vaccine: ${vaccine.id} with UserID: ${vaccine.userId}")
                 if (vaccine.id.isNotEmpty()) {
                     if (vaccine.userId != currentUserIdAuth) {
                         Log.e(tag, "Mismatch between vaccine userId (${vaccine.userId}) and auth userId ($currentUserIdAuth)")
-                        onFailure(SecurityException("Erro de autorização ao preparar atualização."))
+                        _error.value = "Erro de autorização ao preparar atualização."
+                        _isLoading.value = false
                         return@launch
                     }
-                    VaccineRepository.updateVaccine(vaccine, { onSuccess(vaccine.id) }, onFailure)
+
+                    VaccineRepository.updateVaccine(
+                        vaccine = vaccine,
+                        onSuccess = { vaccineId ->
+                            Log.d(tag, "Vaccine updated successfully with ID: $vaccineId")
+                            atualizarLembretesVacina(context, lembreteDao, vaccineId, vaccine)
+                            _isLoading.value = false
+                            resetFormFields()
+                            _navigateBack.value = true
+                        },
+                        onFailure = { exception ->
+                            Log.e(tag, "Error updating vaccine", exception)
+                            _isLoading.value = false
+                            _error.value = exception.message ?: "Erro desconhecido ao atualizar."
+                        }
+                    )
                 } else {
                     Log.e(tag, "Update failed: Vaccine ID is missing.")
-                    onFailure(IllegalStateException("ID da vacina ausente para atualização."))
+                    _error.value = "ID da vacina ausente para atualização."
+                    _isLoading.value = false
                 }
             } else {
                 Log.d(tag, "Attempting to add new vaccine: ${vaccine.name} with UserID: ${vaccine.userId}")
-                VaccineRepository.addVaccine(vaccine, onSuccess, onFailure)
+
+                VaccineRepository.addVaccine(
+                    vaccine = vaccine,
+                    onSuccess = { newVaccineId ->
+                        Log.d(tag, "Vaccine added successfully with ID: $newVaccineId")
+                        agendarLembretesVacina(context, lembreteDao, newVaccineId, vaccine)
+                        _isLoading.value = false
+                        resetFormFields()
+                        _navigateBack.value = true
+                    },
+                    onFailure = { exception ->
+                        Log.e(tag, "Error adding vaccine", exception)
+                        _isLoading.value = false
+                        _error.value = exception.message ?: "Erro desconhecido ao salvar."
+                    }
+                )
             }
         }
     }
@@ -353,6 +363,47 @@ class VaccineViewModel : ViewModel() {
         }
     }
 
+    // Função para atualizar lembretes de vacina
+    private fun atualizarLembretesVacina(context: Context, lembreteDao: LembreteDao, vaccineId: String, vaccine: Vaccine) {
+        viewModelScope.launch {
+            try {
+                // Primeiro, cancelar e excluir os lembretes existentes
+                val lembretesExistentes = lembreteDao.getLembretesByMedicamentoId(vaccineId)
+                Log.d(tag, "Encontrados ${lembretesExistentes.size} lembretes existentes para vacina $vaccineId")
+
+                // Cancelar alarmes e notificações
+                lembretesExistentes.forEach { lembrete ->
+                    try {
+                        // Cancelar alarme se for um lembrete de pré-vacina
+                        if (lembrete.dose == DateTimeUtils.TIPO_24H_ANTES || lembrete.dose == DateTimeUtils.TIPO_2H_ANTES) {
+                            AlarmScheduler.cancelAlarm(context, lembrete.id) // Correção: Passar Long diretamente
+                            Log.d(tag, "Alarme cancelado para Lembrete ID: ${lembrete.id}")
+                        }
+                        // Cancelar notificação se for um lembrete de pós-vacina
+                        else if (lembrete.dose == DateTimeUtils.TIPO_CONFIRMACAO) {
+                            WorkManager.getInstance(context).cancelAllWorkByTag("notification_${lembrete.id}")
+                            Log.d(tag, "Notificação cancelada para Lembrete ID: ${lembrete.id}")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(tag, "Erro ao cancelar alarme/notificação para Lembrete ID: ${lembrete.id}", e)
+                    }
+                }
+
+                // Excluir lembretes do banco de dados
+                lembreteDao.deleteLembretesByMedicamentoId(vaccineId)
+                Log.d(tag, "Lembretes antigos excluídos para vacina $vaccineId")
+
+                // Agendar novos lembretes
+                agendarLembretesVacina(context, lembreteDao, vaccineId, vaccine)
+                Log.d(tag, "Novos lembretes agendados para vacina $vaccineId")
+
+            } catch (e: Exception) {
+                Log.e(tag, "Erro ao atualizar lembretes para vacina $vaccineId", e)
+                Toast.makeText(context, "Erro ao atualizar lembretes: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     // Função para agendar notificação pós-vacina (3h depois) usando WorkManager
     private fun agendarNotificacaoPosVacina(context: Context, lembrete: Lembrete, horaVacina: String) {
         try {
@@ -371,152 +422,68 @@ class VaccineViewModel : ViewModel() {
                 .putString(NotificationWorker.EXTRA_NOTIFICATION_MESSAGE, lembrete.observacao)
                 .putString(NotificationWorker.EXTRA_RECIPIENT_NAME, lembrete.recipientName)
                 .putLong(NotificationWorker.EXTRA_PROXIMA_OCORRENCIA_MILLIS, lembrete.proximaOcorrenciaMillis)
-                .putInt(NotificationWorker.EXTRA_HORA, lembrete.hora)
-                .putInt(NotificationWorker.EXTRA_MINUTO, lembrete.minuto)
                 .putBoolean(NotificationWorker.EXTRA_IS_VACINA, true)
                 .putBoolean(NotificationWorker.EXTRA_IS_CONFIRMACAO, true)
                 .putString(NotificationWorker.EXTRA_TIPO_LEMBRETE, lembrete.dose)
-                .putString(NotificationWorker.EXTRA_NOME_VACINA, lembrete.nomeMedicamento.removePrefix("Vacina: ").trim()) // Extrair nome da vacina
                 .putString(NotificationWorker.EXTRA_HORA_VACINA, horaVacina)
                 .build()
 
             val notificationWorkRequest = OneTimeWorkRequestBuilder<NotificationWorker>()
                 .setInputData(workData)
                 .setInitialDelay(atraso, TimeUnit.MILLISECONDS)
-                .addTag("vacina_${lembrete.medicamentoId}_${lembrete.id}") // Tag específica para vacina
+                .addTag("notification_${lembrete.id}")
                 .build()
 
             WorkManager.getInstance(context).enqueue(notificationWorkRequest)
-            Log.d(tag, "WorkManager agendado para ${lembrete.id} em ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date(lembrete.proximaOcorrenciaMillis))}")
+            Log.d(tag, "WorkManager agendado com sucesso para notificação pós-vacina. Lembrete ID: ${lembrete.id}")
+
         } catch (e: Exception) {
-            Log.e(tag, "Erro ao agendar notificação pós-vacina via WorkManager", e)
+            Log.e(tag, "Erro ao agendar notificação pós-vacina para Lembrete ID: ${lembrete.id}", e)
         }
     }
 
-    // Função para agendar alarme de vacina com horário real (para lembretes de 24h e 2h antes)
+    // Função para agendar alarme de vacina (24h antes ou 2h antes)
     private fun agendarAlarmeVacina(context: Context, lembrete: Lembrete, horaVacina: String) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, AlarmReceiver::class.java).apply {
-            putExtra(NotificationWorker.EXTRA_LEMBRETE_ID, lembrete.id)
-            putExtra(NotificationWorker.EXTRA_VACINA_ID, lembrete.medicamentoId) // Passar ID da vacina
-            putExtra(NotificationWorker.EXTRA_NOTIFICATION_TITLE, lembrete.nomeMedicamento)
-            putExtra(NotificationWorker.EXTRA_NOTIFICATION_MESSAGE, lembrete.observacao)
-            putExtra(NotificationWorker.EXTRA_RECIPIENT_NAME, lembrete.recipientName)
-            putExtra(NotificationWorker.EXTRA_PROXIMA_OCORRENCIA_MILLIS, lembrete.proximaOcorrenciaMillis)
-            putExtra(NotificationWorker.EXTRA_HORA, lembrete.hora)
-            putExtra(NotificationWorker.EXTRA_MINUTO, lembrete.minuto)
-            putExtra(NotificationWorker.EXTRA_TIPO_LEMBRETE, lembrete.dose)
-            putExtra(NotificationWorker.EXTRA_NOME_VACINA, lembrete.nomeMedicamento.removePrefix("Vacina: ").trim())
-            putExtra(NotificationWorker.EXTRA_HORA_VACINA, horaVacina)
-            putExtra("IS_VACCINE_ALARM", true) // Flag para AlarmReceiver
-        }
-        Log.d(tag, "Agendando AlarmManager para Lembrete ID: ${lembrete.id}, Tipo: ${lembrete.dose}")
-
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            lembrete.id.toInt(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val triggerAtMillis = lembrete.proximaOcorrenciaMillis
-        val now = System.currentTimeMillis()
-        if (triggerAtMillis < now) {
-            Log.w(tag, "Lembrete ${lembrete.id} com proximaOcorrenciaMillis ($triggerAtMillis) no passado (agora: $now). Alarme não será agendado.")
-            return
-        }
-
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-                Log.e(tag, "Não pode agendar alarmes exatos. O usuário precisa conceder permissão.")
-                Toast.makeText(context, "Permissão para alarmes exatos não concedida.", Toast.LENGTH_LONG).show()
+            val agora = System.currentTimeMillis()
+            val atraso = lembrete.proximaOcorrenciaMillis - agora
+            if (atraso <= 0) {
+                Log.w(tag, "Atraso para alarme de vacina é negativo ou zero ($atraso ms), não agendando. Lembrete ID: ${lembrete.id}")
                 return
             }
-            try {
-                val showIntent = Intent(context, AlarmReceiver::class.java) // Pode ser MainActivity ou outra tela
-                val showPendingIntent = PendingIntent.getBroadcast(context, lembrete.id.toInt() + 200000, showIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-                val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showPendingIntent)
-                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
-                Log.d(tag, "Alarme de vacina agendado com setAlarmClock para Lembrete ID: ${lembrete.id} em ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date(triggerAtMillis))}")
-            } catch (e: Exception) {
-                Log.e(tag, "Erro ao agendar com setAlarmClock, tentando fallback", e)
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-                Log.d(tag, "Alarme de vacina agendado com setExactAndAllowWhileIdle para Lembrete ID: ${lembrete.id} em ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date(triggerAtMillis))}")
+            Log.d(tag, "Agendando alarme para Lembrete ID: ${lembrete.id}, Tipo: ${lembrete.dose}, Atraso: $atraso ms")
+
+            val alarmIntent = Intent(context, AlarmReceiver::class.java).apply {
+                putExtra(NotificationWorker.EXTRA_LEMBRETE_ID, lembrete.id)
+                putExtra(NotificationWorker.EXTRA_NOTIFICATION_TITLE, lembrete.nomeMedicamento)
+                putExtra(NotificationWorker.EXTRA_NOTIFICATION_MESSAGE, lembrete.observacao)
+                putExtra(NotificationWorker.EXTRA_RECIPIENT_NAME, lembrete.recipientName)
+                putExtra(NotificationWorker.EXTRA_IS_VACINA, true)
+                putExtra(NotificationWorker.EXTRA_TIPO_LEMBRETE, lembrete.dose)
+                putExtra(NotificationWorker.EXTRA_HORA_VACINA, horaVacina)
             }
-        } catch (se: SecurityException) {
-            Log.e(tag, "SecurityException ao agendar alarme de vacina. Verifique permissões.", se)
-            Toast.makeText(context, "Erro de permissão ao agendar alarme.", Toast.LENGTH_LONG).show()
+
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                lembrete.id.toInt(), // Usar ID do lembrete como requestCode
+                alarmIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                lembrete.proximaOcorrenciaMillis,
+                pendingIntent
+            )
+            Log.d(tag, "Alarme agendado com sucesso para Lembrete ID: ${lembrete.id}")
+
         } catch (e: Exception) {
-            Log.e(tag, "Erro geral ao agendar alarme de vacina", e)
-            Toast.makeText(context, "Erro ao agendar alarme: ${e.message}", Toast.LENGTH_LONG).show()
+            Log.e(tag, "Erro ao agendar alarme para Lembrete ID: ${lembrete.id}", e)
         }
     }
 
-    // Função para atualizar lembretes de vacina
-    private fun atualizarLembretesVacina(context: Context, lembreteDao: LembreteDao, vaccineId: String, vaccine: Vaccine) {
-        viewModelScope.launch {
-            try {
-                val lembretesAntigos = lembreteDao.getLembretesByMedicamentoId(vaccineId).filter { it.isVacina } // Filtrar apenas lembretes de vacina
-                if (lembretesAntigos.isNotEmpty()) {
-                    Log.d(tag, "Atualizando vacina $vaccineId. Cancelando ${lembretesAntigos.size} lembretes antigos.")
-                    for (lembreteAntigo in lembretesAntigos) {
-                        // Cancelar alarme (AlarmManager)
-                        AlarmScheduler.cancelAlarm(context, lembreteAntigo.id)
-                        // Cancelar trabalho (WorkManager) - usar tag
-                        WorkManager.getInstance(context).cancelAllWorkByTag("vacina_${vaccineId}_${lembreteAntigo.id}")
-                        Log.d(tag, "Alarme/Trabalho cancelado para lembrete ID: ${lembreteAntigo.id}")
-                    }
-                    lembreteDao.deleteLembretesByMedicamentoIdAndType(vaccineId, isVacina = true)
-                    Log.d(tag, "Excluídos ${lembretesAntigos.size} lembretes antigos de vacina do DB para vacina $vaccineId")
-                }
-                Log.d(tag, "Agendando novos lembretes para vacina $vaccineId")
-                agendarLembretesVacina(context, lembreteDao, vaccineId, vaccine)
-            } catch (e: Exception) {
-                Log.e(tag, "Erro ao atualizar lembretes para vacina", e)
-                Toast.makeText(context, "Erro ao atualizar lembretes: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    // --- Input Validation (Internal) ---
-    private fun validateInputs(): Boolean {
-        var errorMessage: String? = null
-        if (name.value.isBlank()) {
-            errorMessage = "Nome da vacina/lembrete é obrigatório."
-        } else if (reminderDate.value.isBlank()) {
-            errorMessage = "Data do lembrete é obrigatória."
-        } else {
-            try {
-                internalDateFormat.parse(reminderDate.value)
-            } catch (e: ParseException) {
-                Log.w(tag, "Validation failed: Invalid date format or value: ${reminderDate.value}", e)
-                errorMessage = "Data inválida. Use o formato DD/MM/AAAA."
-            }
-        }
-
-        if (reminderTime.value.isBlank()) {
-            errorMessage = "Hora do lembrete é obrigatória."
-        } else if (!reminderTime.value.matches(Regex("^\\d{2}:\\d{2}$"))) {
-            Log.w(tag, "Validation failed: Invalid time format: ${reminderTime.value}")
-            errorMessage = "Formato de hora inválido (HH:MM)."
-        }
-
-        _error.value = errorMessage
-        if (errorMessage != null) {
-            Log.w(tag, "Validation failed: $errorMessage")
-        }
-        return errorMessage == null
-    }
-
-    // --- State Reset Handlers ---
-    fun onErrorShown() {
-        _error.value = null
-    }
-
-    fun onNavigationHandled() {
-        _navigateBack.value = false
-    }
-
+    // --- Utility Functions ---
     private fun resetFormFields() {
         name.value = ""
         reminderDate.value = ""
@@ -525,8 +492,55 @@ class VaccineViewModel : ViewModel() {
         notes.value = ""
         patientName.value = ""
         currentVaccineId = null
-        originalUserId = null // Reset originalUserId
+        originalUserId = null
         isEditing = false
-        Log.d(tag, "Form fields reset.")
+    }
+
+    private fun validateInputs(): Boolean {
+        if (name.value.trim().isEmpty()) {
+            _error.value = "Nome da vacina é obrigatório."
+            return false
+        }
+        if (reminderDate.value.isEmpty()) {
+            _error.value = "Data do lembrete é obrigatória."
+            return false
+        }
+        if (reminderTime.value.isEmpty()) {
+            _error.value = "Hora do lembrete é obrigatória."
+            return false
+        }
+
+        // Validar formato da data
+        try {
+            if (reminderDate.value.isNotEmpty()) {
+                internalDateFormat.parse(reminderDate.value)
+            }
+        } catch (e: ParseException) {
+            _error.value = "Formato de data inválido. Use DD/MM/AAAA."
+            return false
+        }
+
+        // Validar formato da hora
+        try {
+            if (reminderTime.value.isNotEmpty()) {
+                val timeParts = reminderTime.value.split(":")
+                if (timeParts.size != 2 || timeParts[0].toInt() !in 0..23 || timeParts[1].toInt() !in 0..59) {
+                    throw ParseException("Invalid time format", 0)
+                }
+            }
+        } catch (e: Exception) {
+            _error.value = "Formato de hora inválido. Use HH:MM (24h)."
+            return false
+        }
+
+        return true
+    }
+
+    fun resetNavigationState() {
+        _navigateBack.value = false
+    }
+
+    fun resetErrorState() {
+        _error.value = null
     }
 }

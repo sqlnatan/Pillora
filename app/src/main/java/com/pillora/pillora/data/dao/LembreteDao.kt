@@ -18,6 +18,9 @@ interface LembreteDao {
     @Query("DELETE FROM lembretes WHERE medicamentoId = :medicamentoId")
     suspend fun deleteLembretesByMedicamentoId(medicamentoId: String)
 
+    @Query("DELETE FROM lembretes WHERE medicamentoId = :medicamentoId AND dose = :tipo")
+    suspend fun deleteLembretesByMedicamentoIdAndType(medicamentoId: String, tipo: String)
+
     @Query("SELECT * FROM lembretes WHERE id = :id")
     suspend fun getLembreteById(id: Long): Lembrete?
 
@@ -29,6 +32,4 @@ interface LembreteDao {
 
     @Query("SELECT * FROM lembretes WHERE medicamentoId = :medicamentoId")
     suspend fun getLembretesByMedicamentoId(medicamentoId: String): List<Lembrete>
-
-
 }

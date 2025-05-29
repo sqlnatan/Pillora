@@ -27,7 +27,7 @@ object VaccineRepository {
     // --- CREATE ---
     fun addVaccine(
         vaccine: Vaccine,
-        onSuccess: () -> Unit,
+        onSuccess: (String) -> Unit, // Modificado para receber o ID da vacina
         onFailure: (Exception) -> Unit
     ) {
         val userId = currentUserId
@@ -39,11 +39,13 @@ object VaccineRepository {
 
         val vaccineWithUserId = vaccine.copy(userId = userId)
 
-        db.collection(VACCINES_COLLECTION)
+        db.collection("users").document(userId)
+            .collection(VACCINES_COLLECTION)
             .add(vaccineWithUserId)
             .addOnSuccessListener { documentReference ->
-                Log.d(TAG, "Vaccine reminder added successfully with ID: ${documentReference.id}")
-                onSuccess()
+                val newVaccineId = documentReference.id
+                Log.d(TAG, "Vaccine reminder added successfully with ID: $newVaccineId")
+                onSuccess(newVaccineId) // Passa o ID da vacina para o callback
             }
             .addOnFailureListener { exception ->
                 Log.e(TAG, "Error adding vaccine reminder", exception)
@@ -63,8 +65,8 @@ object VaccineRepository {
             return
         }
 
-        db.collection(VACCINES_COLLECTION)
-            .whereEqualTo("userId", userId)
+        db.collection("users").document(userId)
+            .collection(VACCINES_COLLECTION)
             .orderBy("reminderDate", Query.Direction.ASCENDING)
             .get()
             .addOnSuccessListener { documents ->
@@ -90,8 +92,8 @@ object VaccineRepository {
     fun getAllVaccinesFlow(): Flow<List<Vaccine>> {
         val userId = currentUserId ?: return flowOf(emptyList())
 
-        return db.collection(VACCINES_COLLECTION)
-            .whereEqualTo("userId", userId)
+        return db.collection("users").document(userId)
+            .collection(VACCINES_COLLECTION)
             .orderBy("reminderDate", Query.Direction.ASCENDING)
             .snapshots() // Use snapshots() from main module
             .map { snapshot ->
@@ -129,7 +131,8 @@ object VaccineRepository {
             return
         }
 
-        db.collection(VACCINES_COLLECTION)
+        db.collection("users").document(userId)
+            .collection(VACCINES_COLLECTION)
             .document(vaccineId)
             .get()
             .addOnSuccessListener { document ->
@@ -163,7 +166,7 @@ object VaccineRepository {
     // --- UPDATE ---
     fun updateVaccine(
         vaccine: Vaccine,
-        onSuccess: () -> Unit,
+        onSuccess: (String) -> Unit, // Modificado para receber o ID da vacina
         onFailure: (Exception) -> Unit
     ) {
         val userId = currentUserId
@@ -178,12 +181,13 @@ object VaccineRepository {
             return
         }
 
-        db.collection(VACCINES_COLLECTION)
+        db.collection("users").document(userId)
+            .collection(VACCINES_COLLECTION)
             .document(vaccine.id)
             .set(vaccine)
             .addOnSuccessListener {
                 Log.d(TAG, "Vaccine reminder updated successfully: ${vaccine.id}")
-                onSuccess()
+                onSuccess(vaccine.id) // Passa o ID da vacina para o callback
             }
             .addOnFailureListener { exception ->
                 Log.e(TAG, "Error updating vaccine reminder", exception)
@@ -209,7 +213,8 @@ object VaccineRepository {
             return
         }
 
-        db.collection(VACCINES_COLLECTION)
+        db.collection("users").document(userId)
+            .collection(VACCINES_COLLECTION)
             .document(vaccineId)
             .delete()
             .addOnSuccessListener {
@@ -222,4 +227,3 @@ object VaccineRepository {
             }
     }
 }
-

@@ -17,6 +17,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel // Ensure this import is present
 import androidx.navigation.NavController
+import com.pillora.pillora.data.local.AppDatabase // Import AppDatabase
 import com.pillora.pillora.viewmodel.VaccineViewModel
 import kotlinx.coroutines.launch
 
@@ -30,6 +31,7 @@ fun VaccineFormScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() } // Correct SnackbarHostState
     val scope = rememberCoroutineScope()
+    val lembreteDao = AppDatabase.getDatabase(context).lembreteDao() // Get LembreteDao instance
 
     // Collect states from ViewModel
     val isLoading by viewModel.isLoading.collectAsState()
@@ -57,7 +59,7 @@ fun VaccineFormScreen(
     LaunchedEffect(navigateBack) {
         if (navigateBack) {
             navController.popBackStack()
-            viewModel.onNavigationHandled() // Reset the flag in ViewModel
+            viewModel.resetNavigationState() // Correção: Usar resetNavigationState
         }
     }
 
@@ -67,7 +69,7 @@ fun VaccineFormScreen(
             scope.launch {
                 snackbarHostState.showSnackbar(message = it, duration = SnackbarDuration.Short)
             }
-            viewModel.onErrorShown() // Reset error state in ViewModel
+            viewModel.resetErrorState() // Correção: Usar resetErrorState
         }
     }
 
@@ -170,7 +172,7 @@ fun VaccineFormScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
-                    onClick = { viewModel.saveVaccine() }, // Correct call to ViewModel function
+                    onClick = { viewModel.saveVaccine(context, lembreteDao) }, // Correção: Passar context e lembreteDao
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isLoading // Correct usage of collected state
                 ) {

@@ -22,9 +22,10 @@ class HandleNotificationActionWorker(appContext: Context, workerParams: WorkerPa
         val lembreteId = inputData.getLong(NotificationWorker.EXTRA_LEMBRETE_ID, -1L)
         val medicamentoId = inputData.getString(NotificationWorker.EXTRA_MEDICAMENTO_ID)
         val consultaId = inputData.getString(NotificationWorker.EXTRA_CONSULTA_ID)
+        val vacinaId = inputData.getString(NotificationWorker.EXTRA_VACINA_ID)
         val actionType = inputData.getString("ACTION_TYPE") // Vem do NotificationActionReceiver
 
-        Log.d("HandleActionWorker", "Processando ação '$actionType' para lembreteId: $lembreteId, medicamentoId: $medicamentoId, consultaId: $consultaId")
+        Log.d("HandleActionWorker", "Processando ação '$actionType' para lembreteId: $lembreteId, medicamentoId: $medicamentoId, consultaId: $consultaId, vacinaId: $vacinaId")
 
         if (lembreteId == -1L || actionType == null) {
             Log.e("HandleActionWorker", "Dados inválidos para processar ação (lembreteId ou actionType nulos).")
@@ -173,6 +174,71 @@ class HandleNotificationActionWorker(appContext: Context, workerParams: WorkerPa
                 if (lembrete != null) {
                     lembreteDao.updateLembrete(lembrete.copy(ativo = false))
                     Log.d("HandleActionWorker", "Lembrete $lembreteId marcado como inativo para remarcar consulta.")
+                }
+                return@withContext Result.success()
+            }
+
+            NotificationWorker.ACTION_VACINA_TOMADA -> {
+                Log.d("HandleActionWorker", "Iniciando processamento de ACTION_VACINA_TOMADA para vacinaId: $vacinaId")
+                try {
+                    if (vacinaId == null) {
+                        Log.e("HandleActionWorker", "Erro: ID da Vacina (vacinaId) é nulo.")
+                        return@withContext Result.failure()
+                    }
+
+                    val userId = Firebase.auth.currentUser?.uid
+                    if (userId == null) {
+                        Log.e("HandleActionWorker", "Erro: Usuário não autenticado no Firebase.")
+                        return@withContext Result.failure()
+                    }
+                    Log.d("HandleActionWorker", "Usuário autenticado: $userId")
+
+                    // Excluir a vacina do Firestore
+                    val firestore = FirebaseFirestore.getInstance()
+                    val vaccineRef = firestore.collection("users").document(userId)
+                        .collection("vaccines").document(vacinaId)
+
+                    // Log DETALHADO antes da exclusão
+                    Log.i("HandleActionWorker", "Tentando excluir vacina no Firestore. Path: ${vaccineRef.path}, UserID: $userId, VacinaID: $vacinaId")
+
+                    try {
+                        vaccineRef.delete().await()
+                        // Log de SUCESSO
+                        Log.i("HandleActionWorker", "Vacina $vacinaId excluída do Firestore com SUCESSO.")
+                    } catch (firestoreError: Exception) {
+                        // Log de ERRO específico do Firestore
+                        Log.e("HandleActionWorker", "ERRO ao excluir vacina $vacinaId do Firestore", firestoreError)
+                        // Retornar falha se a exclusão do Firestore falhar
+                        return@withContext Result.failure()
+                    }
+
+                    // Marcar o lembrete local como inativo (ou excluir)
+                    if (lembrete != null) {
+                        try {
+                            lembreteDao.updateLembrete(lembrete.copy(ativo = false))
+                            Log.d("HandleActionWorker", "Lembrete local $lembreteId marcado como inativo.")
+                        } catch (dbError: Exception) {
+                            Log.e("HandleActionWorker", "Erro ao marcar lembrete local $lembreteId como inativo", dbError)
+                            // Continuar mesmo se houver erro no DB local, pois o Firestore foi atualizado
+                        }
+                    } else {
+                        Log.w("HandleActionWorker", "Lembrete local $lembreteId não encontrado para marcar como inativo.")
+                    }
+
+                    Log.d("HandleActionWorker", "Processamento de ACTION_VACINA_TOMADA concluído com sucesso para vacina $vacinaId.")
+                    return@withContext Result.success()
+                } catch (e: Exception) {
+                    Log.e("HandleActionWorker", "Erro GERAL ao processar ACTION_VACINA_TOMADA para vacinaId $vacinaId", e)
+                    return@withContext Result.failure()
+                }
+            }
+
+            NotificationWorker.ACTION_VACINA_REMARCAR -> {
+                // Para remarcar, apenas marcamos o lembrete como inativo
+                // A navegação para a tela de edição é feita pelo PendingIntent na notificação
+                if (lembrete != null) {
+                    lembreteDao.updateLembrete(lembrete.copy(ativo = false))
+                    Log.d("HandleActionWorker", "Lembrete $lembreteId marcado como inativo para remarcar vacina.")
                 }
                 return@withContext Result.success()
             }
