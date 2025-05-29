@@ -18,58 +18,79 @@ class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Log.d("AlarmReceiver", "AlarmReceiver.onReceive: Alarme recebido!")
 
-        // Extrair dados do intent
+        // --- CORREÇÃO: Extrair TODOS os dados do intent, incluindo os de vacina ---
         val lembreteId = intent.getLongExtra(NotificationWorker.EXTRA_LEMBRETE_ID, -1L)
         val medicamentoId = intent.getStringExtra(NotificationWorker.EXTRA_MEDICAMENTO_ID) ?: ""
+        val consultaId = intent.getStringExtra(NotificationWorker.EXTRA_CONSULTA_ID) ?: medicamentoId
+        val vacinaId = intent.getStringExtra(NotificationWorker.EXTRA_VACINA_ID) ?: medicamentoId
         val title = intent.getStringExtra(NotificationWorker.EXTRA_NOTIFICATION_TITLE) ?: "Lembrete"
-        val message = intent.getStringExtra(NotificationWorker.EXTRA_NOTIFICATION_MESSAGE) ?: "" // Observação da consulta
+        val message = intent.getStringExtra(NotificationWorker.EXTRA_NOTIFICATION_MESSAGE) ?: ""
         val recipientName = intent.getStringExtra(NotificationWorker.EXTRA_RECIPIENT_NAME) ?: ""
         val proximaOcorrenciaMillis = intent.getLongExtra(NotificationWorker.EXTRA_PROXIMA_OCORRENCIA_MILLIS, 0L)
         val hora = intent.getIntExtra(NotificationWorker.EXTRA_HORA, -1)
         val minuto = intent.getIntExtra(NotificationWorker.EXTRA_MINUTO, -1)
         val horaConsulta = intent.getIntExtra(NotificationWorker.EXTRA_HORA_CONSULTA, -1)
         val minutoConsulta = intent.getIntExtra(NotificationWorker.EXTRA_MINUTO_CONSULTA, -1)
-        val isConsultaAlarm = intent.getBooleanExtra("IS_CONSULTATION_ALARM", false)
-
-        // Obter o tipo de lembrete EXPLICITAMENTE
+        val horaVacina = intent.getStringExtra(NotificationWorker.EXTRA_VACCINE_TIME) ?: ""
+        val nomeVacina = intent.getStringExtra(NotificationWorker.EXTRA_VACCINE_NAME) ?: ""
+        val isConsultaAlarm = intent.getBooleanExtra(NotificationWorker.EXTRA_IS_CONSULTA, false)
+        val isVacinaAlarm = intent.getBooleanExtra(NotificationWorker.EXTRA_IS_VACINA, false)
+        val isConfirmacaoAlarm = intent.getBooleanExtra(NotificationWorker.EXTRA_IS_CONFIRMACAO, false) // Geralmente será false aqui
         val tipoLembrete = intent.getStringExtra(NotificationWorker.EXTRA_TIPO_LEMBRETE) ?: "tipo_desconhecido"
+        // --------------------------------------------------------------------------
 
         Log.d("AlarmReceiver", "Recebido: lembreteId=$lembreteId, tipo=$tipoLembrete, title=$title, message=$message")
-        Log.d("AlarmReceiver", "Recebido: horaConsulta=$horaConsulta, minutoConsulta=$minutoConsulta, isConsulta=$isConsultaAlarm")
+        Log.d("AlarmReceiver", "Recebido: isConsulta=$isConsultaAlarm, isVacina=$isVacinaAlarm, isConfirmacao=$isConfirmacaoAlarm")
+        Log.d("AlarmReceiver", "Recebido: horaConsulta=$horaConsulta:$minutoConsulta, horaVacina=$horaVacina, nomeVacina=$nomeVacina")
 
-        // Verificar se o tipo de lembrete é válido para alarme (não deveria ser 3h depois)
-        if (tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) {
-            Log.e("AlarmReceiver", "ERRO! Recebeu alarme para lembrete '${DateTimeUtils.TIPO_3H_DEPOIS}' (ID: $lembreteId). Isso deveria ser tratado pelo WorkManager. Ignorando.")
-            return // Não agendar worker para lembrete pós-consulta via AlarmManager
+        // Verificar se o tipo de lembrete é válido para alarme (não deveria ser confirmação)
+        if (isConfirmacaoAlarm || tipoLembrete == DateTimeUtils.TIPO_CONFIRMACAO || tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) {
+            Log.e("AlarmReceiver", "ERRO! Recebeu alarme para lembrete de confirmação (ID: $lembreteId, Tipo: $tipoLembrete). Isso deveria ser tratado pelo WorkManager. Ignorando.")
+            return
         }
         if (tipoLembrete == "tipo_desconhecido") {
             Log.w("AlarmReceiver", "Tipo de lembrete desconhecido para ID: $lembreteId. Verifique a passagem de parâmetros.")
-            // Continuar mesmo assim, mas logar o aviso
         }
 
-        // Preparar dados para o WorkManager
-        val workData = Data.Builder()
+        // --- CORREÇÃO: Preparar dados para o WorkManager incluindo os de vacina ---
+        val workDataBuilder = Data.Builder()
             .putLong(NotificationWorker.EXTRA_LEMBRETE_ID, lembreteId)
-            .putString(NotificationWorker.EXTRA_MEDICAMENTO_ID, medicamentoId)
             .putString(NotificationWorker.EXTRA_NOTIFICATION_TITLE, title)
-            .putString(NotificationWorker.EXTRA_NOTIFICATION_MESSAGE, message) // Passar a observação
+            .putString(NotificationWorker.EXTRA_NOTIFICATION_MESSAGE, message)
             .putString(NotificationWorker.EXTRA_RECIPIENT_NAME, recipientName)
             .putLong(NotificationWorker.EXTRA_PROXIMA_OCORRENCIA_MILLIS, proximaOcorrenciaMillis)
             .putInt(NotificationWorker.EXTRA_HORA, hora)
             .putInt(NotificationWorker.EXTRA_MINUTO, minuto)
-            .putBoolean(NotificationWorker.EXTRA_IS_CONSULTA, isConsultaAlarm)
-            .putString(NotificationWorker.EXTRA_TIPO_LEMBRETE, tipoLembrete) // Passar o tipo EXPLICITAMENTE
-            .putInt(NotificationWorker.EXTRA_HORA_CONSULTA, horaConsulta)
-            .putInt(NotificationWorker.EXTRA_MINUTO_CONSULTA, minutoConsulta)
-            .build()
+            .putString(NotificationWorker.EXTRA_TIPO_LEMBRETE, tipoLembrete)
+            .putBoolean(NotificationWorker.EXTRA_IS_CONFIRMACAO, false) // Alarme nunca é de confirmação
+
+        // Adicionar dados específicos de Consulta OU Vacina OU Medicamento
+        if (isConsultaAlarm) {
+            workDataBuilder.putBoolean(NotificationWorker.EXTRA_IS_CONSULTA, true)
+            workDataBuilder.putString(NotificationWorker.EXTRA_CONSULTA_ID, consultaId)
+            workDataBuilder.putInt(NotificationWorker.EXTRA_HORA_CONSULTA, horaConsulta)
+            workDataBuilder.putInt(NotificationWorker.EXTRA_MINUTO_CONSULTA, minutoConsulta)
+        } else if (isVacinaAlarm) {
+            workDataBuilder.putBoolean(NotificationWorker.EXTRA_IS_VACINA, true)
+            workDataBuilder.putString(NotificationWorker.EXTRA_VACINA_ID, vacinaId)
+            workDataBuilder.putString(NotificationWorker.EXTRA_VACCINE_NAME, nomeVacina)
+            workDataBuilder.putString(NotificationWorker.EXTRA_VACCINE_TIME, horaVacina)
+        } else {
+            // Se não for consulta nem vacina, assume que é medicamento
+            workDataBuilder.putString(NotificationWorker.EXTRA_MEDICAMENTO_ID, medicamentoId)
+            // Flags isConsulta e isVacina serão false por padrão
+        }
+
+        val workData = workDataBuilder.build()
+        // ----------------------------------------------------------------------
 
         // Criar e agendar o trabalho
         val notificationWorkRequest = OneTimeWorkRequestBuilder<NotificationWorker>()
             .setInputData(workData)
-            .addTag("alarm_consulta_${lembreteId}") // Tag para possível cancelamento futuro
+            .addTag("alarm_lembrete_${lembreteId}") // Tag genérica para cancelamento
             .build()
 
-        Log.d("AlarmReceiver", "Agendando NotificationWorker para lembreteId: $lembreteId, Tipo: $tipoLembrete")
+        Log.d("AlarmReceiver", "Agendando NotificationWorker para lembreteId: $lembreteId, Tipo: $tipoLembrete, isConsulta=$isConsultaAlarm, isVacina=$isVacinaAlarm")
         try {
             WorkManager.getInstance(context).enqueue(notificationWorkRequest)
             Log.d("AlarmReceiver", "NotificationWorker agendado com sucesso via AlarmReceiver")

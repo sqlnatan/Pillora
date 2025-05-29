@@ -50,11 +50,10 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         const val EXTRA_HORA_CONSULTA = "EXTRA_HORA_CONSULTA"
         const val EXTRA_MINUTO_CONSULTA = "EXTRA_MINUTO_CONSULTA"
 
-        // Novos extras para vacina
+        // Novos extras para vacina (usando nomes consistentes)
         const val EXTRA_VACINA_ID = "EXTRA_VACINA_ID"
         const val EXTRA_IS_VACINA = "EXTRA_IS_VACINA"
         const val EXTRA_IS_CONFIRMACAO = "EXTRA_IS_CONFIRMACAO"
-        // <<< CORRIGIDO: Renomeado para consistência >>>
         const val EXTRA_VACCINE_NAME = "EXTRA_VACCINE_NAME"
         const val EXTRA_VACCINE_TIME = "EXTRA_VACCINE_TIME"
     }
@@ -64,12 +63,12 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
 
         // Obter parâmetros da notificação
         val lembreteId = inputData.getLong(EXTRA_LEMBRETE_ID, -1L)
-        val notificationId = lembreteId.toInt() // Usar ID do lembrete como ID da notificação
+        val notificationId = lembreteId.toInt()
         val notificationTitle = inputData.getString(EXTRA_NOTIFICATION_TITLE) ?: "Lembrete"
-        val notificationMessage = inputData.getString(EXTRA_NOTIFICATION_MESSAGE) ?: "" // Observação ou dose
+        val notificationMessage = inputData.getString(EXTRA_NOTIFICATION_MESSAGE) ?: ""
         val medicamentoId = inputData.getString(EXTRA_MEDICAMENTO_ID) ?: ""
-        val consultaId = inputData.getString(EXTRA_CONSULTA_ID) ?: medicamentoId // Consulta usa medicamentoId
-        val vacinaId = inputData.getString(EXTRA_VACINA_ID) ?: medicamentoId // Vacina usa medicamentoId
+        val consultaId = inputData.getString(EXTRA_CONSULTA_ID) ?: medicamentoId
+        val vacinaId = inputData.getString(EXTRA_VACINA_ID) ?: medicamentoId
         val recipientName = inputData.getString(EXTRA_RECIPIENT_NAME) ?: ""
         val proximaOcorrenciaMillis = inputData.getLong(EXTRA_PROXIMA_OCORRENCIA_MILLIS, 0L)
         val horaConsulta = inputData.getInt(EXTRA_HORA_CONSULTA, -1)
@@ -78,7 +77,6 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         val isVacina = inputData.getBoolean(EXTRA_IS_VACINA, false)
         val isConfirmacao = inputData.getBoolean(EXTRA_IS_CONFIRMACAO, false)
         val tipoLembrete = inputData.getString(EXTRA_TIPO_LEMBRETE) ?: "tipo_desconhecido"
-        // <<< CORRIGIDO: Usar as constantes corretas >>>
         val nomeVacina = inputData.getString(EXTRA_VACCINE_NAME) ?: ""
         val horaVacina = inputData.getString(EXTRA_VACCINE_TIME) ?: ""
 
@@ -92,95 +90,74 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             return Result.failure()
         }
 
-        // Intent para abrir o app ao clicar na notificação
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
-        val pendingIntent = PendingIntent.getActivity(
-            applicationContext,
-            notificationId,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val pendingIntent = PendingIntent.getActivity(applicationContext, notificationId, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-        // Determinar título, mensagem e CANAL com base no tipo (consulta, vacina ou medicamento)
         var finalTitle: String
         val finalMessage: String
         val channelId: String
 
-        if (isConsulta) {
-            // ===== FLUXO DE CONSULTA =====
-            Log.d("NotificationWorker", "Processando como CONSULTA")
-            val nome = recipientName.ifBlank { "Você" }
-            val especialidade = notificationTitle.replace("Consulta:", "", ignoreCase = true).trim()
-            finalTitle = "$nome tem consulta com $especialidade"
-
-            val horarioRealConsultaStr = if (horaConsulta >= 0 && minutoConsulta >= 0) {
-                String.format(Locale.getDefault(), "%02d:%02d", horaConsulta, minutoConsulta)
-            } else {
-                Log.w("NotificationWorker", "Horário real da consulta inválido ($horaConsulta:$minutoConsulta).")
-                "" // Não exibir horário se inválido
-            }
-
-            finalMessage = when (tipoLembrete) {
-                DateTimeUtils.TIPO_3H_DEPOIS -> "Você compareceu à consulta?"
-                DateTimeUtils.TIPO_24H_ANTES -> "Amanhã às $horarioRealConsultaStr"
-                DateTimeUtils.TIPO_2H_ANTES -> "Hoje às $horarioRealConsultaStr"
-                else -> {
-                    Log.w("NotificationWorker", "Tipo de lembrete de consulta inesperado: $tipoLembrete. Usando observação.")
-                    notificationMessage // Fallback para a observação
-                }
-            }
-
-            // Canal de CONSULTAS para pós-consulta (som padrão), MEDICAMENTOS para pré-consulta (alarme)
-            channelId = if (tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) {
-                PilloraApplication.CHANNEL_LEMBRETES_CONSULTAS_ID
-            } else {
-                PilloraApplication.CHANNEL_LEMBRETES_MEDICAMENTOS_ID
-            }
-
-            Log.d("NotificationWorker", "Mensagem final para consulta ($tipoLembrete) = $finalMessage, canal: $channelId")
-
-        } else if (isVacina) {
-            // ===== FLUXO DE VACINA =====
-            Log.d("NotificationWorker", "Processando como VACINA")
-            val nome = recipientName.ifBlank { "Você" }
-            val nomeVacinaReal = nomeVacina.ifBlank { notificationTitle.replace("Vacina:", "").trim() }
-
-            // <<< CORRIGIDO: Ajustar título e mensagem para o padrão solicitado >>>
-            if (isConfirmacao) {
-                finalTitle = "Confirmação de Vacina"
-                finalMessage = "$nome, você compareceu à vacina $nomeVacinaReal?"
-                channelId = PilloraApplication.CHANNEL_LEMBRETES_CONSULTAS_ID // Canal sem som de alarme
-            } else {
-                finalTitle = if (recipientName.isNotBlank()) "$nome, " else "" // Adiciona nome se disponível
-                finalTitle += "você tem vacina: $nomeVacinaReal"
+        when {
+            isConsulta -> {
+                Log.d("NotificationWorker", "Processando como CONSULTA")
+                val nome = recipientName.ifBlank { "Você" }
+                val especialidade = notificationTitle.replace("Consulta:", "", ignoreCase = true).trim()
+                finalTitle = "$nome tem consulta com $especialidade"
+                val horarioRealConsultaStr = if (horaConsulta >= 0 && minutoConsulta >= 0) String.format(Locale.getDefault(), "%02d:%02d", horaConsulta, minutoConsulta) else ""
 
                 finalMessage = when (tipoLembrete) {
-                    DateTimeUtils.TIPO_24H_ANTES -> "Amanhã às $horaVacina"
-                    DateTimeUtils.TIPO_2H_ANTES -> "Hoje às $horaVacina"
-                    else -> {
-                        Log.w("NotificationWorker", "Tipo de lembrete de vacina inesperado: $tipoLembrete. Usando observação.")
-                        notificationMessage // Fallback para a observação
-                    }
+                    DateTimeUtils.TIPO_3H_DEPOIS -> "Você compareceu à consulta?"
+                    DateTimeUtils.TIPO_24H_ANTES -> "Amanhã às $horarioRealConsultaStr"
+                    DateTimeUtils.TIPO_2H_ANTES -> "Hoje às $horarioRealConsultaStr"
+                    else -> notificationMessage
                 }
-                channelId = PilloraApplication.CHANNEL_LEMBRETES_MEDICAMENTOS_ID // Canal com som de alarme
+                channelId = if (tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) PilloraApplication.CHANNEL_LEMBRETES_CONSULTAS_ID else PilloraApplication.CHANNEL_LEMBRETES_MEDICAMENTOS_ID
+                Log.d("NotificationWorker", "Mensagem final para consulta ($tipoLembrete) = $finalMessage, canal: $channelId")
             }
-            // <<< FIM DA CORREÇÃO >>>
 
-            Log.d("NotificationWorker", "Mensagem final para vacina ($tipoLembrete) = $finalMessage, canal: $channelId")
+            isVacina -> {
+                Log.d("NotificationWorker", "Processando como VACINA")
+                val nome = recipientName.ifBlank { "Você" }
+                val nomeVacinaReal = nomeVacina.ifBlank { notificationTitle.replace("Vacina:", "").trim() }
 
-        } else {
-            // ===== FLUXO DE MEDICAMENTO =====
-            Log.d("NotificationWorker", "Processando como MEDICAMENTO")
-            finalTitle = if (recipientName.isNotBlank()) {
-                "${recipientName}, hora de tomar ${notificationTitle.replace("Hora de:", "").trim()}"
-            } else {
-                notificationTitle
+                if (isConfirmacao) {
+                    // --- Notificação de Confirmação de Vacina (3h depois) ---
+                    finalTitle = "Confirmação de Vacina"
+                    finalMessage = "$nome, você compareceu à vacina $nomeVacinaReal?"
+                    channelId = PilloraApplication.CHANNEL_LEMBRETES_CONSULTAS_ID // Canal sem som de alarme
+                    Log.d("NotificationWorker", "Mensagem final para CONFIRMAÇÃO vacina = $finalMessage, canal: $channelId")
+                } else {
+                    // --- Lembretes Pré-Vacina (24h e 2h antes) ---
+                    finalTitle = if (recipientName.isNotBlank()) "$nome, " else ""
+                    finalTitle += "você tem vacina: $nomeVacinaReal"
+
+                    finalMessage = when (tipoLembrete) {
+                        DateTimeUtils.TIPO_24H_ANTES -> "Amanhã às $horaVacina"
+                        DateTimeUtils.TIPO_2H_ANTES -> "Hoje às $horaVacina"
+                        else -> {
+                            Log.w("NotificationWorker", "Tipo de lembrete pré-vacina inesperado: $tipoLembrete. Usando observação.")
+                            notificationMessage // Fallback
+                        }
+                    }
+                    channelId = PilloraApplication.CHANNEL_LEMBRETES_MEDICAMENTOS_ID // Canal com som de alarme
+                    Log.d("NotificationWorker", "Mensagem final para PRÉ-VACINA ($tipoLembrete) = $finalMessage, canal: $channelId")
+                }
             }
-            finalMessage = notificationMessage
-            channelId = PilloraApplication.CHANNEL_LEMBRETES_MEDICAMENTOS_ID
-            Log.d("NotificationWorker", "Mensagem final para medicamento = $finalMessage, canal: $channelId")
+
+            else -> {
+                // ===== FLUXO DE MEDICAMENTO =====
+                Log.d("NotificationWorker", "Processando como MEDICAMENTO")
+                finalTitle = if (recipientName.isNotBlank()) {
+                    "${recipientName}, hora de tomar ${notificationTitle.replace("Hora de:", "").trim()}"
+                } else {
+                    notificationTitle
+                }
+                finalMessage = notificationMessage
+                channelId = PilloraApplication.CHANNEL_LEMBRETES_MEDICAMENTOS_ID
+                Log.d("NotificationWorker", "Mensagem final para medicamento = $finalMessage, canal: $channelId")
+            }
         }
 
         Log.d("NotificationWorker", "Preparando notificação final: title=$finalTitle, message=$finalMessage, canal=$channelId")
@@ -193,29 +170,26 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
 
-        // Configurar prioridade, vibração e fullScreenIntent (som é definido pelo CANAL)
+        // Configurar prioridade, vibração e fullScreenIntent
         if ((isConsulta && tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) || (isVacina && isConfirmacao)) {
             Log.d("NotificationWorker", "Configurando notificação como PADRÃO (pós-consulta/pós-vacina)")
-            builder
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            builder.setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
                 .setVibrate(longArrayOf(0, 300, 200, 300))
         } else {
             Log.d("NotificationWorker", "Configurando notificação como ALARME (pré-consulta/pré-vacina ou medicamento)")
-            builder
-                .setPriority(NotificationCompat.PRIORITY_MAX)
+            builder.setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setVibrate(longArrayOf(0, 1000, 500, 1000, 500, 1000))
                 .setLights(0xFF0000FF.toInt(), 1000, 500)
                 .setFullScreenIntent(pendingIntent, true)
         }
 
-        // Adicionar botões de ação
-        // <<< CORRIGIDO: Lógica para adicionar botões apenas nos casos corretos >>>
+        // Adicionar botões de ação APENAS quando necessário
         when {
+            // Botões para confirmação de Consulta
             isConsulta && tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS -> {
                 Log.d("NotificationWorker", "Adicionando botões para notificação PÓS-CONSULTA")
-                // Ação "Sim, excluir consulta"
                 val excluirIntent = Intent(applicationContext, NotificationActionReceiver::class.java).apply {
                     action = ACTION_CONSULTA_COMPARECEU
                     putExtra(EXTRA_LEMBRETE_ID, lembreteId)
@@ -224,7 +198,6 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
                 }
                 val excluirPendingIntent = PendingIntent.getBroadcast(applicationContext, notificationId * 10 + 1, excluirIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-                // Ação "Remarcar consulta"
                 val remarcarIntent = Intent(applicationContext, MainActivity::class.java).apply {
                     action = ACTION_CONSULTA_REMARCAR
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -237,25 +210,22 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
                 builder.addAction(R.drawable.ic_action_edit, "Remarcar consulta", remarcarPendingIntent)
             }
 
+            // Botões para confirmação de Vacina
             isVacina && isConfirmacao -> {
                 Log.d("NotificationWorker", "Adicionando botões para notificação PÓS-VACINA")
-                // Ação "Sim, excluir vacina"
                 val excluirIntent = Intent(applicationContext, NotificationActionReceiver::class.java).apply {
                     action = ACTION_VACINA_TOMADA
                     putExtra(EXTRA_LEMBRETE_ID, lembreteId)
                     putExtra(EXTRA_NOTIFICATION_ID, notificationId)
                     putExtra(EXTRA_VACINA_ID, vacinaId)
-                    Log.d("NotificationWorker", "Intent EXCLUIR VACINA para Lembrete ID: $lembreteId, Vacina ID: $vacinaId")
                 }
                 val excluirPendingIntent = PendingIntent.getBroadcast(applicationContext, notificationId * 10 + 3, excluirIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-                // Ação "Remarcar vacina"
                 val remarcarIntent = Intent(applicationContext, MainActivity::class.java).apply {
                     action = ACTION_VACINA_REMARCAR
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    putExtra("OPEN_VACCINE_EDIT", true) // Usar chave específica para vacina
-                    putExtra("VACCINE_ID", vacinaId) // Usar chave específica para vacina
-                    Log.d("NotificationWorker", "Intent REMARCAR VACINA (Activity) para Vacina ID: $vacinaId")
+                    putExtra("OPEN_VACCINE_EDIT", true)
+                    putExtra("VACCINE_ID", vacinaId)
                 }
                 val remarcarPendingIntent = PendingIntent.getActivity(applicationContext, notificationId * 10 + 4, remarcarIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
@@ -263,6 +233,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
                 builder.addAction(R.drawable.ic_action_edit, "Remarcar vacina", remarcarPendingIntent)
             }
 
+            // Botão para Medicamento
             !isConsulta && !isVacina -> {
                 Log.d("NotificationWorker", "Adicionando botão 'Tomei' para MEDICAMENTO")
                 val tomarIntent = Intent(applicationContext, NotificationActionReceiver::class.java).apply {
@@ -275,11 +246,11 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
                 builder.addAction(R.drawable.ic_action_check, "Tomei", tomarPendingIntent)
             }
 
+            // Nenhum botão para lembretes pré-consulta ou pré-vacina
             else -> {
                 Log.d("NotificationWorker", "Nenhum botão adicionado (lembrete pré-consulta ou pré-vacina)")
             }
         }
-        // <<< FIM DA CORREÇÃO >>>
 
         // Verificar permissão antes de notificar
         if (ActivityCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -291,15 +262,13 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
 
         try {
             NotificationManagerCompat.from(applicationContext).notify(notificationId, builder.build())
-            Log.d("NotificationWorker", "Notificação exibida com sucesso. ID: $notificationId")
-            return Result.success()
-        } catch (e: SecurityException) {
-            Log.e("NotificationWorker", "SecurityException ao tentar exibir notificação $notificationId", e)
-            return Result.failure()
+            Log.d("NotificationWorker", "Notificação exibida com sucesso para lembreteId=$lembreteId")
         } catch (e: Exception) {
-            Log.e("NotificationWorker", "Erro inesperado ao exibir notificação $notificationId", e)
+            Log.e("NotificationWorker", "ERRO ao exibir notificação", e)
             return Result.failure()
         }
+
+        Log.d("NotificationWorker", "Execução concluída com sucesso.")
+        return Result.success()
     }
 }
-
