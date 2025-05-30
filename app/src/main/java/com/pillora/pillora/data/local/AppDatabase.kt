@@ -8,7 +8,7 @@ import androidx.room.TypeConverters
 import com.pillora.pillora.data.dao.LembreteDao
 import com.pillora.pillora.model.Lembrete
 
-@Database(entities = [Lembrete::class], version = 1, exportSchema = false) // Incremente a versão se já existir e estiver mudando o schema
+@Database(entities = [Lembrete::class], version = 2, exportSchema = false) // <<< VERSÃO INCREMENTADA PARA 2
 @TypeConverters(ListIntConverter::class)
 abstract class AppDatabase : RoomDatabase() {
 
@@ -26,6 +26,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "pillora_database"
                 )
                     // Adicione migrações aqui se necessário no futuro
+                    .fallbackToDestructiveMigration(false) // <<< ADICIONADO PARA PERMITIR MIGRAÇÃO DESTRUTIVA
                     .build()
                 INSTANCE = instance
                 instance
@@ -33,3 +34,4 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 }
+

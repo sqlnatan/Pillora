@@ -1,6 +1,5 @@
 package com.pillora.pillora.screens
 
-// Imports moved to the top
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,49 +19,44 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign // Import TextAlign
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle // *** GARANTIR ESTE IMPORT ***
 import androidx.navigation.NavController
 import com.pillora.pillora.model.Vaccine
 import com.pillora.pillora.navigation.Screen
+import com.pillora.pillora.repository.DataResult // *** USAR A CLASSE DO REPOSITÓRIO (ou mover para um arquivo comum) ***
 import com.pillora.pillora.repository.VaccineRepository
 import kotlinx.coroutines.launch
-// import java.util.UUID // Import moved to top
+
+// *** IMPORTANTE: A classe DataResult DEVE estar definida em um local acessível. ***
+// Se você a definiu dentro do VaccineRepository.kt, o import acima deve funcionar.
+// Se não, defina-a em um arquivo separado (ex: utils/DataResult.kt) e importe de lá.
+/* Exemplo de definição em arquivo separado:
+   package com.pillora.pillora.utils // ou outro pacote
+
+   sealed class DataResult<out T> {
+       data object Loading : DataResult<Nothing>()
+       data class Success<out T>(val data: T) : DataResult<T>()
+       data class Error(val message: String?) : DataResult<Nothing>()
+   }
+*/
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VaccineListScreen(navController: NavController) {
 
-    var vaccines by remember { mutableStateOf<List<Vaccine>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    // Coletar o estado do Flow usando collectAsStateWithLifecycle
+    // Especificar explicitamente o tipo <DataResult<List<Vaccine>>> pode ajudar o compilador
+    val vaccinesState: DataResult<List<Vaccine>> by VaccineRepository.getAllVaccinesFlow()
+        .collectAsStateWithLifecycle(initialValue = DataResult.Loading)
+
     var showDeleteDialog by remember { mutableStateOf(false) }
     var vaccineToDelete by remember { mutableStateOf<Vaccine?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    // Function to load vaccine reminders
-    fun loadVaccines() {
-        isLoading = true
-        error = null
-        VaccineRepository.getAllVaccines(
-            onSuccess = {
-                vaccines = it
-                isLoading = false
-            },
-            onFailure = {
-                error = "Erro ao buscar lembretes: ${it.message}"
-                isLoading = false
-            }
-        )
-    }
-
-    // Fetch vaccine reminders when the screen is composed
-    LaunchedEffect(Unit) {
-        loadVaccines()
-    }
-
-    // Delete confirmation dialog
+    // Diálogo de confirmação de exclusão
     if (showDeleteDialog && vaccineToDelete != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false; vaccineToDelete = null },
@@ -71,23 +65,22 @@ fun VaccineListScreen(navController: NavController) {
             confirmButton = {
                 TextButton(
                     onClick = {
-                        vaccineToDelete?.id?.let { id ->
-                            if (id.isNotEmpty()) { // Ensure ID is not empty before deleting
-                                scope.launch {
-                                    VaccineRepository.deleteVaccine(
-                                        vaccineId = id,
-                                        onSuccess = {
-                                            Toast.makeText(context, "Lembrete excluído com sucesso", Toast.LENGTH_SHORT).show()
-                                            loadVaccines() // Reload list
-                                        },
-                                        onFailure = {
-                                            Toast.makeText(context, "Erro ao excluir lembrete: ${it.message}", Toast.LENGTH_LONG).show()
-                                        }
-                                    )
-                                }
-                            } else {
-                                Toast.makeText(context, "Erro: ID inválido para exclusão", Toast.LENGTH_SHORT).show()
+                        val currentVaccine = vaccineToDelete
+                        if (currentVaccine != null && currentVaccine.id.isNotEmpty()) {
+                            scope.launch {
+                                VaccineRepository.deleteVaccine(
+                                    vaccineId = currentVaccine.id,
+                                    onSuccess = {
+                                        Toast.makeText(context, "Lembrete excluído com sucesso", Toast.LENGTH_SHORT).show()
+                                        // A lista atualiza automaticamente via Flow
+                                    },
+                                    onFailure = {
+                                        Toast.makeText(context, "Erro ao excluir lembrete: ${it.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                )
                             }
+                        } else {
+                            Toast.makeText(context, "Erro: ID inválido para exclusão", Toast.LENGTH_SHORT).show()
                         }
                         showDeleteDialog = false
                         vaccineToDelete = null
@@ -120,63 +113,66 @@ fun VaccineListScreen(navController: NavController) {
                 Icon(Icons.Filled.Add, contentDescription = "Adicionar Lembrete")
             }
         }
-    ) {
-            padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            when {
-                isLoading -> {
+    ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            // Usar o estado coletado do Flow
+            when (vaccinesState) {
+                is DataResult.Loading -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
-                error != null -> {
+                is DataResult.Error -> {
+                    val errorResult = vaccinesState as DataResult.Error // Cast para acessar a mensagem
                     Column(
                         modifier = Modifier.fillMaxSize().padding(16.dp),
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Use safe call ?.let or provide a default value for error
-                        Text(text = error ?: "Ocorreu um erro desconhecido", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { loadVaccines() }) {
-                            Text("Tentar novamente")
-                        }
+                        Text(
+                            text = errorResult.message ?: "Ocorreu um erro desconhecido",
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
-                vaccines.isEmpty() -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(text = "Nenhum lembrete de vacina encontrado.")
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { navController.navigate(Screen.VaccineForm.route) }) {
-                            Text("Adicionar Lembrete")
+                is DataResult.Success<*> -> {
+                    // Cast seguro para DataResult.Success<List<Vaccine>>
+                    val successResult = vaccinesState as? DataResult.Success<List<Vaccine>>
+                    val vaccines = successResult?.data ?: emptyList() // Obter a lista ou uma lista vazia
+
+                    if (vaccines.isEmpty()) {
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(text = "Nenhum lembrete de vacina encontrado.")
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(onClick = { navController.navigate(Screen.VaccineForm.route) }) {
+                                Text("Adicionar Lembrete")
+                            }
                         }
-                    }
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Use vaccine.id directly as key, it's non-nullable String
-                        items(vaccines, key = { it.id }) { vaccine ->
-                            VaccineListItem(
-                                vaccine = vaccine,
-                                onEditClick = {
-                                    // Ensure ID is not empty before navigating
-                                    if (vaccine.id.isNotEmpty()) {
-                                        navController.navigate("${Screen.VaccineForm.route}?id=${vaccine.id}")
-                                    } else {
-                                        Toast.makeText(context, "Erro: ID do lembrete inválido", Toast.LENGTH_SHORT).show()
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(vaccines, key = { vaccine -> vaccine.id }) { vaccine ->
+                                VaccineListItem(
+                                    vaccine = vaccine,
+                                    onEditClick = {
+                                        if (vaccine.id.isNotEmpty()) {
+                                            navController.navigate("${Screen.VaccineForm.route}?id=${vaccine.id}")
+                                        } else {
+                                            Toast.makeText(context, "Erro: ID do lembrete inválido", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    onDeleteClick = {
+                                        vaccineToDelete = vaccine
+                                        showDeleteDialog = true
                                     }
-                                },
-                                onDeleteClick = {
-                                    vaccineToDelete = vaccine
-                                    showDeleteDialog = true
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
@@ -185,6 +181,7 @@ fun VaccineListScreen(navController: NavController) {
     }
 }
 
+// Componente para exibir cada item da lista (sem alterações)
 @Composable
 fun VaccineListItem(
     vaccine: Vaccine,

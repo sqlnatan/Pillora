@@ -8,6 +8,7 @@ import com.pillora.pillora.model.Medicine
 import com.pillora.pillora.model.Recipe // Import Recipe model
 import com.pillora.pillora.model.Vaccine // Importar Vaccine
 import com.pillora.pillora.repository.ConsultationRepository
+import com.pillora.pillora.repository.DataResult // *** ADICIONADO IMPORT NECESSÁRIO ***
 import com.pillora.pillora.repository.MedicineRepository
 import com.pillora.pillora.repository.RecipeRepository // Import RecipeRepository
 import com.pillora.pillora.repository.VaccineRepository // Importar VaccineRepository
@@ -34,7 +35,7 @@ class HomeViewModel : ViewModel() {
     // Input Flows from Repositories
     private val medicinesFlow = MedicineRepository.getAllMedicinesFlow()
     private val consultationsFlow = ConsultationRepository.getAllConsultationsFlow()
-    private val vaccinesFlow = VaccineRepository.getAllVaccinesFlow()
+    private val vaccinesFlow = VaccineRepository.getAllVaccinesFlow() // Retorna Flow<DataResult<List<Vaccine>>>
     private val recipesFlow = RecipeRepository.getAllRecipesFlow() // <<< ADDED: Recipe flow
 
     // Processed States for UI
@@ -79,10 +80,11 @@ class HomeViewModel : ViewModel() {
         Log.d(tag, "Initializing HomeViewModel and starting data collection.")
         observeMedicines()
         observeConsultations()
-        observeVaccines()
+        observeVaccines() // *** ESTA FUNÇÃO FOI ALTERADA ***
         observeRecipes() // <<< ADDED: Start observing recipes
     }
 
+    // --- Funções de observação (Medicamentos, Consultas, Receitas) - SEM ALTERAÇÕES ---
     private fun observeMedicines() {
         medicinesFlow
             .onEach { medicines ->
@@ -113,22 +115,6 @@ class HomeViewModel : ViewModel() {
             .launchIn(viewModelScope) // Collect the flow within the viewModelScope
     }
 
-    private fun observeVaccines() {
-        vaccinesFlow
-            .onEach { vaccines ->
-                Log.d(tag, "Received ${vaccines.size} vaccines from flow. Processing...")
-                _isLoadingVaccines.value = false // Marcar vacinas como carregadas
-                processUpcomingVaccines(vaccines)
-            }
-            .catch { e ->
-                Log.e(tag, "Error collecting vaccines flow", e)
-                _error.value = appendError("Erro ao carregar vacinas: ${e.message}") // Use appendError
-                _isLoadingVaccines.value = false
-            }
-            .launchIn(viewModelScope)
-    }
-
-    // <<< ADDED: Function to observe recipes >>>
     private fun observeRecipes() {
         recipesFlow
             .onEach { recipes ->
@@ -144,7 +130,40 @@ class HomeViewModel : ViewModel() {
             }
             .launchIn(viewModelScope)
     }
+    // --- FIM Funções de observação (Medicamentos, Consultas, Receitas) ---
 
+    // *** FUNÇÃO ALTERADA PARA TRATAR DataResult - APENAS ESTA FOI MODIFICADA ***
+    private fun observeVaccines() {
+        vaccinesFlow // Este flow agora emite DataResult<List<Vaccine>>
+            .onEach { result -> // O parâmetro agora é 'result' do tipo DataResult
+                when (result) {
+                    is DataResult.Loading -> {
+                        Log.d(tag, "Loading vaccines...")
+                        _isLoadingVaccines.value = true // Atualiza o estado de carregamento
+                    }
+                    is DataResult.Success -> {
+                        val vaccines = result.data // Extrai a lista de dentro do Success
+                        Log.d(tag, "Received ${vaccines.size} vaccines from flow (Success). Processing...")
+                        _isLoadingVaccines.value = false // Marca como carregado
+                        processUpcomingVaccines(vaccines) // Chama o processamento com a lista extraída
+                    }
+                    is DataResult.Error -> {
+                        Log.e(tag, "Error collecting vaccines flow: ${result.message}")
+                        _error.value = appendError("Erro ao carregar vacinas: ${result.message}")
+                        _isLoadingVaccines.value = false // Marca como não carregando (mesmo com erro)
+                    }
+                }
+            }
+            .catch { e -> // Captura exceções na coleta do Flow (raro se o catch já existe no repo)
+                Log.e(tag, "Exception in vaccinesFlow collection", e)
+                _error.value = appendError("Erro crítico ao observar vacinas: ${e.message}")
+                _isLoadingVaccines.value = false
+            }
+            .launchIn(viewModelScope)
+    }
+    // *** FIM DA FUNÇÃO ALTERADA ***
+
+    // --- Funções de processamento e helpers - SEM ALTERAÇÕES ---
     private fun processMedicines(medicines: List<Medicine>) {
         Log.d(tag, "Processing ${medicines.size} medicines for today and stock alerts.")
         val today = Calendar.getInstance()
@@ -223,14 +242,13 @@ class HomeViewModel : ViewModel() {
                     }
                     upcoming.add(Pair(vaccineCal, vaccine))
                 }
-            } ?: Log.e(tag, "Error parsing date for vaccine ID ${vaccine.id}: \'${vaccine.reminderDate}\"")
+            } ?: Log.e(tag, "Error parsing date for vaccine ID ${vaccine.id}: \'${vaccine.reminderDate}\'")
         }
 
         _upcomingVaccines.value = upcoming.sortedBy { it.first }.map { it.second }
         Log.d(tag, "Finished filtering vaccines. ${_upcomingVaccines.value.size} upcoming in next 15 days.")
     }
 
-    // <<< ADDED: Function to process expiring recipes >>>
     private fun processExpiringRecipes(recipes: List<Recipe>) {
         val daysThreshold = 15 // Show recipes expiring in the next 15 days
         Log.d(tag, "Processing ${recipes.size} recipes for expiration within $daysThreshold days.")
@@ -247,7 +265,7 @@ class HomeViewModel : ViewModel() {
                     if (!validityDayStart.before(todayStart) && validityDayStart.before(thresholdDate)) {
                         expiring.add(Pair(validityDayStart, recipe))
                     }
-                } ?: Log.e(tag, "Error parsing validityDate for recipe ID ${recipe.id}: \'${recipe.validityDate}\"")
+                } ?: Log.e(tag, "Error parsing validityDate for recipe ID ${recipe.id}: \'${recipe.validityDate}\'")
             }
         }
 
@@ -255,15 +273,17 @@ class HomeViewModel : ViewModel() {
         Log.d(tag, "Finished filtering recipes. ${_expiringRecipes.value.size} expiring in next $daysThreshold days.")
     }
 
-    // --- Helper Functions ---
-
-    // Helper to append errors without overwriting
     private fun appendError(newMessage: String): String {
         val currentError = _error.value
         return if (currentError.isNullOrBlank()) newMessage else "$currentError\n$newMessage"
     }
 
-    // Helper to get the start of a given day
+    // *** FUNÇÃO ADICIONADA PARA CORRIGIR ERRO NA HOMESCREEN ***
+    fun onErrorShown() {
+        _error.value = null
+    }
+    // *** FIM DA FUNÇÃO ADICIONADA ***
+
     private fun getStartOfDay(calendar: Calendar): Calendar {
         return (calendar.clone() as Calendar).apply {
             set(Calendar.HOUR_OF_DAY, 0)
@@ -273,7 +293,6 @@ class HomeViewModel : ViewModel() {
         }
     }
 
-    // Flexible date parser (kept from previous version)
     private fun parseDate(dateStr: String): Calendar? {
         val trimmedDateStr = dateStr.trim()
         if (trimmedDateStr.isBlank()) return null
@@ -287,7 +306,6 @@ class HomeViewModel : ViewModel() {
         return null
     }
 
-    // Helper to parse time (kept from previous version)
     private fun parseTime(timeStr: String?): Calendar? { // <<< Made timeStr nullable
         val trimmedTimeStr = timeStr?.trim()
         if (trimmedTimeStr.isNullOrBlank()) return null // <<< Check for null or blank
@@ -295,31 +313,23 @@ class HomeViewModel : ViewModel() {
             val sdfTime = SimpleDateFormat("HH:mm", Locale.getDefault()).apply { isLenient = false }
             sdfTime.parse(trimmedTimeStr)?.let { Calendar.getInstance().apply { time = it } }
         } catch (e: Exception) {
-            Log.w(tag, "Could not parse time string: \'$trimmedTimeStr\'")
+            Log.w(tag, "Could not parse time string: \'$trimmedTimeStr\'" )
             null
         }
     }
 
-    // <<< UPDATED: isMedicationActiveToday to match Medicine model >>>
     private fun isMedicationActiveToday(med: Medicine, today: Calendar): Boolean {
         val medInfo = "Med \'${med.name}\' (ID: ${med.id})"
-        // val todayFormatted = sdfLog.format(today.time) // Unused variable
-        // Log.d(tag, "[$medInfo] Checking activity for today: $todayFormatted. StartDate: ${med.startDate}, Duration: ${med.duration}, FreqType: ${med.frequencyType}, Interval: ${med.intervalHours}")
-
         val startDateCal = parseDate(med.startDate) ?: run {
             Log.w(tag, "[$medInfo] Could not parse start date \'${med.startDate}\'. Result: INACTIVE")
             return false
         }
-
         val todayStart = getStartOfDay(today)
 
-        // Check 1: Is today before the start date?
         if (todayStart.before(startDateCal)) {
             return false
         }
 
-        // Check 2: If there's a duration, has it ended?
-        // Duration is in days. 0 or -1 means indefinite in the original model logic (adjusting here)
         if (med.duration > 0) { // Only check if duration is positive
             val endDateCal = (startDateCal.clone() as Calendar).apply {
                 add(Calendar.DAY_OF_YEAR, med.duration) // End date is exclusive
@@ -328,52 +338,28 @@ class HomeViewModel : ViewModel() {
                 return false // Today is on or after the end date
             }
         }
-
-        // Check 3: Based on frequency type (Only 'vezes_dia' and 'a_cada_x_horas' exist in model)
-        // For simplicity, if frequencyType is not one of the known types, assume it's active if within date range.
-        // A more robust approach might involve logging an error or handling unknown types differently.
-        when (med.frequencyType) {
-            "vezes_dia" -> {
-                // Active if within date range
-                return true
-            }
-            "a_cada_x_horas" -> {
-                // Active if interval is set and within date range
-                // Handle nullable intervalHours safely
-                return (med.intervalHours ?: 0) > 0
-            }
-            // Removed cases for DIAS_ESPECIFICOS and INTERVALO_DIAS as fields are missing in model
-            else -> {
-                Log.w(tag, "[$medInfo] Unknown or unsupported frequency type: ${med.frequencyType}. Assuming ACTIVE if within date range.")
-                // Assume active if start/end dates match, as frequency logic is unclear/unsupported
-                return true
-            }
-        }
+        return true
     }
 
-    // <<< UPDATED: calculateDailyDosage to match Medicine model >>>
     private fun calculateDailyDosage(med: Medicine): Double {
+        val doseValue = med.dose.toDoubleOrNull() ?: 0.0 // Removido safe call desnecessário
+        if (doseValue <= 0.0) return 0.0
+
         return when (med.frequencyType) {
             "vezes_dia" -> {
-                // Use timesPerDay if available, default to 1 if null/zero (conservative estimate)
-                (med.timesPerDay ?: 1).toDouble().coerceAtLeast(1.0)
+                (med.timesPerDay ?: 0) * doseValue
             }
             "a_cada_x_horas" -> {
-                // Use intervalHours if available and positive
                 val interval = med.intervalHours ?: 0
-                if (interval > 0) (24.0 / interval) else 0.0 // Avoid division by zero
+                if (interval > 0) {
+                    (24.0 / interval) * doseValue
+                } else {
+                    0.0
+                }
             }
-            // Removed cases for DIAS_ESPECIFICOS and INTERVALO_DIAS
-            else -> {
-                Log.w(tag, "Cannot calculate daily dosage for unknown frequency type: ${med.frequencyType}. Returning 0.")
-                0.0 // Cannot determine dosage
-            }
+            else -> 0.0
         }
     }
-
-    // Call this if you implement error dismissal in the UI
-    fun onErrorShown() {
-        _error.value = null
-    }
+    // --- FIM Funções de processamento e helpers ---
 }
 

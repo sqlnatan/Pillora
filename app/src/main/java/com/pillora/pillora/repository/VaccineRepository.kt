@@ -5,6 +5,7 @@ import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query // Import Query for sorting
+import com.google.firebase.firestore.QuerySnapshot // *** ADICIONADO: Import necessário ***
 import com.google.firebase.firestore.snapshots // Import snapshots from main module
 import com.google.firebase.firestore.toObject // Import toObject from main module
 import com.pillora.pillora.model.Vaccine
@@ -12,6 +13,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flowOf // Import flowOf for returning empty flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart // *** ADICIONADO: Import necessário ***
+
+// *** ADICIONADO: Definição da classe selada para representar o estado da UI ***
+sealed class DataResult<out T> {
+    data object Loading : DataResult<Nothing>()
+    data class Success<out T>(val data: T) : DataResult<T>()
+    data class Error(val message: String?) : DataResult<Nothing>()
+}
 
 @SuppressLint("StaticFieldLeak") // Suppress warning for Firebase context in object
 object VaccineRepository {
@@ -53,7 +62,7 @@ object VaccineRepository {
             }
     }
 
-    // --- READ (Callback version) ---
+    // --- READ (Callback version - Mantida para compatibilidade, se necessário) ---
     fun getAllVaccines(
         onSuccess: (List<Vaccine>) -> Unit,
         onFailure: (Exception) -> Unit
@@ -72,45 +81,46 @@ object VaccineRepository {
             .addOnSuccessListener { documents ->
                 val vaccines = documents.mapNotNull { doc ->
                     try {
-                        // Use toObject<T>() - Removed safe call as per latest warning
                         doc.toObject<Vaccine>().copy(id = doc.id)
                     } catch (e: Exception) {
                         Log.e(TAG, "Error converting document ${doc.id} to Vaccine", e)
                         null
                     }
                 }
-                Log.d(TAG, "Fetched ${vaccines.size} vaccine reminders")
+                Log.d(TAG, "Fetched ${vaccines.size} vaccine reminders (callback)")
                 onSuccess(vaccines)
             }
             .addOnFailureListener { exception ->
-                Log.e(TAG, "Error getting vaccine reminders", exception)
+                Log.e(TAG, "Error getting vaccine reminders (callback)", exception)
                 onFailure(exception)
             }
     }
 
-    // --- READ (Flow version) ---
-    fun getAllVaccinesFlow(): Flow<List<Vaccine>> {
-        val userId = currentUserId ?: return flowOf(emptyList())
+    // --- READ (Flow version - CORRIGIDA para usar DataResult) ---
+    fun getAllVaccinesFlow(): Flow<DataResult<List<Vaccine>>> { // *** CORREÇÃO: Mudar tipo de retorno ***
+        val userId = currentUserId ?: return flowOf(DataResult.Error("Usuário não autenticado"))
 
         return db.collection("users").document(userId)
             .collection(VACCINES_COLLECTION)
             .orderBy("reminderDate", Query.Direction.ASCENDING)
-            .snapshots() // Use snapshots() from main module
-            .map { snapshot ->
-                snapshot.documents.mapNotNull { doc ->
+            .snapshots() // Usa snapshots para tempo real
+            .map<QuerySnapshot, DataResult<List<Vaccine>>> { snapshot -> // *** CORREÇÃO: Mapear para DataResult ***
+                val vaccines = snapshot.documents.mapNotNull { doc ->
                     try {
-                        // Use toObject<T>() from the main module with safe call (kept here as warning was specific to getAllVaccines)
                         doc.toObject<Vaccine>()?.copy(id = doc.id)
                     } catch (e: Exception) {
                         Log.e(TAG, "Error converting document ${doc.id} to Vaccine", e)
                         null
                     }
                 }
+                DataResult.Success(vaccines) // *** CORREÇÃO: Emitir Success com a lista ***
             }
             .catch { exception ->
                 Log.e(TAG, "Error in getAllVaccinesFlow", exception)
-                emit(emptyList())
+                // *** CORREÇÃO: Emitir Error em caso de exceção ***
+                emit(DataResult.Error(exception.message ?: "Erro ao buscar vacinas"))
             }
+            .onStart { emit(DataResult.Loading) } // *** CORREÇÃO: Emitir Loading no início ***
     }
 
     // --- READ by ID ---
@@ -138,10 +148,8 @@ object VaccineRepository {
             .addOnSuccessListener { document ->
                 if (document != null && document.exists()) {
                     try {
-                        // Use toObject<T>() from the main module with safe call (kept here)
                         val vaccine = document.toObject<Vaccine>()?.copy(id = document.id)
-                        // Security check: Ensure the fetched vaccine belongs to the current user
-                        if (vaccine != null && vaccine.userId == userId) { // Check vaccine is not null after potential failed conversion
+                        if (vaccine != null && vaccine.userId == userId) {
                             Log.d(TAG, "Fetched vaccine reminder: ${vaccine.id}")
                             onSuccess(vaccine)
                         } else {
@@ -166,7 +174,7 @@ object VaccineRepository {
     // --- UPDATE ---
     fun updateVaccine(
         vaccine: Vaccine,
-        onSuccess: (String) -> Unit, // Modificado para receber o ID da vacina
+        onSuccess: (String) -> Unit,
         onFailure: (Exception) -> Unit
     ) {
         val userId = currentUserId
@@ -187,7 +195,7 @@ object VaccineRepository {
             .set(vaccine)
             .addOnSuccessListener {
                 Log.d(TAG, "Vaccine reminder updated successfully: ${vaccine.id}")
-                onSuccess(vaccine.id) // Passa o ID da vacina para o callback
+                onSuccess(vaccine.id)
             }
             .addOnFailureListener { exception ->
                 Log.e(TAG, "Error updating vaccine reminder", exception)
@@ -227,3 +235,4 @@ object VaccineRepository {
             }
     }
 }
+
