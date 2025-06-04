@@ -403,7 +403,7 @@ class ConsultationViewModel : ViewModel() {
             putExtra(NotificationWorker.EXTRA_HORA_CONSULTA, horaConsulta)
             putExtra(NotificationWorker.EXTRA_MINUTO_CONSULTA, minutoConsulta)
             putExtra(NotificationWorker.EXTRA_TIPO_LEMBRETE, tipoLembrete) // Passar o tipo explícito
-            putExtra("IS_CONSULTATION_ALARM", true) // Flag para AlarmReceiver
+            putExtra(NotificationWorker.EXTRA_IS_CONSULTA, true) // Flag para AlarmReceiver
         }
         Log.d(tag, "Agendando AlarmManager para Lembrete ID: ${lembrete.id}, Tipo: $tipoLembrete")
 

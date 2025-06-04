@@ -38,8 +38,8 @@ object AlarmScheduler {
             putExtra(NotificationWorker.EXTRA_PROXIMA_OCORRENCIA_MILLIS, lembrete.proximaOcorrenciaMillis)
             putExtra(NotificationWorker.EXTRA_HORA, lembrete.hora)
             putExtra(NotificationWorker.EXTRA_MINUTO, lembrete.minuto)
-            // CORREÇÃO: Explicitar que NÃO é consulta
-            putExtra("IS_CONSULTATION_ALARM", false)
+            putExtra(NotificationWorker.EXTRA_IS_CONSULTA, false) // Explicitar que NÃO é consulta
+            putExtra(NotificationWorker.EXTRA_IS_VACINA, false) // Explicitar que NÃO é vacina
             // Passar tipo de lembrete (pode ser útil para diferenciar no futuro, mas não essencial para medicação agora)
             // putExtra(NotificationWorker.EXTRA_TIPO_LEMBRETE, "MEDICAMENTO") // Exemplo
         }
