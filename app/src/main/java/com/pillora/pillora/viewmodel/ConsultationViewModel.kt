@@ -478,4 +478,3 @@ class ConsultationViewModel : ViewModel() {
         _error.value = null
     }
 }
-
