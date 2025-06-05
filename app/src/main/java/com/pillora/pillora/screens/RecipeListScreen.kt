@@ -16,10 +16,12 @@ import androidx.compose.runtime.remember // Import remember
 import androidx.compose.runtime.setValue // Import setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext // *** CORRIGIDO: Import LocalContext ***
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pillora.pillora.data.local.AppDatabase // *** CORRIGIDO: Import AppDatabase ***
 import com.pillora.pillora.model.Recipe
 import com.pillora.pillora.navigation.RECIPE_FORM_ROUTE // Import route constant
 import com.pillora.pillora.viewmodel.RecipeListUiState
@@ -31,6 +33,9 @@ fun RecipeListScreen(
     navController: NavController,
     recipeViewModel: RecipeViewModel = viewModel()
 ) {
+    val context = LocalContext.current // *** CORRIGIDO: Obter Context ***
+    val lembreteDao = remember { AppDatabase.getDatabase(context).lembreteDao() } // *** CORRIGIDO: Obter LembreteDao ***
+
     val uiState by recipeViewModel.recipeListState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var recipeToDelete by remember { mutableStateOf<Recipe?>(null) }
@@ -105,11 +110,12 @@ fun RecipeListScreen(
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
                 title = { Text("Confirmar Exclusão") },
-                text = { Text("Tem certeza que deseja excluir a receita para '${recipeToDelete?.patientName}'?") },
+                text = { Text("Tem certeza que deseja excluir a receita para \'${recipeToDelete?.patientName}\'?") },
                 confirmButton = {
                     Button(
                         onClick = {
-                            recipeToDelete?.id?.let { recipeViewModel.deleteRecipe(it) }
+                            // *** CORRIGIDO: Passar context e lembreteDao ***
+                            recipeToDelete?.id?.let { recipeViewModel.deleteRecipe(context, lembreteDao, it) }
                             showDeleteDialog = false
                             recipeToDelete = null // Clear selection
                         }

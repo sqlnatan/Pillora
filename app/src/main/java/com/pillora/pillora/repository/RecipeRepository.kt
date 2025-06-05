@@ -25,9 +25,10 @@ object RecipeRepository {
         db.collection(COLLECTION_RECIPES)
     }
 
+    // *** CORRIGIDO: onSuccess agora retorna o ID da nova receita ***
     fun saveRecipe(
         recipe: Recipe,
-        onSuccess: () -> Unit,
+        onSuccess: (String?) -> Unit, // Retorna o ID do novo documento
         onError: (Exception) -> Unit
     ) {
         val userId = currentUserId
@@ -39,9 +40,10 @@ object RecipeRepository {
         val recipeWithUserId = recipe.copy(userId = userId)
 
         recipesCollection.add(recipeWithUserId)
-            .addOnSuccessListener {
-                Log.d(TAG, "Receita salva com sucesso.")
-                onSuccess()
+            .addOnSuccessListener { documentReference -> // Obtém a referência do documento
+                val newId = documentReference.id
+                Log.d(TAG, "Receita salva com sucesso com ID: $newId")
+                onSuccess(newId) // Passa o ID para o callback
             }
             .addOnFailureListener {
                 Log.e(TAG, "Erro ao salvar receita", it)

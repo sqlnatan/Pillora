@@ -15,6 +15,10 @@ interface LembreteDao {
     @Delete
     suspend fun deleteLembrete(lembrete: Lembrete)
 
+    // *** NOVO: Método para deletar uma lista de lembretes ***
+    @Delete
+    suspend fun deleteLembretes(lembretes: List<Lembrete>) // Recebe uma lista
+
     @Query("DELETE FROM lembretes WHERE medicamentoId = :medicamentoId")
     suspend fun deleteLembretesByMedicamentoId(medicamentoId: String)
 
@@ -33,3 +37,4 @@ interface LembreteDao {
     @Query("SELECT * FROM lembretes WHERE medicamentoId = :medicamentoId")
     suspend fun getLembretesByMedicamentoId(medicamentoId: String): List<Lembrete>
 }
+

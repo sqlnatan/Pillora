@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextAlign // Import TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pillora.pillora.data.local.AppDatabase // *** CORRIGIDO: Import AppDatabase ***
 import com.pillora.pillora.model.PrescribedMedication
 import com.pillora.pillora.viewmodel.RecipeDetailUiState
 import com.pillora.pillora.viewmodel.RecipeViewModel
@@ -40,6 +41,9 @@ fun RecipeFormScreen(
     recipeViewModel: RecipeViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    // *** CORRIGIDO: Obter LembreteDao ***
+    val lembreteDao = remember { AppDatabase.getDatabase(context).lembreteDao() }
+
     val detailState by recipeViewModel.recipeDetailState.collectAsState()
     val formState = recipeViewModel.recipeUiState
     val prescribedMedications = recipeViewModel.prescribedMedicationsState
@@ -128,7 +132,8 @@ fun RecipeFormScreen(
                     if (isEditingRecipe) {
                         IconButton(onClick = {
                             recipeId?.let { id ->
-                                recipeViewModel.deleteRecipe(id)
+                                // *** CORRIGIDO: Passar context e lembreteDao ***
+                                recipeViewModel.deleteRecipe(context, lembreteDao, id)
                             }
                         }) {
                             Icon(Icons.Default.Delete, contentDescription = "Deletar Receita", tint = MaterialTheme.colorScheme.error)
@@ -215,7 +220,10 @@ fun RecipeFormScreen(
 
             // Save Recipe Button
             Button(
-                onClick = { recipeViewModel.saveOrUpdateRecipe() },
+                onClick = {
+                    // *** CORRIGIDO: Passar context e lembreteDao ***
+                    recipeViewModel.saveOrUpdateRecipe(context, lembreteDao)
+                },
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp),
                 // Disable button only when the detail state is Loading
                 enabled = detailState !is RecipeDetailUiState.Loading
