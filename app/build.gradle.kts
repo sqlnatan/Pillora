@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.pillora.pillora"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.pillora.pillora"
