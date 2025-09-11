@@ -17,8 +17,8 @@ splashscreen = "1.0.1"
 kotlinKsp = "2.2.0-2.0.2"
 workmanager = "2.10.4"
 room = "2.8.0"
-gson = "2.10.1"
-accompanist = "0.30.1"
+gson = "2.13.1"
+accompanist = "0.37.3"
 kotlinComposeCompiler = "2.1.20"
 
 [libraries]
@@ -41,7 +41,7 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 firebase-analytics-ktx = { group = "com.google.firebase", name = "firebase-analytics-ktx" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" }
 firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
-androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version = "2.8.9" } # Consider using BOM for navigation too if available
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version = "2.9.4" } # Consider using BOM for navigation too if available
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebase-bom" } # This platform dependency imports the Firebase BOM
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore-ktx" } # Version managed by Firebase BOM
