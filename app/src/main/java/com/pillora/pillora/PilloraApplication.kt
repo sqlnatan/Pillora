@@ -5,11 +5,16 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import com.pillora.pillora.data.local.AppDatabase
+import com.pillora.pillora.repository.MedicineRepository
 
 class PilloraApplication : Application() {
 
+    val database by lazy { AppDatabase.getDatabase(this) }
+    val medicineRepository by lazy { MedicineRepository }
+
     companion object {
-        // Canais existentes
+        // Canais existentess
         const val CHANNEL_LEMBRETES_MEDICAMENTOS_ID = "lembretes_medicamentos_channel" // Com alarme
         const val CHANNEL_ALERTAS_ESTOQUE_ID = "alertas_estoque_channel" // Padrão
         const val CHANNEL_LEMBRETES_CONSULTAS_ID = "lembretes_consultas_channel" // Padrão (usado para confirmação pós-consulta)

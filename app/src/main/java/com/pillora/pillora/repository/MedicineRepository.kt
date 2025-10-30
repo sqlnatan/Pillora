@@ -128,6 +128,22 @@ object MedicineRepository {
             .addOnFailureListener { onError(it) }
     }
 
+    fun getMedicineByIdSync(
+        medicineId: String?
+    ): Medicine? {
+        if (medicineId.isNullOrBlank()) return null
+        val userId = currentUserId ?: return null
+        return try {
+            val documentSnapshot = db.collection(USERS_COLLECTION).document(userId)
+                .collection(MEDICINES_SUBCOLLECTION).document(medicineId)
+                .get().result // Bloqueia a thread, deve ser usado com cuidado (dentro de coroutine)
+            documentSnapshot.toObject(Medicine::class.java)?.copy(id = documentSnapshot.id)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting medicine $medicineId synchronously", e)
+            null
+        }
+    }
+
     fun getAllMedicinesFlow(): Flow<List<Medicine>> = callbackFlow {
         val userMedicinesRef = getUserMedicinesCollectionRef()
         if (userMedicinesRef == null) {

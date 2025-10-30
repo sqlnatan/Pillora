@@ -12,11 +12,15 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.pillora.pillora.MainActivity
+import com.pillora.pillora.repository.MedicineRepository
 import com.pillora.pillora.PilloraApplication // Importação necessária
 import com.pillora.pillora.R
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.text.SimpleDateFormat
 import com.pillora.pillora.receiver.NotificationActionReceiver
 import com.pillora.pillora.utils.DateTimeUtils
-import java.util.Locale
 
 class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
@@ -78,6 +82,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         val tipoLembrete = inputData.getString(EXTRA_TIPO_LEMBRETE) ?: "tipo_desconhecido"
         val nomeVacina = inputData.getString(EXTRA_VACCINE_NAME) ?: ""
         val horaVacina = inputData.getString(EXTRA_VACCINE_TIME) ?: ""
+        val proximaOcorrenciaMillis = inputData.getLong(EXTRA_PROXIMA_OCORRENCIA_MILLIS, 0L) // Usar o extra correto
 
         Log.d("NotificationWorker", "Recebido: lembreteId=$lembreteId, tipo=$tipoLembrete, isConsulta=$isConsulta, isVacina=$isVacina, isReceita=$isReceita, isConfirmacao=$isConfirmacao")
         Log.d("NotificationWorker", "Recebido: title=$notificationTitle, message(obs/dose)=$notificationMessage, recipient=$recipientName")
@@ -88,6 +93,58 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             Log.e("NotificationWorker", "ERRO! ID do Lembrete inválido. Abortando.")
             return Result.failure()
         }
+
+        // 1. Lógica de cancelamento (Foco principal)
+        if (!isConsulta && !isVacina && !isReceita) {
+            // Se for um lembrete de medicamento, verificar se a data/hora da ocorrência já passou do limite.
+            // O limite é implícito: se o lembrete foi agendado, ele é a próxima ocorrência.
+            // A lógica de cancelamento deve ser feita APÓS a exibição da notificação e ANTES do reagendamento.
+            // Como não há reagendamento aqui, a lógica é apenas desativar o lembrete no DB.
+
+            val lembreteDao = (applicationContext as PilloraApplication).database.lembreteDao()
+            val lembrete = lembreteDao.getLembreteById(lembreteId)
+
+            if (lembrete != null) {
+                val medicineRepository = MedicineRepository // Usar o objeto singleton diretamente
+                val medicine = medicineRepository.getMedicineByIdSync(medicamentoId) // Assumindo que você pode adicionar um método síncrono ou usar o flow.
+
+                if (medicine != null && medicine.duration > 0) {
+                    val endDateCal = try {
+                        val startDateCal = Calendar.getInstance().apply { time = SimpleDateFormat("dd/MM/yyyy", Locale.US).parse(medicine.startDate) ?: throw IllegalArgumentException("Invalid start date format") }
+                        (startDateCal.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, medicine.duration) }
+                    } catch (e: Exception) {
+                        Log.e("NotificationWorker", "Erro ao calcular data de fim para medicamento ${medicine.id}: ${e.message}")
+                        return Result.success() // Se não conseguir calcular a data de fim, assume que o lembrete é inválido e não prossegue.
+                    }
+
+                    // A data de fim do tratamento é o dia *depois* do último dia de duração.
+                    // Exemplo: 7 dias a partir de 01/01/2025 termina em 08/01/2025 (07/01 é o último dia).
+                    // Se a próxima ocorrência (proximaOcorrenciaMillis) for no dia de fim ou depois, deve ser cancelada.
+
+                    // Ajustar endDateCal para o fim do último dia de tratamento (23:59:59)
+                    endDateCal.add(Calendar.DAY_OF_YEAR, -1) // Volta para o último dia de tratamento
+                    endDateCal.set(Calendar.HOUR_OF_DAY, 23)
+                    endDateCal.set(Calendar.MINUTE, 59)
+                    endDateCal.set(Calendar.SECOND, 59)
+                    endDateCal.set(Calendar.MILLISECOND, 999)
+
+                    // Se a próxima ocorrência (proximaOcorrenciaMillis) for DEPOIS do fim do último dia de tratamento, desativar.
+                    if (proximaOcorrenciaMillis > endDateCal.timeInMillis) {
+                        Log.d("NotificationWorker", "Lembrete $lembreteId para medicamento $medicamentoId expirou (fim em ${endDateCal.time}). Desativando.")
+                        lembreteDao.updateLembrete(lembrete.copy(ativo = false))
+                        // Não exibir notificação e não prosseguir.
+                        return Result.success()
+                    }
+                }
+            } else {
+                Log.w("NotificationWorker", "Lembrete $lembreteId não encontrado no DB local. Ignorando verificação de expiração.")
+            }
+        }
+        // Fim da Lógica de cancelamento (Foco principal)
+
+        // O resto do código de notificação segue aqui...
+
+        // ... (o código restante da função doWork) ...
 
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
