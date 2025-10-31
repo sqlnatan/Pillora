@@ -12,7 +12,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavHostController
 import androidx.navigation.navArgument
 import com.pillora.pillora.screens.AuthScreen
 import com.pillora.pillora.screens.HomeScreen
@@ -20,6 +20,7 @@ import com.pillora.pillora.screens.MedicineFormScreen
 import com.pillora.pillora.screens.MedicineListScreen
 import com.pillora.pillora.screens.SettingsScreen
 import com.pillora.pillora.screens.TermsScreen
+import com.pillora.pillora.screens.ProfileScreen
 import com.pillora.pillora.repository.AuthRepository
 import com.pillora.pillora.screens.ConsultationFormScreen
 import com.pillora.pillora.screens.ConsultationListScreen
@@ -31,12 +32,15 @@ import com.pillora.pillora.viewmodel.ConsultationViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+
 // Define routes for Recipe screens (can be added to Screen sealed class if preferred)
 const val RECIPE_LIST_ROUTE = "recipe_list"
 const val RECIPE_FORM_ROUTE = "recipe_form_screen"
 
 @Composable
 fun AppNavigation(
+    navController: NavHostController,
+
     // Parâmetros para navegação direta de consulta
     openConsultationEdit: Boolean = false,
     consultationId: String? = null,
@@ -44,7 +48,7 @@ fun AppNavigation(
     openVaccineEdit: Boolean = false,
     vaccineId: String? = null
 ) {
-    val navController = rememberNavController()
+    // val navController = rememberNavController() // REMOVIDO: Recebido como parâmetro
     val context = LocalContext.current
     val prefs = remember {
         context.getSharedPreferences("pillora_prefs", Context.MODE_PRIVATE)
@@ -185,6 +189,11 @@ fun AppNavigation(
                 // Handle the case where the ID might be a space or empty string from the list screen
                 val actualRecipeId = if (recipeId?.trim()?.isNotEmpty() == true) recipeId else null
                 RecipeFormScreen(navController = navController, recipeId = actualRecipeId)
+            }
+
+            // Profile screen (Nova rota adicionada)
+            composable(Screen.Profile.route) {
+                ProfileScreen(navController = navController)
             }
         }
 

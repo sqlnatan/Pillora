@@ -12,64 +12,62 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.core.content.ContextCompat
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
+import com.google.accompanist.permissions.isGranted
 import com.google.firebase.FirebaseApp
-import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.ktx.analytics
 import com.google.firebase.ktx.Firebase
-import com.pillora.pillora.navigation.AppNavigation
+import com.pillora.pillora.navigation.*
+import com.pillora.pillora.repository.AuthRepository
 import com.pillora.pillora.ui.theme.PilloraTheme
 import com.pillora.pillora.viewmodel.ThemePreference
-
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
     private val themePreferenceKey = "theme_preference"
-    private var showExactAlarmPermissionDialog by mutableStateOf(false)
+    private var showExactAlarmPermissionDialog = false
 
     @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(R.style.Theme_Pillora) // Manter o tema de splash nativo
+        setTheme(R.style.Theme_Pillora)
         super.onCreate(savedInstanceState)
-        FirebaseApp.initializeApp(this)
+
+        FirebaseApp.initializeApp(this) // ✅ Firebase inicializado antes do setContent
         val analytics = Firebase.analytics
-        analytics.logEvent(FirebaseAnalytics.Event.APP_OPEN, null)
+        analytics.logEvent(com.google.firebase.analytics.FirebaseAnalytics.Event.APP_OPEN, null)
         enableEdgeToEdge()
-
-        // *** CORREÇÃO: Verificar parâmetros para edição de consulta E vacina ***
-        val openConsultationEdit = intent?.getBooleanExtra("OPEN_CONSULTATION_EDIT", false) ?: false
-        val consultationId = intent?.getStringExtra("CONSULTATION_ID")
-        val openVaccineEdit = intent?.getBooleanExtra("OPEN_VACCINE_EDIT", false) ?: false
-        val vaccineId = intent?.getStringExtra("VACCINE_ID")
-
-        if (openConsultationEdit && consultationId != null) {
-            Log.d("MainActivity", "Abrindo tela de edição para consulta: $consultationId")
-        }
-        // *** CORREÇÃO: Adicionar log para edição de vacina ***
-        if (openVaccineEdit && vaccineId != null) {
-            Log.d("MainActivity", "Abrindo tela de edição para vacina: $vaccineId")
-        }
 
         setContent {
             var currentThemePreference by remember { mutableStateOf(getInitialThemePreference()) }
+            var showExactAlarmPermissionDialog by remember { mutableStateOf(false) }
             val context = LocalContext.current
+            val scope = rememberCoroutineScope()
 
+            // Atualiza tema quando mudar nas prefs
             DisposableEffect(Unit) {
                 val prefs = context.getSharedPreferences("pillora_prefs", MODE_PRIVATE)
                 val listener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
@@ -86,25 +84,20 @@ class MainActivity : ComponentActivity() {
             val useDarkTheme = shouldUseDarkTheme(currentThemePreference)
 
             PilloraTheme(darkTheme = useDarkTheme) {
-                // Lógica para Permissão de Notificação (Android 13+)
+                val navController = rememberNavController()
+                val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+
+                // Permissão de notificação (Android 13+)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    val notificationPermissionState = rememberPermissionState(
-                        android.Manifest.permission.POST_NOTIFICATIONS
-                    )
+                    val notificationPermissionState = rememberPermissionState(android.Manifest.permission.POST_NOTIFICATIONS)
                     LaunchedEffect(notificationPermissionState.status) {
                         if (!notificationPermissionState.status.isGranted && !notificationPermissionState.status.shouldShowRationale) {
                             notificationPermissionState.launchPermissionRequest()
                         }
                     }
-                    if (notificationPermissionState.status.shouldShowRationale) {
-                        Log.d("Permissions", "Deveria mostrar justificativa para permissão de notificação.")
-                        // Aqui você pode adicionar um diálogo para explicar a necessidade da permissão de notificação
-                    } else if (!notificationPermissionState.status.isGranted) {
-                        Log.d("Permissions", "Permissão de notificação não concedida.")
-                    }
                 }
 
-                // Lógica para Permissão de Alarme Exato (Android 12+)
+                // Permissão de alarme exato (Android 12+)
                 LaunchedEffect(Unit) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         val alarmManager = ContextCompat.getSystemService(context, AlarmManager::class.java)
@@ -133,13 +126,64 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                // *** CORREÇÃO: Passar os parâmetros de navegação para consulta E vacina ***
-                AppNavigation(
-                    openConsultationEdit = openConsultationEdit,
-                    consultationId = consultationId,
-                    openVaccineEdit = openVaccineEdit, // Passar parâmetro de vacina
-                    vaccineId = vaccineId // Passar ID da vacina
-                )
+                val statusBarHeightDp: Dp = with(LocalDensity.current) {
+                    WindowInsets.statusBars.getTop(this).toDp()
+                }
+
+                ModalNavigationDrawer(
+                    drawerState = drawerState,
+                    drawerContent = {
+                        ModalDrawerSheet(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(LocalConfiguration.current.screenWidthDp.dp * 0.75f)
+                                .clip(RoundedCornerShape(24.dp))
+                                .padding(16.dp),
+                            drawerContainerColor = MaterialTheme.colorScheme.surface,
+                            drawerTonalElevation = 8.dp
+                        ) {
+                            DrawerContent(
+                                navController = navController,
+                                scope = scope,
+                                drawerState = drawerState,
+                                authRepository = AuthRepository,
+                                context = context
+                            )
+                        }
+                    }
+                ) {
+                    Scaffold(
+                        topBar = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 16.dp, top = statusBarHeightDp + 8.dp)
+                            ) {
+                                IconButton(
+                                    onClick = { scope.launch { drawerState.open() } },
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Menu,
+                                        contentDescription = "Menu",
+                                        tint = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                }
+                            }
+                        },
+                        bottomBar = {
+                            val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+                            BottomNavigationBar(navController, currentRoute)
+                        }
+                    ) { padding ->
+                        Box(modifier = Modifier.padding(padding)) {
+                            AppNavigation(navController = navController) // ✅ Navegação segura
+                        }
+                    }
+                }
             }
         }
     }
@@ -148,13 +192,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            if (!alarmManager.canScheduleExactAlarms()) {
-                Log.d("Permissions", "Permissão de alarme exato ainda não concedida no onResume.")
-            } else {
-                if (showExactAlarmPermissionDialog) {
-                    showExactAlarmPermissionDialog = false
-                }
-                Log.d("Permissions", "Permissão de alarme exato concedida no onResume.")
+            if (alarmManager.canScheduleExactAlarms() && showExactAlarmPermissionDialog) {
+                showExactAlarmPermissionDialog = false
             }
         }
     }
@@ -174,12 +213,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun shouldUseDarkTheme(preference: ThemePreference): Boolean {
-    return when (preference) {
-        ThemePreference.LIGHT -> false
-        ThemePreference.DARK -> true
-        else -> isSystemInDarkTheme()
-    }
+private fun shouldUseDarkTheme(preference: ThemePreference): Boolean = when (preference) {
+    ThemePreference.LIGHT -> false
+    ThemePreference.DARK -> true
+    else -> androidx.compose.foundation.isSystemInDarkTheme()
 }
 
 @Composable
@@ -187,17 +224,97 @@ fun ExactAlarmPermissionDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Permissão Necessária para Lembretes") },
-        text = { Text("Para que os lembretes de medicamentos funcionem corretamente, o Pillora precisa da sua permissão para agendar alarmes precisos. Por favor, conceda essa permissão nas configurações do aplicativo.") },
-        confirmButton = {
-            Button(onClick = onConfirm) {
-                Text("Abrir Configurações")
-            }
+        text = {
+            Text("Para que os lembretes de medicamentos funcionem corretamente, o Pillora precisa da sua permissão para agendar alarmes precisos. Por favor, conceda essa permissão nas configurações do aplicativo.")
         },
-        dismissButton = {
-            Button(onClick = onDismiss) {
-                Text("Agora não")
-            }
-        }
+        confirmButton = { Button(onClick = onConfirm) { Text("Abrir Configurações") } },
+        dismissButton = { Button(onClick = onDismiss) { Text("Agora não") } }
     )
 }
 
+@Composable
+fun BottomNavigationBar(
+    navController: NavHostController,
+    currentRoute: String?
+) {
+    val bottomNavItemsOrdered = listOf(
+        bottomNavItems.first { it.name == "Início" },
+        bottomNavItems.first { it.name == "Medicação" },
+        bottomNavItems.first { it.name == "Consultas" },
+        bottomNavItems.first { it.name == "Vacinas" },
+        bottomNavItems.first { it.name == "Receitas" }
+    )
+
+    NavigationBar(tonalElevation = 4.dp, modifier = Modifier.fillMaxWidth()) {
+        bottomNavItemsOrdered.forEach { item ->
+            NavigationBarItem(
+                icon = { Icon(item.icon, contentDescription = item.contentDescription) },
+                label = { Text(item.name) },
+                selected = currentRoute == item.route,
+                onClick = {
+                    if (currentRoute != item.route) {
+                        navController.navigate(item.route) {
+                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun DrawerContent(
+    navController: NavHostController,
+    scope: CoroutineScope,
+    drawerState: DrawerState,
+    authRepository: AuthRepository,
+    context: Context
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(260.dp)
+            .padding(16.dp)
+            .background(MaterialTheme.colorScheme.surface),
+        verticalArrangement = Arrangement.Top
+    ) {
+        // ✅ Botão PERFIL
+        DrawerItem(icon = Icons.Default.Person, label = "Perfil") {
+            scope.launch { drawerState.close() }
+            navController.navigate(Screen.Profile.route)
+        }
+
+        // ⚙️ Botão CONFIGURAÇÕES
+        DrawerItem(icon = Icons.Default.Settings, label = "Configurações") {
+            scope.launch { drawerState.close() }
+            navController.navigate(Screen.Settings.route)
+        }
+
+        // 🚪 Botão SAIR
+        DrawerItem(icon = Icons.Default.ExitToApp, label = "Sair") {
+            scope.launch {
+                drawerState.close()
+                authRepository.signOut()
+                Log.d("Drawer", "Usuário saiu com sucesso")
+                // opcionalmente: voltar para a tela de login
+                navController.navigate("login") {
+                    popUpTo(0)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DrawerItem(icon: ImageVector, label: String, onClick: () -> Unit) {
+    NavigationDrawerItem(
+        icon = { Icon(icon, contentDescription = label) },
+        label = { Text(label) },
+        selected = false,
+        onClick = onClick,
+        modifier = Modifier.padding(vertical = 8.dp)
+    )
+}

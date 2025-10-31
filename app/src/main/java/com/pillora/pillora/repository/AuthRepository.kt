@@ -14,43 +14,26 @@ object AuthRepository {
 
     /**
      * Inicia o processo de login com Google
-     * @param activity ComponentActivity - Atividade atual
-     * @param onSuccess Function0<Unit> - Callback de sucesso
-     * @param onError Function1<Exception, Unit> - Callback de erro
      */
     fun signInWithGoogle(
         activity: ComponentActivity,
-        webClientId: String, // Mantido para compatibilidade com a interface
+        webClientId: String, // Mantido para compatibilidade
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit
     ) {
         onGoogleSignInSuccess = onSuccess
         onGoogleSignInError = onError
 
-        // Usando o OAuthProvider do Firebase para autenticação Google
         val provider = OAuthProvider.newBuilder("google.com")
-
-        // Opcional: configurar escopo para acesso a dados do Google
         provider.addCustomParameter("prompt", "select_account")
 
-        // Iniciar o fluxo de autenticação
         auth.startActivityForSignInWithProvider(activity, provider.build())
-            .addOnSuccessListener {
-                // Autenticação bem-sucedida
-                onGoogleSignInSuccess?.invoke()
-            }
-            .addOnFailureListener { exception ->
-                // Autenticação falhou
-                onGoogleSignInError?.invoke(exception)
-            }
+            .addOnSuccessListener { onGoogleSignInSuccess?.invoke() }
+            .addOnFailureListener { exception -> onGoogleSignInError?.invoke(exception) }
     }
 
     /**
-     * Realiza login com email e senha
-     * @param email String - Email do usuário
-     * @param password String - Senha do usuário
-     * @param onSuccess Function0<Unit> - Callback de sucesso
-     * @param onError Function1<Exception, Unit> - Callback de erro
+     * Login com email e senha
      */
     fun signIn(
         email: String,
@@ -64,11 +47,7 @@ object AuthRepository {
     }
 
     /**
-     * Cria uma nova conta com email e senha
-     * @param email String - Email do usuário
-     * @param password String - Senha do usuário
-     * @param onSuccess Function0<Unit> - Callback de sucesso
-     * @param onError Function1<Exception, Unit> - Callback de erro
+     * Criação de conta com email e senha
      */
     fun signUp(
         email: String,
@@ -83,9 +62,6 @@ object AuthRepository {
 
     /**
      * Envia email de recuperação de senha
-     * @param email String - Email do usuário
-     * @param onSuccess Function0<Unit> - Callback de sucesso
-     * @param onError Function1<Exception, Unit> - Callback de erro
      */
     fun resetPassword(
         email: String,
@@ -98,18 +74,47 @@ object AuthRepository {
     }
 
     /**
-     * Realiza logout do usuário atual
+     * Logout do usuário atual
      */
     fun signOut() {
-        // Desconectar do Firebase
         auth.signOut()
     }
 
     /**
      * Verifica se o usuário está autenticado
-     * @return Boolean - true se estiver autenticado, false caso contrário
      */
     fun isUserAuthenticated(): Boolean {
         return auth.currentUser != null
+    }
+
+    /**
+     * Retorna o usuário logado atualmente
+     */
+    fun getCurrentUser() = auth.currentUser
+
+    /**
+     * Atualiza o email do usuário logado
+     */
+    fun updateEmail(
+        newEmail: String,
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        auth.currentUser?.updateEmail(newEmail)
+            ?.addOnSuccessListener { onSuccess() }
+            ?.addOnFailureListener { onError(it) }
+    }
+
+    /**
+     * Atualiza a senha do usuário logado
+     */
+    fun updatePassword(
+        newPassword: String,
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        auth.currentUser?.updatePassword(newPassword)
+            ?.addOnSuccessListener { onSuccess() }
+            ?.addOnFailureListener { onError(it) }
     }
 }
