@@ -152,9 +152,6 @@ class MainActivity : ComponentActivity() {
                     }
                 ) {
                     Scaffold(
-                        topBar = {
-                            // 🔹 Botão do menu lateral removido daqui
-                        },
                         bottomBar = {
                             val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
                             BottomNavigationBar(navController, currentRoute)
