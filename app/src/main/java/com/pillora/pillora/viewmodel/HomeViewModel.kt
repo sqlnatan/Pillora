@@ -12,6 +12,10 @@ import com.pillora.pillora.repository.DataResult // *** ADICIONADO IMPORT NECESS
 import com.pillora.pillora.repository.MedicineRepository
 import com.pillora.pillora.repository.RecipeRepository // Import RecipeRepository
 import com.pillora.pillora.repository.VaccineRepository // Importar VaccineRepository
+import com.pillora.pillora.data.local.AppDatabase // Adicionado
+import com.pillora.pillora.utils.AlarmScheduler // Adicionado
+import kotlinx.coroutines.Dispatchers // Adicionado
+import kotlinx.coroutines.launch // Adicionado
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted // Importar SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +27,7 @@ import kotlinx.coroutines.flow.stateIn
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.*
+import android.content.Context
 // import java.util.concurrent.TimeUnit // Importar TimeUnit
 
 class HomeViewModel : ViewModel() {
@@ -361,5 +366,45 @@ class HomeViewModel : ViewModel() {
         }
     }
     // --- FIM Funções de processamento e helpers ---
+
+    // --- Funções de Exclusão ---
+
+    fun deleteMedicine(
+        context: Context,
+        medicineId: String,
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // 1. Buscar todos os lembretes associados ao medicamento no Room
+            val lembreteDao = AppDatabase.getDatabase(context).lembreteDao()
+            val lembretes = lembreteDao.getLembretesByMedicamentoId(medicineId)
+
+            // 2. Cancelar alarmes e excluir lembretes localmente
+            lembretes.forEach { lembrete ->
+                // Cancelar o alarme no AlarmManager
+                AlarmScheduler.cancelAlarm(context, lembrete.id)
+                // Excluir o lembrete do Room (opcional, mas mais limpo)
+                lembreteDao.deleteLembrete(lembrete)
+                Log.d(tag, "Lembrete ID ${lembrete.id} (Medicamento $medicineId) cancelado e excluído localmente.")
+            }
+
+            // 3. Excluir o medicamento do Firestore
+            MedicineRepository.deleteMedicine(
+                medicineId = medicineId,
+                onSuccess = {
+                    Log.d(tag, "Medicamento $medicineId excluído do Firestore com sucesso.")
+                    onSuccess()
+                },
+                onError = { exception ->
+                    Log.e(tag, "Erro ao excluir medicamento $medicineId do Firestore.", exception)
+                    // Se a exclusão do Firestore falhar, os lembretes locais já foram limpos,
+                    // mas o medicamento pode reaparecer na UI se o Firestore for a fonte primária.
+                    // O erro deve ser reportado.
+                    onError(exception)
+                }
+            )
+        }
+    }
 }
 

@@ -147,9 +147,6 @@ fun VaccineListScreen(navController: NavController) {
                         ) {
                             Text(text = "Nenhum lembrete de vacina encontrado.")
                             Spacer(modifier = Modifier.height(16.dp))
-                            Button(onClick = { navController.navigate(Screen.VaccineForm.route) }) {
-                                Text("Adicionar Lembrete")
-                            }
                         }
                     } else {
                         LazyColumn(

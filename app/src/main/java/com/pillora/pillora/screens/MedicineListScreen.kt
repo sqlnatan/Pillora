@@ -19,6 +19,8 @@ import androidx.navigation.NavController
 import com.pillora.pillora.model.Medicine
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.MedicineRepository
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pillora.pillora.viewmodel.HomeViewModel
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import android.widget.Toast
@@ -65,7 +67,7 @@ private fun calculateTimesForDisplay(startTime: String?, intervalHours: Int?): S
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MedicineListScreen(navController: NavController) {
+fun MedicineListScreen(navController: NavController, homeViewModel: HomeViewModel = viewModel()) {
     val scope = rememberCoroutineScope()
     var medicines by remember { mutableStateOf<List<Medicine>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -101,10 +103,11 @@ fun MedicineListScreen(navController: NavController) {
                         // Garantir que o ID não é nulo antes de tentar deletar
                         medicineToDelete?.id?.let { id ->
                             scope.launch {
-                                MedicineRepository.deleteMedicine(
+                                homeViewModel.deleteMedicine(
+                                    context = context,
                                     medicineId = id,
                                     onSuccess = {
-                                        Toast.makeText(context, "Medicamento excluído", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Medicamento excluído com sucesso!", Toast.LENGTH_SHORT).show()
                                         // Flow atualiza a lista
                                     },
                                     onError = { exception ->
@@ -187,9 +190,6 @@ fun MedicineListScreen(navController: NavController) {
                 ) {
                     Text("Nenhum medicamento cadastrado")
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { navController.navigate(Screen.MedicineForm.route) }) {
-                        Text("Adicionar medicamento")
-                    }
                 }
             } else {
                 LazyColumn(

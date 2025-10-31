@@ -153,7 +153,7 @@ fun ConsultationListScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Nenhuma consulta encontrada. Adicione uma nova consulta clicando no botão +",
+                                text = "Nenhuma consulta encontrada.",
                                 modifier = Modifier.padding(bottom = 16.dp)
                             )
                         }
