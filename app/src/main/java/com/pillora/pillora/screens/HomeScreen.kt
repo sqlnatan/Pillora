@@ -1,21 +1,27 @@
 package com.pillora.pillora.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -27,8 +33,7 @@ import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.viewmodel.HomeViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,20 +63,64 @@ fun HomeScreen(
         }
     }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { innerPadding ->
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .padding(innerPadding)
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            val statusBarHeightDp: Dp = with(LocalDensity.current) {
+                WindowInsets.statusBars.getTop(this).toDp()
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = 16.dp,
+                        top = statusBarHeightDp + 4.dp,
+                        bottom = 8.dp,
+                        end = 16.dp
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { /* abrir drawer futuramente */ },
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "Menu",
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Text(
+                    text = "Pillora",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
-
+                // --- Conteúdo original ---
                 Text(
                     text = "Bem-vindo ao Pillora",
                     style = MaterialTheme.typography.headlineMedium,
@@ -108,7 +157,7 @@ fun HomeScreen(
                     }
                 }
 
-                // --- Consultas Médicas ---
+                // --- Consultas ---
                 HomeCard(
                     title = "Próximas Consultas (7 dias)",
                     addRoute = Screen.ConsultationForm.route + "?id=",
@@ -117,11 +166,11 @@ fun HomeScreen(
                 ) {
                     if (upcomingConsultations.isNotEmpty()) {
                         upcomingConsultations.forEachIndexed { i, consultation ->
-                            UpcomingConsultationItem(consultation = consultation)
+                            UpcomingConsultationItem(consultation)
                             if (i < upcomingConsultations.lastIndex) Spacer(modifier = Modifier.height(8.dp))
                         }
                     } else {
-                        Text("Nenhuma consulta agendada para os próximos 7 dias.", style = MaterialTheme.typography.bodyMedium)
+                        Text("Nenhuma consulta agendada para os próximos 7 dias.")
                     }
                 }
 
@@ -134,11 +183,11 @@ fun HomeScreen(
                 ) {
                     if (upcomingVaccines.isNotEmpty()) {
                         upcomingVaccines.forEachIndexed { i, vaccine ->
-                            UpcomingVaccineItem(vaccine = vaccine)
+                            UpcomingVaccineItem(vaccine)
                             if (i < upcomingVaccines.lastIndex) Spacer(modifier = Modifier.height(8.dp))
                         }
                     } else {
-                        Text("Nenhum lembrete de vacina para os próximos 15 dias.", style = MaterialTheme.typography.bodyMedium)
+                        Text("Nenhum lembrete de vacina para os próximos 15 dias.")
                     }
                 }
 
@@ -158,14 +207,14 @@ fun HomeScreen(
                             } else {
                                 "Receita $doctorInfo"
                             }
-                            Text(displayText, style = MaterialTheme.typography.bodyMedium)
+                            Text(displayText)
                             Spacer(modifier = Modifier.height(4.dp))
                         }
                         if (allRecipes.size > 3) {
-                            Text("... e mais ${allRecipes.size - 3}", style = MaterialTheme.typography.bodySmall)
+                            Text("... e mais ${allRecipes.size - 3}")
                         }
                     } else {
-                        Text("Nenhuma receita cadastrada.", style = MaterialTheme.typography.bodyMedium)
+                        Text("Nenhuma receita cadastrada.")
                     }
                 }
 
@@ -184,10 +233,7 @@ fun HomeScreen(
                                 null -> ""
                                 else -> "(em $daysLeft dias)"
                             }
-                            Text(
-                                text = "Receita para ${recipe.patientName} vence em ${recipe.validityDate} $daysText",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Text("Receita para ${recipe.patientName} vence em ${recipe.validityDate} $daysText")
                             Spacer(modifier = Modifier.height(4.dp))
                         }
                     }
@@ -201,16 +247,13 @@ fun HomeScreen(
                         contentColor = MaterialTheme.colorScheme.onErrorContainer
                     ) {
                         stockAlerts.forEach { med ->
-                            Text(
-                                text = "${med.name}: Estoque baixo (${med.stockQuantity} ${med.stockUnit})",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Text("${med.name}: Estoque baixo (${med.stockQuantity} ${med.stockUnit})")
                             Spacer(modifier = Modifier.height(4.dp))
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
             if (isLoading) {
@@ -219,6 +262,9 @@ fun HomeScreen(
         }
     }
 }
+
+// Restante do código (HomeCard, AlertCard, UpcomingConsultationItem, UpcomingVaccineItem, calculateDaysUntil) permanece igual
+
 
 // --- Generic Cards ---
 @Composable

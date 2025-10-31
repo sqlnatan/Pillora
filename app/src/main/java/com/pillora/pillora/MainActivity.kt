@@ -14,7 +14,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -56,7 +55,7 @@ class MainActivity : ComponentActivity() {
         setTheme(R.style.Theme_Pillora)
         super.onCreate(savedInstanceState)
 
-        FirebaseApp.initializeApp(this) // ✅ Firebase inicializado antes do setContent
+        FirebaseApp.initializeApp(this)
         val analytics = Firebase.analytics
         analytics.logEvent(com.google.firebase.analytics.FirebaseAnalytics.Event.APP_OPEN, null)
         enableEdgeToEdge()
@@ -154,25 +153,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Scaffold(
                         topBar = {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = 16.dp, top = statusBarHeightDp + 8.dp)
-                            ) {
-                                IconButton(
-                                    onClick = { scope.launch { drawerState.open() } },
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.primary)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Menu,
-                                        contentDescription = "Menu",
-                                        tint = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                }
-                            }
+                            // 🔹 Botão do menu lateral removido daqui
                         },
                         bottomBar = {
                             val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
@@ -180,7 +161,7 @@ class MainActivity : ComponentActivity() {
                         }
                     ) { padding ->
                         Box(modifier = Modifier.padding(padding)) {
-                            AppNavigation(navController = navController) // ✅ Navegação segura
+                            AppNavigation(navController = navController)
                         }
                     }
                 }
@@ -281,25 +262,21 @@ fun DrawerContent(
             .background(MaterialTheme.colorScheme.surface),
         verticalArrangement = Arrangement.Top
     ) {
-        // ✅ Botão PERFIL
         DrawerItem(icon = Icons.Default.Person, label = "Perfil") {
             scope.launch { drawerState.close() }
             navController.navigate(Screen.Profile.route)
         }
 
-        // ⚙️ Botão CONFIGURAÇÕES
         DrawerItem(icon = Icons.Default.Settings, label = "Configurações") {
             scope.launch { drawerState.close() }
             navController.navigate(Screen.Settings.route)
         }
 
-        // 🚪 Botão SAIR
         DrawerItem(icon = Icons.Default.ExitToApp, label = "Sair") {
             scope.launch {
                 drawerState.close()
                 authRepository.signOut()
                 Log.d("Drawer", "Usuário saiu com sucesso")
-                // opcionalmente: voltar para a tela de login
                 navController.navigate("login") {
                     popUpTo(0)
                 }
