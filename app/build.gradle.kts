@@ -78,6 +78,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.google.gson)
     implementation(libs.accompanist.permissions)
+    implementation(libs.play.services.ads)
 
 }
 

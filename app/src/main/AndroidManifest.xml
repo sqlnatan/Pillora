@@ -24,6 +24,11 @@
         android:theme="@style/Theme.Pillora"
         tools:targetApi="31">
 
+        <!-- AdMob App ID -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-8809749598570199~4181678386"/>
+
         <activity
             android:name=".SplashActivity"
             android:exported="true"

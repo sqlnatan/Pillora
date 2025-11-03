@@ -44,7 +44,6 @@ import com.pillora.pillora.ui.theme.PilloraTheme
 import com.pillora.pillora.viewmodel.ThemePreference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import androidx.compose.ui.platform.LocalLayoutDirection
 
 class MainActivity : ComponentActivity() {
 
@@ -155,6 +154,7 @@ class MainActivity : ComponentActivity() {
                     Scaffold(
                         bottomBar = {
                             val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+                            // ❗ Exibir bottom bar apenas se NÃO estiver em telas de autenticação
                             val shouldShowBottomBar = currentRoute !in listOf("login", "register", "auth")
 
                             if (shouldShowBottomBar) {
@@ -162,26 +162,10 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     ) { padding ->
-                        val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-                        val shouldShowBottomBar = currentRoute !in listOf("login", "register", "auth", "terms")
-
-                        // 🔧 Remove o padding inferior se não houver bottom bar
-                        val adjustedPadding = if (shouldShowBottomBar) {
-                            padding
-                        } else {
-                            PaddingValues(
-                                top = padding.calculateTopPadding(),
-                                bottom = 0.dp,
-                                start = padding.calculateStartPadding(LocalLayoutDirection.current),
-                                end = padding.calculateEndPadding(LocalLayoutDirection.current)
-                            )
-                        }
-
-                        Box(modifier = Modifier.padding(adjustedPadding)) {
+                        Box(modifier = Modifier.padding(padding)) {
                             AppNavigation(navController = navController)
                         }
                     }
-
 
                 }
             }
