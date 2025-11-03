@@ -154,13 +154,19 @@ class MainActivity : ComponentActivity() {
                     Scaffold(
                         bottomBar = {
                             val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-                            BottomNavigationBar(navController, currentRoute)
+                            // ❗ Exibir bottom bar apenas se NÃO estiver em telas de autenticação
+                            val shouldShowBottomBar = currentRoute !in listOf("login", "register", "auth")
+
+                            if (shouldShowBottomBar) {
+                                BottomNavigationBar(navController, currentRoute)
+                            }
                         }
                     ) { padding ->
                         Box(modifier = Modifier.padding(padding)) {
                             AppNavigation(navController = navController)
                         }
                     }
+
                 }
             }
         }

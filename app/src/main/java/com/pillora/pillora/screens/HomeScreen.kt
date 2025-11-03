@@ -261,7 +261,7 @@ fun DrawerContent(
                 drawerState.close()
                 authRepository.signOut()
                 Log.d("Drawer", "Usuário saiu com sucesso")
-                navController.navigate("login") {
+                navController.navigate("auth") {
                     popUpTo(0)
                 }
             }

@@ -33,6 +33,8 @@ data class Lembrete(
     val isConsulta: Boolean = false, // Adicionado para clareza, embora possa ser inferido pelo tipo na 'dose'
     val isVacina: Boolean = false,
     val isReceita: Boolean = false, // *** NOVO FLAG PARA RECEITAS ***
-    val isConfirmacao: Boolean = false // Flag para identificar se é um lembrete de confirmação (3h depois consulta/vacina, 1d depois receita)
+    val isConfirmacao: Boolean = false, // Flag para identificar se é um lembrete de confirmação (3h depois consulta/vacina, 1d depois receita)
+    val isSilencioso: Boolean = false, // NOVO: Se TRUE, a notificação será exibida sem som, vibração ou tela cheia.
+    val toqueAlarmeUri: String? = null // NOVO: URI do toque de alarme selecionado (String para persistência no Room)
 )
 

@@ -22,5 +22,7 @@ data class Consultation(
     val dateTime: String = "", // Consider using Timestamp for Firestore sorting/querying later
     val location: String = "",
     val observations: String = "",
-    val patientName: String = "" // Added patientName field
+    val patientName: String = "", // Added patientName fiel
+    val isSilencioso: Boolean = false,   // NOVO
+    val toqueAlarmeUri: String? = null   // NOVO
 )

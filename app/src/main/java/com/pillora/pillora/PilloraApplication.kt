@@ -14,14 +14,16 @@ class PilloraApplication : Application() {
     val medicineRepository by lazy { MedicineRepository }
 
     companion object {
-        // Canais existentess
-        const val CHANNEL_LEMBRETES_MEDICAMENTOS_ID = "lembretes_medicamentos_channel" // Com alarme
-        const val CHANNEL_ALERTAS_ESTOQUE_ID = "alertas_estoque_channel" // Padrão
-        const val CHANNEL_LEMBRETES_CONSULTAS_ID = "lembretes_consultas_channel" // Padrão (usado para confirmação pós-consulta)
-        const val CHANNEL_LEMBRETES_VACINAS_ID = "lembretes_vacinas_channel" // Padrão (usado para confirmação pós-vacina)
-
-        // *** NOVO CANAL PARA RECEITAS (Silencioso/Padrão) ***
+        // Canais existentes
+        const val CHANNEL_LEMBRETES_MEDICAMENTOS_ID = "lembretes_medicamentos_channel"
+        const val CHANNEL_ALERTAS_ESTOQUE_ID = "alertas_estoque_channel"
+        const val CHANNEL_LEMBRETES_CONSULTAS_ID = "lembretes_consultas_channel"
+        const val CHANNEL_LEMBRETES_VACINAS_ID = "lembretes_vacinas_channel"
         const val CHANNEL_LEMBRETES_RECEITAS_ID = "lembretes_receitas_channel"
+
+        // Novos canais para o NotificationWorker
+        const val CHANNEL_LEMBRETES_SONORO_ID = "lembretes_sonoro"
+        const val CHANNEL_LEMBRETES_SILENCIOSO_ID = "lembretes_silencioso"
     }
 
     override fun onCreate() {
@@ -31,73 +33,85 @@ class PilloraApplication : Application() {
 
     private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Canal para Lembretes de Medicamentos (com som de alarme)
-            val canalLembretesMed = NotificationChannel(
-                CHANNEL_LEMBRETES_MEDICAMENTOS_ID,
-                "Lembretes de Medicamentos/Consultas/Vacinas", // Nome mais genérico, pois é usado para pré-consulta/vacina também
-                NotificationManager.IMPORTANCE_HIGH // Alta importância para aparecer como Heads-up
+            val manager = getSystemService(NotificationManager::class.java)
+
+            // 🔔 Canal sonoro (permite som personalizado via Worker)
+            val canalSonoro = NotificationChannel(
+                CHANNEL_LEMBRETES_SONORO_ID,
+                "Lembretes com Som",
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Notificações com alarme para tomar medicamentos ou lembretes prévios de consultas/vacinas."
-                setSound(android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM),
-                    android.media.AudioAttributes.Builder()
-                        .setUsage(android.media.AudioAttributes.USAGE_ALARM)
-                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build())
+                description = "Notificações com som e vibração personalizável."
+                setSound(null, null) // ❗ som será definido no NotificationWorker
                 enableVibration(true)
-                vibrationPattern = longArrayOf(0, 1000, 500, 1000, 500, 1000)
                 enableLights(true)
-                lightColor = 0xFF0000FF.toInt() // Azul
-                setBypassDnd(true)
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             }
 
-            // Canal para Alertas de Estoque (sem som alto)
+            // 🤫 Canal silencioso
+            val canalSilencioso = NotificationChannel(
+                CHANNEL_LEMBRETES_SILENCIOSO_ID,
+                "Lembretes Silenciosos",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Notificações sem som nem vibração."
+                setSound(null, null)
+                enableVibration(false)
+            }
+
+            // 🧠 Canais antigos (mantidos)
+            val canalLembretesMed = NotificationChannel(
+                CHANNEL_LEMBRETES_MEDICAMENTOS_ID,
+                "Lembretes de Medicamentos/Consultas/Vacinas",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notificações com alarme para tomar medicamentos ou lembretes prévios."
+                setSound(null, null)
+                enableVibration(true)
+                enableLights(true)
+                lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+            }
+
             val canalAlertasEstoque = NotificationChannel(
                 CHANNEL_ALERTAS_ESTOQUE_ID,
                 "Alertas de Estoque",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Avisos sobre estoque baixo ou fim de tratamento."
-                // Som e vibração padrão
             }
 
-            // Canal para Confirmações de Consultas (sem som alto)
             val canalLembretesConsultas = NotificationChannel(
                 CHANNEL_LEMBRETES_CONSULTAS_ID,
                 "Confirmações de Consultas",
-                NotificationManager.IMPORTANCE_DEFAULT // Importância padrão é suficiente
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Notificações para confirmar comparecimento em consultas."
-                // Som e vibração padrão
             }
 
-            // Canal para Confirmações de Vacinas (sem som alto)
             val canalLembretesVacinas = NotificationChannel(
                 CHANNEL_LEMBRETES_VACINAS_ID,
                 "Confirmações de Vacinas",
-                NotificationManager.IMPORTANCE_DEFAULT // Importância padrão é suficiente
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Notificações para confirmar comparecimento em vacinas."
-                // Som e vibração padrão
             }
 
-            // *** NOVO: Canal para Lembretes de Receitas (sem som alto) ***
             val canalLembretesReceitas = NotificationChannel(
                 CHANNEL_LEMBRETES_RECEITAS_ID,
                 "Lembretes de Receitas",
-                NotificationManager.IMPORTANCE_DEFAULT // Importância padrão, sem alarme
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Avisos sobre vencimento ou confirmação de compra de receitas."
-                // Som e vibração padrão (sem som de alarme)
             }
 
-            val manager = getSystemService(NotificationManager::class.java)
+            // Registrar todos os canais
+            manager.createNotificationChannel(canalSonoro)
+            manager.createNotificationChannel(canalSilencioso)
             manager.createNotificationChannel(canalLembretesMed)
             manager.createNotificationChannel(canalAlertasEstoque)
             manager.createNotificationChannel(canalLembretesConsultas)
             manager.createNotificationChannel(canalLembretesVacinas)
-            manager.createNotificationChannel(canalLembretesReceitas) // Registrar o novo canal
+            manager.createNotificationChannel(canalLembretesReceitas)
         }
     }
 }
-

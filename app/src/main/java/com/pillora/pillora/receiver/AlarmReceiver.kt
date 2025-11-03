@@ -37,6 +37,8 @@ class AlarmReceiver : BroadcastReceiver() {
         val isVacinaAlarm = intent.getBooleanExtra(NotificationWorker.EXTRA_IS_VACINA, false)
         val isConfirmacaoAlarm = intent.getBooleanExtra(NotificationWorker.EXTRA_IS_CONFIRMACAO, false) // Geralmente será false aqui
         val tipoLembrete = intent.getStringExtra(NotificationWorker.EXTRA_TIPO_LEMBRETE) ?: "tipo_desconhecido"
+        val isSilencioso = intent.getBooleanExtra(NotificationWorker.EXTRA_IS_SILENCIOSO, false) // NOVO
+        val toqueAlarmeUri = intent.getStringExtra(NotificationWorker.EXTRA_TOQUE_ALARME_URI) // NOVO
         // --------------------------------------------------------------------------
 
         Log.d("AlarmReceiver", "Recebido: lembreteId=$lembreteId, tipo=$tipoLembrete, title=$title, message=$message")
@@ -63,6 +65,8 @@ class AlarmReceiver : BroadcastReceiver() {
             .putInt(NotificationWorker.EXTRA_MINUTO, minuto)
             .putString(NotificationWorker.EXTRA_TIPO_LEMBRETE, tipoLembrete)
             .putBoolean(NotificationWorker.EXTRA_IS_CONFIRMACAO, false) // Alarme nunca é de confirmação
+            .putBoolean(NotificationWorker.EXTRA_IS_SILENCIOSO, isSilencioso) // NOVO
+            .putString(NotificationWorker.EXTRA_TOQUE_ALARME_URI, toqueAlarmeUri) // NOVO
 
         // Adicionar dados específicos de Consulta OU Vacina OU Medicamento
         if (isConsultaAlarm) {

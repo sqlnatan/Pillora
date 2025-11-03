@@ -1,5 +1,7 @@
 package com.pillora.pillora.screens
 
+import android.media.RingtoneManager
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -8,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,7 +23,9 @@ import androidx.navigation.NavController
 import com.pillora.pillora.data.dao.LembreteDao
 import com.pillora.pillora.viewmodel.ConsultationViewModel
 import kotlinx.coroutines.launch
-
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +46,7 @@ fun ConsultationFormScreen(
     val error by viewModel.error.collectAsState()
     val navigateBack by viewModel.navigateBack.collectAsState()
 
-    // Form state from ViewModel
+    // Campos do formulário
     val specialty = viewModel.specialty
     val doctorName = viewModel.doctorName
     val patientName = viewModel.patientName
@@ -50,7 +55,21 @@ fun ConsultationFormScreen(
     val location = viewModel.location
     val observations = viewModel.observations
 
-    // Load consultation data if ID is provided (editing mode)
+    val isSilencioso by viewModel.isSilencioso
+    val toqueSelecionado by viewModel.toqueAlarmeUri
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val data = result.data
+        val uri: Uri? = data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+        viewModel.setToqueAlarmeUri(uri?.toString())
+    }
+
+
+
+
+    // Carregar dados se for edição
     LaunchedEffect(consultationId) {
         consultationId?.let {
             if (it.isNotEmpty()) {
@@ -59,7 +78,7 @@ fun ConsultationFormScreen(
         }
     }
 
-    // Handle navigation when save is successful
+    // Navegação pós-salvamento
     LaunchedEffect(navigateBack) {
         if (navigateBack) {
             navController.popBackStack()
@@ -67,7 +86,7 @@ fun ConsultationFormScreen(
         }
     }
 
-    // Show error messages
+    // Erros
     LaunchedEffect(error) {
         error?.let {
             scope.launch {
@@ -181,7 +200,53 @@ fun ConsultationFormScreen(
                     )
                 )
 
+                // --- NOVO BLOCO ---
+                Divider()
+                Text("Configurações do Lembrete", style = MaterialTheme.typography.titleMedium)
+
+                // Alternar modo silencioso
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Text("Modo silencioso")
+                    Switch(
+                        checked = isSilencioso,
+                        onCheckedChange = { viewModel.setSilencioso(it) }
+                    )
+                }
+
+                // Selecionar toque personalizado
+                OutlinedButton(
+                    onClick = {
+                        val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Escolha o som do lembrete")
+                            putExtra(
+                                RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
+                                if (toqueSelecionado != null) Uri.parse(toqueSelecionado) else null
+                            )
+                        }
+                        launcher.launch(intent)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Filled.MusicNote, contentDescription = "Escolher toque")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Escolher Toque")
+                }
+
+
+                toqueSelecionado?.let {
+                    Text(
+                        text = "Toque selecionado: ${Uri.parse(it).lastPathSegment ?: "Personalizado"}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
+
                 Button(
                     onClick = { viewModel.saveConsultation(context, lembreteDao) },
                     modifier = Modifier.fillMaxWidth(),
@@ -197,6 +262,7 @@ fun ConsultationFormScreen(
                     }
                     Text(if (consultationId == null) "Salvar Consulta" else "Atualizar Consulta")
                 }
+
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
