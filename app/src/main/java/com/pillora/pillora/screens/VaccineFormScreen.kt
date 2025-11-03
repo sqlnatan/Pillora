@@ -77,6 +77,8 @@ fun VaccineFormScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }, // Correct SnackbarHost usage
         topBar = {
             TopAppBar(
+                modifier = Modifier.height(48.dp),
+                windowInsets = WindowInsets(0),
                 title = { Text(if (vaccineId == null) "Adicionar Lembrete" else "Editar Lembrete") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {

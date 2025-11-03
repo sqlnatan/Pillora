@@ -47,6 +47,8 @@ fun ProfileScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
+                modifier = Modifier.height(48.dp),
+                windowInsets = WindowInsets(0),
                 title = { Text("Meu Perfil") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {

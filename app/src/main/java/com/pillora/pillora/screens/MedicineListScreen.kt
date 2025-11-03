@@ -138,9 +138,15 @@ fun MedicineListScreen(navController: NavController, homeViewModel: HomeViewMode
     Scaffold(
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0), // remove o padding interno padrão (ex: status bar)
                 title = {
-                    Column {
-                        Text("Medicamentos")
+                    Column(
+                        modifier = Modifier.padding(vertical = 4.dp) // reduz o espaço interno
+                    ) {
+                        Text(
+                            "Medicamentos",
+                            style = MaterialTheme.typography.titleMedium
+                        )
                         Text(
                             text = "${medicines.size} ${if (medicines.size == 1) "medicamento" else "medicamentos"}",
                             style = MaterialTheme.typography.bodySmall
@@ -149,12 +155,16 @@ fun MedicineListScreen(navController: NavController, homeViewModel: HomeViewMode
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Voltar"
+                        )
                     }
                 }
             )
         },
-        floatingActionButton = {
+
+                floatingActionButton = {
             FloatingActionButton(
                 onClick = { navController.navigate(Screen.MedicineForm.route) }
             ) {

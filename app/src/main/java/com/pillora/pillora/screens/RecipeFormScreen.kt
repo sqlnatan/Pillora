@@ -122,6 +122,8 @@ fun RecipeFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                modifier = Modifier.height(48.dp),
+                windowInsets = WindowInsets(0),
                 title = { Text(screenTitle) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {

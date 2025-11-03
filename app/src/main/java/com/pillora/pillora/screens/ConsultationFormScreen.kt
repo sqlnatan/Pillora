@@ -100,6 +100,8 @@ fun ConsultationFormScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
+                modifier = Modifier.height(48.dp),
+                windowInsets = WindowInsets(0),
                 title = { Text(if (consultationId == null) "Adicionar Consulta" else "Editar Consulta") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {

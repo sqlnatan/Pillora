@@ -100,6 +100,8 @@ fun VaccineListScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
+                modifier = Modifier.height(48.dp),
+                windowInsets = WindowInsets(0),
                 title = { Text("Lembretes de Vacina") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
