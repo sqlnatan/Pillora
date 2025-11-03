@@ -163,7 +163,7 @@ class MainActivity : ComponentActivity() {
                         }
                     ) { padding ->
                         val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-                        val shouldShowBottomBar = currentRoute !in listOf("login", "register", "auth")
+                        val shouldShowBottomBar = currentRoute !in listOf("login", "register", "auth", "terms")
 
                         // 🔧 Remove o padding inferior se não houver bottom bar
                         val adjustedPadding = if (shouldShowBottomBar) {
