@@ -44,6 +44,7 @@ import com.pillora.pillora.ui.theme.PilloraTheme
 import com.pillora.pillora.viewmodel.ThemePreference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import com.google.android.gms.ads.MobileAds
 
 class MainActivity : ComponentActivity() {
 
@@ -58,6 +59,12 @@ class MainActivity : ComponentActivity() {
         FirebaseApp.initializeApp(this)
         val analytics = Firebase.analytics
         analytics.logEvent(com.google.firebase.analytics.FirebaseAnalytics.Event.APP_OPEN, null)
+
+        // Inicializa o AdMob SDK
+        MobileAds.initialize(this) { initializationStatus ->
+            Log.d("AdMob", "SDK inicializado: $initializationStatus")
+        }
+
         enableEdgeToEdge()
 
         setContent {
