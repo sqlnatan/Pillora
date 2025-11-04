@@ -306,9 +306,6 @@ fun HomeCard(
                 IconButton(onClick = { navController.navigate(addRoute) }) {
                     Icon(addIcon, contentDescription = "Adicionar")
                 }
-                IconButton(onClick = { navController.navigate(listRoute) }) {
-                    Icon(listIcon, contentDescription = "Ver Lista")
-                }
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             content()
