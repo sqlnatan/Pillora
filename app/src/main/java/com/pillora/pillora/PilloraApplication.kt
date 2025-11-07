@@ -7,11 +7,15 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.pillora.pillora.data.local.AppDatabase
 import com.pillora.pillora.repository.MedicineRepository
+import com.pillora.pillora.viewmodel.ReportsViewModel
+import com.pillora.pillora.data.UserPreferences
 
 class PilloraApplication : Application() {
 
     val database by lazy { AppDatabase.getDatabase(this) }
     val medicineRepository by lazy { MedicineRepository }
+    val reportsViewModel by lazy { ReportsViewModel }
+    val userPreferences by lazy { UserPreferences (this) }
 
     companion object {
         // Canais existentes

@@ -9,8 +9,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
@@ -22,15 +24,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pillora.pillora.DrawerItem
 import com.pillora.pillora.model.Consultation
 import com.pillora.pillora.model.Vaccine
 import com.pillora.pillora.navigation.Screen
@@ -71,10 +74,14 @@ fun HomeScreen(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
+            val windowInfo = LocalWindowInfo.current
+            val density = LocalDensity.current
+            val drawerWidth = with(density) { (windowInfo.containerSize.width * 0.75f).toDp() }
+
             ModalDrawerSheet(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .width(LocalConfiguration.current.screenWidthDp.dp * 0.75f)
+                    .width(drawerWidth)
                     .clip(RoundedCornerShape(24.dp))
                     .padding(16.dp),
                 drawerContainerColor = MaterialTheme.colorScheme.surface,
@@ -256,7 +263,14 @@ fun DrawerContent(
             navController.navigate(Screen.Settings.route)
         }
 
-        DrawerItem(icon = Icons.Default.ExitToApp, label = "Sair") {
+        DrawerItem(icon = Icons.Default.Description, label = "Relatórios") {
+            scope.launch { drawerState.close() }
+            navController.navigate(Screen.Reports.route)
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        DrawerItem(icon = Icons.AutoMirrored.Filled.ExitToApp, label = "Sair") {
             scope.launch {
                 drawerState.close()
                 authRepository.signOut()

@@ -11,7 +11,8 @@ enum class Screen(val route: String) {
     ConsultationForm("consultation_form"), // Rota base para o formulário
     VaccineList("vaccine_list"), // Nova rota para lista de vacinas
     VaccineForm("vaccine_form"), // Nova rota para formulário de vacinas
-    Profile("profile");
+    Profile("profile"),
+    Reports("reports");
 }
 
 /* // Comentado pois não está sendo usado

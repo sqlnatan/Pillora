@@ -15,6 +15,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -45,7 +46,9 @@ import com.pillora.pillora.viewmodel.ThemePreference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalWindowInfo
 import com.google.android.gms.ads.MobileAds
+import com.pillora.pillora.screens.DrawerContent
 
 class MainActivity : ComponentActivity() {
 
@@ -142,7 +145,9 @@ class MainActivity : ComponentActivity() {
                         ModalDrawerSheet(
                             modifier = Modifier
                                 .fillMaxHeight()
-                                .width(LocalConfiguration.current.screenWidthDp.dp * 0.75f)
+                                .width(with(LocalDensity.current) {
+                                    LocalWindowInfo.current.containerSize.width.toDp() * 0.75f
+                                })
                                 .clip(RoundedCornerShape(24.dp))
                                 .padding(16.dp),
                             drawerContainerColor = MaterialTheme.colorScheme.surface,
@@ -198,7 +203,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
             if (alarmManager.canScheduleExactAlarms() && showExactAlarmPermissionDialog) {
                 showExactAlarmPermissionDialog = false
             }
@@ -272,44 +277,6 @@ fun BottomNavigationBar(
     }
 }
 
-@Composable
-fun DrawerContent(
-    navController: NavHostController,
-    scope: CoroutineScope,
-    drawerState: DrawerState,
-    authRepository: AuthRepository,
-    context: Context
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxHeight()
-            .width(260.dp)
-            .padding(16.dp)
-            .background(MaterialTheme.colorScheme.surface),
-        verticalArrangement = Arrangement.Top
-    ) {
-        DrawerItem(icon = Icons.Default.Person, label = "Perfil") {
-            scope.launch { drawerState.close() }
-            navController.navigate(Screen.Profile.route)
-        }
-
-        DrawerItem(icon = Icons.Default.Settings, label = "Configurações") {
-            scope.launch { drawerState.close() }
-            navController.navigate(Screen.Settings.route)
-        }
-
-        DrawerItem(icon = Icons.Default.ExitToApp, label = "Sair") {
-            scope.launch {
-                drawerState.close()
-                authRepository.signOut()
-                Log.d("Drawer", "Usuário saiu com sucesso")
-                navController.navigate("login") {
-                    popUpTo(0)
-                }
-            }
-        }
-    }
-}
 
 @Composable
 fun DrawerItem(icon: ImageVector, label: String, onClick: () -> Unit) {

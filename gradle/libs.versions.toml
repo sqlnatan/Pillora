@@ -13,14 +13,15 @@ firebase-bom = "33.13.0"
 # compose = "1.7.8" # Removed explicit compose version
 datastore = "1.1.7"
 play-services-auth = "21.4.0"
-splashscreen = "1.0.1"
+splashscreen = "1.2.0"
 kotlinKsp = "2.2.0-2.0.2"
 workmanager = "2.11.0"
 room = "2.8.3"
 gson = "2.13.2"
 accompanist = "0.37.3"
 kotlinComposeCompiler = "2.1.20"
-play-services-ads = "22.3.0"
+play-services-ads = "24.7.0"
+foundation = "1.9.4"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -42,7 +43,7 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 firebase-analytics-ktx = { group = "com.google.firebase", name = "firebase-analytics-ktx" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" }
 firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
-androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version = "2.9.5" } # Consider using BOM for navigation too if available
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version = "2.9.6" } # Consider using BOM for navigation too if available
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebase-bom" } # This platform dependency imports the Firebase BOM
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore-ktx" } # Version managed by Firebase BOM
@@ -56,6 +57,7 @@ androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = 
 google-gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
 play-services-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "play-services-ads" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 
 
 [plugins]
