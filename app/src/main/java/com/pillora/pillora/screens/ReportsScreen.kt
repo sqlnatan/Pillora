@@ -1,8 +1,12 @@
 package com.pillora.pillora.screens
 
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,8 +33,7 @@ import com.pillora.pillora.viewmodel.ReportFile
 import com.pillora.pillora.viewmodel.ReportsViewModel
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,7 +41,6 @@ fun ReportsScreen(navController: NavController) {
     val context = LocalContext.current
     val application = context.applicationContext as PilloraApplication
 
-    // ✅ Corrigido: agora usa "application", não mais "context"
     val reportsViewModel: ReportsViewModel = viewModel(
         factory = ReportsViewModel.provideFactory(
             application = application,
@@ -48,6 +51,7 @@ fun ReportsScreen(navController: NavController) {
 
     val reportFiles by reportsViewModel.reportFiles.collectAsState()
     val isPremium by reportsViewModel.isPremium.collectAsState(initial = false)
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -119,7 +123,8 @@ fun PremiumContent(
                     report = report,
                     onDelete = { reportsViewModel.deleteReport(report) },
                     onShare = { shareReport(context, report) },
-                    onOpen = { openReport(context, report) }
+                    onOpen = { openReport(context, report) },
+                    onDownload = { downloadReport(context, report) }
                 )
             }
         }
@@ -157,8 +162,12 @@ fun ReportFileItem(
     report: ReportFile,
     onDelete: () -> Unit,
     onShare: () -> Unit,
-    onOpen: () -> Unit
+    onOpen: () -> Unit,
+    onDownload: () -> Unit
 ) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showDownloadDialog by remember { mutableStateOf(false) }
+
     val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
     val formattedDate = remember(report.lastModified) { dateFormat.format(Date(report.lastModified)) }
     val formattedSize = remember(report.size) { "${"%.2f".format(report.size / 1024.0)} KB" }
@@ -186,15 +195,54 @@ fun ReportFileItem(
                 IconButton(onClick = onShare) {
                     Icon(Icons.Default.Share, contentDescription = "Compartilhar")
                 }
-                IconButton(onClick = onDelete) {
+                IconButton(onClick = { showDeleteDialog = true }) {
                     Icon(Icons.Default.Delete, contentDescription = "Excluir")
+                }
+                IconButton(onClick = { showDownloadDialog = true }) {
+                    Icon(Icons.Default.Download, contentDescription = "Download")
                 }
             }
         }
     }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Confirmar exclusão") },
+            text = { Text("Deseja realmente excluir este relatório?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete()
+                    showDeleteDialog = false
+                }) { Text("Sim") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Não") }
+            }
+        )
+    }
+
+    if (showDownloadDialog) {
+        AlertDialog(
+            onDismissRequest = { showDownloadDialog = false },
+            title = { Text("Confirmar Download") },
+            text = { Text("Deseja salvar este relatório na pasta Downloads?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDownload()
+                    showDownloadDialog = false
+                }) { Text("Sim") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDownloadDialog = false }) { Text("Não") }
+            }
+        )
+    }
 }
 
-// --- Funções de Ação ---
+// ------------------------------------------------------------
+// FUNÇÕES AUXILIARES
+// ------------------------------------------------------------
 
 fun openReport(context: Context, report: ReportFile) {
     val file = File(report.path)
@@ -206,16 +254,14 @@ fun openReport(context: Context, report: ReportFile) {
     try {
         val uri: Uri = FileProvider.getUriForFile(
             context,
-            "${context.packageName}.fileprovider",
+            "${context.packageName}.fileprovider", // corrigido aqui
             file
         )
-
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, "application/pdf")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
         }
-
         context.startActivity(intent)
     } catch (_: Exception) {
         Toast.makeText(
@@ -234,21 +280,63 @@ fun shareReport(context: Context, report: ReportFile) {
     }
 
     try {
-        val uri: Uri = FileProvider.getUriForFile(
+        val uri = FileProvider.getUriForFile(
             context,
-            "${context.packageName}.fileprovider",
+            "${context.packageName}.fileprovider", // corrigido aqui
             file
         )
-
-        val shareIntent = Intent().apply {
-            action = Intent.ACTION_SEND
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
             putExtra(Intent.EXTRA_STREAM, uri)
             type = "application/pdf"
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-
         context.startActivity(Intent.createChooser(shareIntent, "Compartilhar Relatório"))
-    } catch (_: Exception) {
-        Toast.makeText(context, "Erro ao compartilhar o arquivo.", Toast.LENGTH_LONG).show()
+    } catch (e: Exception) {
+        Toast.makeText(context, "Erro ao compartilhar: ${e.message}", Toast.LENGTH_LONG).show()
+    }
+}
+
+/** Função compatível com Android 6 (API 23) até 15 (API 35) */
+fun downloadReport(context: Context, report: ReportFile) {
+    val srcFile = File(report.path)
+    if (!srcFile.exists()) {
+        Toast.makeText(context, "Arquivo não encontrado.", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    try {
+        val fileName = report.name
+        val mimeType = "application/pdf"
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val resolver = context.contentResolver
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, mimeType)
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            }
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            if (uri != null) {
+                resolver.openOutputStream(uri)?.use { output ->
+                    srcFile.inputStream().use { input ->
+                        input.copyTo(output)
+                    }
+                }
+                Toast.makeText(context, "Relatório salvo em Downloads.", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Falha ao acessar Downloads.", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            val downloadsDir =
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            if (!downloadsDir.exists()) downloadsDir.mkdirs()
+
+            val destFile = File(downloadsDir, fileName)
+            srcFile.copyTo(destFile, overwrite = true)
+            Toast.makeText(context, "Relatório salvo em Downloads.", Toast.LENGTH_SHORT).show()
+        }
+
+    } catch (e: Exception) {
+        Toast.makeText(context, "Erro ao salvar relatório: ${e.message}", Toast.LENGTH_LONG).show()
     }
 }

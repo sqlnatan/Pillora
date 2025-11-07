@@ -12,6 +12,7 @@
     <uses-permission android:name="android.permission.VIBRATE" />
 
 
+
     <application
         android:name=".PilloraApplication"
         android:allowBackup="true"

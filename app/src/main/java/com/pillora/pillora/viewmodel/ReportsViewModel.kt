@@ -1,29 +1,30 @@
 package com.pillora.pillora.viewmodel
 
 import android.app.Application
+import android.os.Environment
 import android.util.Log
 import android.graphics.pdf.PdfDocument
 import android.graphics.Paint
-import android.graphics.Rect
-import android.graphics.Color
 import android.graphics.Typeface
-import com.pillora.pillora.repository.MedicineRepository
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.pillora.pillora.data.UserPreferences
+import com.pillora.pillora.repository.MedicineRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlinx.coroutines.flow.first
 
 data class ReportFile(
     val name: String,
@@ -49,17 +50,18 @@ class ReportsViewModel(
         initialValue = false
     )
 
+    /** Diretório interno correto e compatível com o FileProvider (files/reports) */
     private val reportsDir: File by lazy {
-        context.getDir("reports", Application.MODE_PRIVATE)
+        File(context.filesDir, "reports").apply {
+            if (!exists()) mkdirs()
+        }
     }
 
     init {
-        if (!reportsDir.exists()) {
-            reportsDir.mkdirs()
-        }
         loadReportFiles()
     }
 
+    /** Carrega a lista de relatórios armazenados localmente */
     fun loadReportFiles() {
         viewModelScope.launch(Dispatchers.IO) {
             val files = reportsDir.listFiles { _, name -> name.endsWith(".pdf") }
@@ -75,25 +77,27 @@ class ReportsViewModel(
                 ?: emptyList()
 
             _reportFiles.value = files
-            Log.d("ReportsViewModel", "Loaded ${files.size} report files.")
+            Log.d("ReportsViewModel", "✅ Carregados ${files.size} relatórios.")
         }
     }
 
+    /** Exclui um relatório do diretório interno */
     fun deleteReport(reportFile: ReportFile) {
         viewModelScope.launch(Dispatchers.IO) {
             val file = File(reportFile.path)
             if (file.exists() && file.delete()) {
-                Log.d("ReportsViewModel", "Deleted file: ${reportFile.name}")
+                Log.d("ReportsViewModel", "🗑️ Relatório excluído: ${reportFile.name}")
                 loadReportFiles()
             } else {
-                Log.e("ReportsViewModel", "Failed to delete file: ${reportFile.name}")
+                Log.e("ReportsViewModel", "⚠️ Falha ao excluir: ${reportFile.name}")
             }
         }
     }
 
+    /** Gera um novo relatório PDF */
     fun generateReport(reportName: String) {
         if (!isPremium.value) {
-            Log.w("ReportsViewModel", "Attempted to generate report without Premium status.")
+            Log.w("ReportsViewModel", "⚠️ Tentativa de gerar relatório sem Premium.")
             return
         }
 
@@ -104,7 +108,6 @@ class ReportsViewModel(
 
             try {
                 val medicines = medicineRepository.getAllMedicinesFlow().first()
-
                 val document = PdfDocument()
                 val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
                 val page = document.startPage(pageInfo)
@@ -117,7 +120,14 @@ class ReportsViewModel(
 
                 paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
                 paint.textSize = 12f
-                canvas.drawText("Gerado em: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())}", 40f, 80f, paint)
+                canvas.drawText(
+                    "Gerado em: ${
+                        SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
+                    }",
+                    40f,
+                    80f,
+                    paint
+                )
 
                 var y = 120f
                 paint.textSize = 14f
@@ -143,20 +153,48 @@ class ReportsViewModel(
                         y += 20f
                         canvas.drawText("Frequência: ${medicine.frequencyType}", 60f, y, paint)
                         y += 20f
-                        canvas.drawText("Duração: ${medicine.duration} dias (Início: ${medicine.startDate})", 60f, y, paint)
+                        canvas.drawText(
+                            "Duração: ${medicine.duration} dias (Início: ${medicine.startDate})",
+                            60f,
+                            y,
+                            paint
+                        )
                         y += 30f
                     }
                 }
 
                 document.finishPage(page)
-
                 newFile.outputStream().use { document.writeTo(it) }
                 document.close()
 
-                Log.d("ReportsViewModel", "PDF file created: $fileName")
+                Log.d("ReportsViewModel", "✅ PDF criado: ${newFile.absolutePath}")
                 loadReportFiles()
             } catch (e: Exception) {
-                Log.e("ReportsViewModel", "Error generating PDF", e)
+                Log.e("ReportsViewModel", "❌ Erro ao gerar PDF", e)
+            }
+        }
+    }
+
+    /** Copia o relatório para a pasta Downloads (para o botão "Baixar") */
+    fun downloadReport(reportFile: ReportFile) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val downloadsDir =
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                if (!downloadsDir.exists()) downloadsDir.mkdirs()
+
+                val sourceFile = File(reportFile.path)
+                val destFile = File(downloadsDir, reportFile.name)
+
+                FileInputStream(sourceFile).use { input ->
+                    FileOutputStream(destFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+
+                Log.d("ReportsViewModel", "📁 Relatório baixado em: ${destFile.absolutePath}")
+            } catch (e: Exception) {
+                Log.e("ReportsViewModel", "❌ Erro ao salvar relatório", e)
             }
         }
     }

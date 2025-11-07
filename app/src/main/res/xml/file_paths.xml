@@ -1,12 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Mapeamento existente para o cache (se você o usa para compartilhamento temporário ) -->
+
+    <!-- Permite compartilhar PDFs do cache interno -->
     <cache-path
         name="shared_pdfs"
         path="." />
 
-    <!-- NOVO: Mapeamento para o diretório 'reports' criado pelo ReportsViewModel -->
+    <!-- Permite compartilhar PDFs da pasta interna 'files/reports' -->
     <files-path
         name="reports"
-        path="reports/" />
+        path="reports" />
+
+    <!-- Extra: cobre também arquivos diretamente em 'files/' -->
+    <files-path
+        name="internal_files"
+        path="." />
+
+    <!-- Extra: cobre caso o arquivo esteja em storage externo (compatível até Android 13) -->
+    <external-files-path
+        name="external_reports"
+        path="reports" />
+
 </paths>
