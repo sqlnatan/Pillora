@@ -23,6 +23,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.PilloraApplication
+import com.pillora.pillora.repository.MedicineRepository
 import com.pillora.pillora.viewmodel.ReportFile
 import com.pillora.pillora.viewmodel.ReportsViewModel
 import java.io.File
@@ -40,13 +41,13 @@ fun ReportsScreen(navController: NavController) {
     val reportsViewModel: ReportsViewModel = viewModel(
         factory = ReportsViewModel.provideFactory(
             application = application,
-            userPreferences = application.userPreferences
+            userPreferences = application.userPreferences,
+            medicineRepository = MedicineRepository
         )
     )
 
     val reportFiles by reportsViewModel.reportFiles.collectAsState()
-    val isPremium = true // temporário até o sistema Premium estar pronto
-
+    val isPremium by reportsViewModel.isPremium.collectAsState(initial = false)
     Scaffold(
         topBar = {
             TopAppBar(

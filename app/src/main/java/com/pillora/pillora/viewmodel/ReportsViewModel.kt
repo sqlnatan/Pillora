@@ -2,6 +2,12 @@ package com.pillora.pillora.viewmodel
 
 import android.app.Application
 import android.util.Log
+import android.graphics.pdf.PdfDocument
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.Color
+import android.graphics.Typeface
+import com.pillora.pillora.repository.MedicineRepository
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -17,6 +23,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.flow.first
 
 data class ReportFile(
     val name: String,
@@ -27,16 +34,15 @@ data class ReportFile(
 
 class ReportsViewModel(
     application: Application,
-    userPreferences: UserPreferences
+    userPreferences: UserPreferences,
+    private val medicineRepository: MedicineRepository
 ) : AndroidViewModel(application) {
 
-    // ✅ Contexto seguro (sem memory leak)
     private val context get() = getApplication<Application>().applicationContext
 
     private val _reportFiles = MutableStateFlow<List<ReportFile>>(emptyList())
     val reportFiles: StateFlow<List<ReportFile>> = _reportFiles
 
-    // ✅ Converte Flow<Boolean> para StateFlow<Boolean>
     val isPremium: StateFlow<Boolean> = userPreferences.isPremium.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -44,12 +50,10 @@ class ReportsViewModel(
     )
 
     private val reportsDir: File by lazy {
-        // Usar o diretório de arquivos interno para armazenar os relatórios
         context.getDir("reports", Application.MODE_PRIVATE)
     }
 
     init {
-        // Garantir que o diretório exista
         if (!reportsDir.exists()) {
             reportsDir.mkdirs()
         }
@@ -80,7 +84,7 @@ class ReportsViewModel(
             val file = File(reportFile.path)
             if (file.exists() && file.delete()) {
                 Log.d("ReportsViewModel", "Deleted file: ${reportFile.name}")
-                loadReportFiles() // Recarregar após exclusão
+                loadReportFiles()
             } else {
                 Log.e("ReportsViewModel", "Failed to delete file: ${reportFile.name}")
             }
@@ -99,12 +103,57 @@ class ReportsViewModel(
             val newFile = File(reportsDir, fileName)
 
             try {
-                // *** SIMULAÇÃO DE GERAÇÃO DE PDF ***
-                newFile.createNewFile()
-                newFile.writeText("Relatório gerado em $timestamp. Conteúdo real do PDF viria aqui.")
-                // *** FIM DA SIMULAÇÃO ***
+                val medicines = medicineRepository.getAllMedicinesFlow().first()
 
-                Log.d("ReportsViewModel", "Simulated PDF file created: $fileName")
+                val document = PdfDocument()
+                val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
+                val page = document.startPage(pageInfo)
+                var canvas = page.canvas
+                val paint = Paint()
+
+                paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                paint.textSize = 24f
+                canvas.drawText("Relatório de Medicamentos Pillora", 40f, 60f, paint)
+
+                paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                paint.textSize = 12f
+                canvas.drawText("Gerado em: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())}", 40f, 80f, paint)
+
+                var y = 120f
+                paint.textSize = 14f
+
+                if (medicines.isEmpty()) {
+                    canvas.drawText("Nenhum medicamento cadastrado.", 40f, y, paint)
+                } else {
+                    medicines.forEachIndexed { index, medicine ->
+                        if (y > 800) {
+                            document.finishPage(page)
+                            val newPageInfo = PdfDocument.PageInfo.Builder(595, 842, index / 10 + 1).create()
+                            val newPage = document.startPage(newPageInfo)
+                            canvas = newPage.canvas
+                            y = 60f
+                        }
+
+                        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                        canvas.drawText("${index + 1}. ${medicine.name}", 40f, y, paint)
+                        y += 20f
+
+                        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                        canvas.drawText("Dose: ${medicine.dose} ${medicine.doseUnit}", 60f, y, paint)
+                        y += 20f
+                        canvas.drawText("Frequência: ${medicine.frequencyType}", 60f, y, paint)
+                        y += 20f
+                        canvas.drawText("Duração: ${medicine.duration} dias (Início: ${medicine.startDate})", 60f, y, paint)
+                        y += 30f
+                    }
+                }
+
+                document.finishPage(page)
+
+                newFile.outputStream().use { document.writeTo(it) }
+                document.close()
+
+                Log.d("ReportsViewModel", "PDF file created: $fileName")
                 loadReportFiles()
             } catch (e: Exception) {
                 Log.e("ReportsViewModel", "Error generating PDF", e)
@@ -115,11 +164,12 @@ class ReportsViewModel(
     companion object {
         fun provideFactory(
             application: Application,
-            userPreferences: UserPreferences
+            userPreferences: UserPreferences,
+            medicineRepository: MedicineRepository
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return ReportsViewModel(application, userPreferences) as T
+                return ReportsViewModel(application, userPreferences, medicineRepository) as T
             }
         }
     }
