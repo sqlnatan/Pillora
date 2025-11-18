@@ -22,7 +22,6 @@ import kotlin.text.isNotBlank
 fun ProfileScreen(navController: NavController) {
     val currentUser = remember { AuthRepository.getCurrentUser() }
 
-    // 🔒 Se não houver usuário, redireciona para login
     if (currentUser == null) {
         LaunchedEffect(Unit) {
             navController.navigate("auth") {
@@ -40,6 +39,7 @@ fun ProfileScreen(navController: NavController) {
 
     var showEmailDialog by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
+    var showNameDialog by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -68,6 +68,8 @@ fun ProfileScreen(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+
+            // ---------- CARD DE INFORMAÇÕES ----------
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -76,23 +78,31 @@ fun ProfileScreen(navController: NavController) {
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+
                     Text(
                         text = "Informações da Conta",
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Divider(modifier = Modifier.padding(vertical = 4.dp))
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
                     InfoRow(label = "ID de Usuário:", value = currentUser.uid)
-                    InfoRow(
-                        label = "Nome de Usuário:",
-                        value = currentUser.displayName ?: "Não definido"
-                    )
+                    InfoRow(label = "Nome de Usuário:", value = currentUser.displayName ?: "Não definido")
                     InfoRow(label = "Email:", value = currentUser.email ?: "Não disponível")
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+
+            // ---------- BOTÕES DE ALTERAÇÃO (Organizados) ----------
+            Button(
+                onClick = { showNameDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(16.dp)
+            ) {
+                Text("Alterar Nome")
+            }
 
             Button(
                 onClick = { showEmailDialog = true },
@@ -110,7 +120,6 @@ fun ProfileScreen(navController: NavController) {
                 Text("Alterar Senha")
             }
 
-            // Botão de Logout
             Button(
                 onClick = {
                     AuthRepository.signOut()
@@ -126,6 +135,8 @@ fun ProfileScreen(navController: NavController) {
         }
     }
 
+    // ---------------- DIALOGS ----------------
+
     if (showEmailDialog) {
         ChangeEmailDialog(
             onDismiss = { showEmailDialog = false },
@@ -134,15 +145,11 @@ fun ProfileScreen(navController: NavController) {
                     newEmail,
                     onSuccess = {
                         showEmailDialog = false
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Email alterado com sucesso! Verifique seu novo email.")
-                        }
+                        scope.launch { snackbarHostState.showSnackbar("Email alterado com sucesso!") }
                     },
                     onError = { e ->
                         showEmailDialog = false
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Erro ao alterar email: ${e.message}")
-                        }
+                        scope.launch { snackbarHostState.showSnackbar("Erro: ${e.message}") }
                     }
                 )
             }
@@ -157,9 +164,7 @@ fun ProfileScreen(navController: NavController) {
                     newPassword,
                     onSuccess = {
                         showPasswordDialog = false
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Senha alterada com sucesso! Faça login novamente.")
-                        }
+                        scope.launch { snackbarHostState.showSnackbar("Senha alterada com sucesso!") }
                         AuthRepository.signOut()
                         navController.navigate("auth") {
                             popUpTo(Screen.Home.route) { inclusive = true }
@@ -167,9 +172,27 @@ fun ProfileScreen(navController: NavController) {
                     },
                     onError = { e ->
                         showPasswordDialog = false
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Erro ao alterar senha: ${e.message}")
-                        }
+                        scope.launch { snackbarHostState.showSnackbar("Erro: ${e.message}") }
+                    }
+                )
+            }
+        )
+    }
+
+    if (showNameDialog) {
+        ChangeNameDialog(
+            currentName = currentUser.displayName ?: "",
+            onDismiss = { showNameDialog = false },
+            onNameUpdate = { newName ->
+                AuthRepository.updateDisplayName(
+                    newName,
+                    onSuccess = {
+                        showNameDialog = false
+                        scope.launch { snackbarHostState.showSnackbar("Nome atualizado com sucesso!") }
+                    },
+                    onError = { e ->
+                        showNameDialog = false
+                        scope.launch { snackbarHostState.showSnackbar("Erro: ${e.message}") }
                     }
                 )
             }
@@ -200,7 +223,7 @@ fun ChangeEmailDialog(onDismiss: () -> Unit, onEmailUpdate: (String) -> Unit) {
         title = { Text("Alterar Email") },
         text = {
             Column {
-                Text("Digite seu novo endereço de email.")
+                Text("Digite seu novo email.")
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = newEmail,
@@ -215,9 +238,7 @@ fun ChangeEmailDialog(onDismiss: () -> Unit, onEmailUpdate: (String) -> Unit) {
                 Text("Confirmar")
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
     )
 }
 
@@ -225,46 +246,70 @@ fun ChangeEmailDialog(onDismiss: () -> Unit, onEmailUpdate: (String) -> Unit) {
 fun ChangePasswordDialog(onDismiss: () -> Unit, onPasswordUpdate: (String) -> Unit) {
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
-    val passwordsMatch = newPassword == confirmPassword && newPassword.length >= 6
+    val match = newPassword == confirmPassword && newPassword.length >= 6
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Alterar Senha") },
         text = {
             Column {
-                Text("Digite sua nova senha (mínimo 6 caracteres).")
+                Text("Digite sua nova senha.")
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = newPassword,
                     onValueChange = { newPassword = it },
                     label = { Text("Nova Senha") },
-                    modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = PasswordVisualTransformation()
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = confirmPassword,
                     onValueChange = { confirmPassword = it },
                     label = { Text("Confirmar Senha") },
-                    modifier = Modifier.fillMaxWidth(),
                     visualTransformation = PasswordVisualTransformation(),
-                    isError = confirmPassword.isNotBlank() && !passwordsMatch
+                    isError = confirmPassword.isNotBlank() && !match,
+                    modifier = Modifier.fillMaxWidth()
                 )
-                if (confirmPassword.isNotBlank() && !passwordsMatch) {
-                    Text(
-                        "As senhas não coincidem ou são muito curtas.",
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
             }
         },
         confirmButton = {
-            Button(onClick = { onPasswordUpdate(newPassword) }, enabled = passwordsMatch) {
+            Button(onClick = { onPasswordUpdate(newPassword) }, enabled = match) {
                 Text("Confirmar")
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
+}
+
+@Composable
+fun ChangeNameDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onNameUpdate: (String) -> Unit
+) {
+    var newName by remember { mutableStateOf(currentName) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Alterar Nome") },
+        text = {
+            Column {
+                Text("Digite o novo nome.")
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = { Text("Novo Nome") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onNameUpdate(newName) }, enabled = newName.isNotBlank()) {
+                Text("Salvar")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
     )
 }

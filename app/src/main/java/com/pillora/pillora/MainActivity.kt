@@ -9,9 +9,11 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,6 +30,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
@@ -39,21 +43,21 @@ import com.google.accompanist.permissions.isGranted
 import com.google.firebase.FirebaseApp
 import com.google.firebase.analytics.ktx.analytics
 import com.google.firebase.ktx.Firebase
+import com.google.android.gms.ads.MobileAds
 import com.pillora.pillora.navigation.*
 import com.pillora.pillora.repository.AuthRepository
+import com.pillora.pillora.screens.DrawerContent
 import com.pillora.pillora.ui.theme.PilloraTheme
 import com.pillora.pillora.viewmodel.ThemePreference
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.LocalWindowInfo
-import com.google.android.gms.ads.MobileAds
-import com.pillora.pillora.screens.DrawerContent
 
 class MainActivity : ComponentActivity() {
 
     private val themePreferenceKey = "theme_preference"
     private var showExactAlarmPermissionDialog = false
+
+    // 🔹 Launcher do Google Sign-In
+    private lateinit var googleSignInLauncher: androidx.activity.result.ActivityResultLauncher<Intent>
 
     @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,6 +73,23 @@ class MainActivity : ComponentActivity() {
         }
 
         enableEdgeToEdge()
+
+        // 🔹 Inicializa o launcher do Google Sign-In
+        googleSignInLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            if (result.resultCode == RESULT_OK) {
+                AuthRepository.handleGoogleSignInResult(
+                    result = result,
+                    onSuccess = {
+                        Toast.makeText(this, "Login com Google realizado com sucesso!", Toast.LENGTH_SHORT).show()
+                    },
+                    onError = { exception: Exception ->
+                        Toast.makeText(this, "Erro ao fazer login com Google: ${exception.message}", Toast.LENGTH_LONG).show()
+                    }
+                )
+            }
+        }
 
         setContent {
             var currentThemePreference by remember { mutableStateOf(getInitialThemePreference()) }
@@ -158,7 +179,7 @@ class MainActivity : ComponentActivity() {
                                 scope = scope,
                                 drawerState = drawerState,
                                 authRepository = AuthRepository,
-                                context = context
+                                context = context,
                             )
                         }
                     }
@@ -176,7 +197,6 @@ class MainActivity : ComponentActivity() {
                         val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
                         val shouldShowBottomBar = currentRoute !in listOf("login", "register", "auth")
 
-                        // 🔧 Remove o padding inferior se não houver bottom bar
                         val adjustedPadding = if (shouldShowBottomBar) {
                             padding
                         } else {
@@ -192,9 +212,6 @@ class MainActivity : ComponentActivity() {
                             AppNavigation(navController = navController)
                         }
                     }
-
-
-
                 }
             }
         }
@@ -276,7 +293,6 @@ fun BottomNavigationBar(
         }
     }
 }
-
 
 @Composable
 fun DrawerItem(icon: ImageVector, label: String, onClick: () -> Unit) {

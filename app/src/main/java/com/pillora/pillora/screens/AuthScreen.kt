@@ -1,38 +1,17 @@
 package com.pillora.pillora.screens
 
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -40,7 +19,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.pillora.pillora.R
@@ -65,15 +43,35 @@ fun AuthScreen(navController: NavController) {
     var confirmPasswordError by remember { mutableStateOf("") }
 
     val context = LocalContext.current
+    val activity = context as? ComponentActivity
 
     // Web Client ID do Firebase - substitua pelo seu
-    val webClientId = "1:426649307737:android:cd855e8230fca47e31bf48\n"
+    val webClientId = "426649307737-na96tus1vjtdb49imu5gpum40sgnsgf7.apps.googleusercontent.com"
+
+    // Launcher para login com Google
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        AuthRepository.handleGoogleSignInResult(
+            result = result,
+            onSuccess = {
+                isGoogleLoading = false
+                Toast.makeText(context, "Login com Google realizado com sucesso!", Toast.LENGTH_SHORT).show()
+                navController.navigate("home") {
+                    popUpTo("auth") { inclusive = true }
+                }
+            },
+            onError = { exception ->
+                isGoogleLoading = false
+                Toast.makeText(context, "Erro ao fazer login com Google: ${exception.message}", Toast.LENGTH_LONG).show()
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 modifier = Modifier.height(48.dp),
-                windowInsets = WindowInsets(0),
                 title = {
                     Text(
                         when (authMode) {
@@ -99,9 +97,7 @@ fun AuthScreen(navController: NavController) {
             Image(
                 painter = painterResource(id = R.drawable.app_logo),
                 contentDescription = "Pillora Logo",
-                modifier = Modifier
-                    .size(120.dp)
-                    .padding(vertical = 16.dp)
+                modifier = Modifier.size(120.dp)
             )
 
             // Title
@@ -142,14 +138,12 @@ fun AuthScreen(navController: NavController) {
                 isError = emailError.isNotEmpty(),
                 supportingText = {
                     if (emailError.isNotEmpty()) {
-                        Text(
-                            text = emailError,
-                            color = MaterialTheme.colorScheme.error
-                        )
+                        Text(text = emailError, color = MaterialTheme.colorScheme.error)
                     }
                 },
                 singleLine = true
             )
+
             // Password field (not shown for reset password)
             if (authMode != AuthMode.RESET_PASSWORD) {
                 OutlinedTextField(
@@ -165,10 +159,7 @@ fun AuthScreen(navController: NavController) {
                     isError = passwordError.isNotEmpty(),
                     supportingText = {
                         if (passwordError.isNotEmpty()) {
-                            Text(
-                                text = passwordError,
-                                color = MaterialTheme.colorScheme.error
-                            )
+                            Text(text = passwordError, color = MaterialTheme.colorScheme.error)
                         }
                     },
                     singleLine = true
@@ -190,10 +181,7 @@ fun AuthScreen(navController: NavController) {
                     isError = confirmPasswordError.isNotEmpty(),
                     supportingText = {
                         if (confirmPasswordError.isNotEmpty()) {
-                            Text(
-                                text = confirmPasswordError,
-                                color = MaterialTheme.colorScheme.error
-                            )
+                            Text(text = confirmPasswordError, color = MaterialTheme.colorScheme.error)
                         }
                     },
                     singleLine = true
@@ -201,10 +189,10 @@ fun AuthScreen(navController: NavController) {
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+
             // Primary action button
             Button(
                 onClick = {
-                    // Validate fields
                     var isValid = true
 
                     if (email.isBlank()) {
@@ -235,9 +223,7 @@ fun AuthScreen(navController: NavController) {
                         }
                     }
 
-                    if (!isValid || isLoading) {
-                        return@Button
-                    }
+                    if (!isValid || isLoading) return@Button
 
                     isLoading = true
 
@@ -296,11 +282,7 @@ fun AuthScreen(navController: NavController) {
                 enabled = !isLoading && !isGoogleLoading
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp
-                    )
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                 } else {
                     Text(
                         when (authMode) {
@@ -311,6 +293,7 @@ fun AuthScreen(navController: NavController) {
                     )
                 }
             }
+
             // Divider com texto "ou"
             if (authMode != AuthMode.RESET_PASSWORD) {
                 Row(
@@ -329,37 +312,24 @@ fun AuthScreen(navController: NavController) {
                     HorizontalDivider(modifier = Modifier.weight(1f))
                 }
 
-                // Botão de login com Google - VERSÃO ATUALIZADA
+                // Botão de login com Google
                 OutlinedButton(
                     onClick = {
                         if (isGoogleLoading || isLoading) return@OutlinedButton
 
-                        isGoogleLoading = true
-
-                        if (context is androidx.activity.ComponentActivity) {
+                        if (activity != null) {
+                            isGoogleLoading = true
                             try {
-                                // Usando a nova implementação com OAuthProvider
-                                AuthRepository.signInWithGoogle(
-                                    activity = context,
+                                AuthRepository.launchGoogleSignIn(
+                                    activity = activity,
                                     webClientId = webClientId,
-                                    onSuccess = {
-                                        isGoogleLoading = false
-                                        Toast.makeText(context, "Login com Google realizado com sucesso!", Toast.LENGTH_SHORT).show()
-                                        navController.navigate("home") {
-                                            popUpTo("auth") { inclusive = true }
-                                        }
-                                    },
-                                    onError = { exception ->
-                                        isGoogleLoading = false
-                                        Toast.makeText(context, "Erro ao fazer login com Google: ${exception.message}", Toast.LENGTH_LONG).show()
-                                    }
+                                    launcher = googleSignInLauncher
                                 )
                             } catch (e: Exception) {
                                 isGoogleLoading = false
                                 Toast.makeText(context, "Erro ao iniciar login com Google: ${e.message}", Toast.LENGTH_LONG).show()
                             }
                         } else {
-                            isGoogleLoading = false
                             Toast.makeText(context, "Erro ao inicializar login com Google", Toast.LENGTH_LONG).show()
                         }
                     },
@@ -368,25 +338,19 @@ fun AuthScreen(navController: NavController) {
                     shape = RoundedCornerShape(4.dp)
                 ) {
                     if (isGoogleLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                     } else {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            // Ícone do Google
                             Image(
                                 painter = painterResource(id = R.drawable.ic_google),
                                 contentDescription = "Google Logo",
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (authMode == AuthMode.LOGIN) "Entrar com Google" else "Cadastrar com Google"
-                            )
+                            Text(text = if (authMode == AuthMode.LOGIN) "Entrar com Google" else "Cadastrar com Google")
                         }
                     }
                 }
@@ -395,33 +359,20 @@ fun AuthScreen(navController: NavController) {
             // Secondary actions
             when (authMode) {
                 AuthMode.LOGIN -> {
-                    TextButton(
-                        onClick = { authMode = AuthMode.RESET_PASSWORD },
-                        enabled = !isLoading && !isGoogleLoading
-                    ) {
+                    TextButton(onClick = { authMode = AuthMode.RESET_PASSWORD }, enabled = !isLoading && !isGoogleLoading) {
                         Text("Esqueceu a senha?")
                     }
-
-                    TextButton(
-                        onClick = { authMode = AuthMode.REGISTER },
-                        enabled = !isLoading && !isGoogleLoading
-                    ) {
+                    TextButton(onClick = { authMode = AuthMode.REGISTER }, enabled = !isLoading && !isGoogleLoading) {
                         Text("Não tem uma conta? Cadastre-se")
                     }
                 }
                 AuthMode.REGISTER -> {
-                    TextButton(
-                        onClick = { authMode = AuthMode.LOGIN },
-                        enabled = !isLoading && !isGoogleLoading
-                    ) {
+                    TextButton(onClick = { authMode = AuthMode.LOGIN }, enabled = !isLoading && !isGoogleLoading) {
                         Text("Já tem uma conta? Entre")
                     }
                 }
                 AuthMode.RESET_PASSWORD -> {
-                    TextButton(
-                        onClick = { authMode = AuthMode.LOGIN },
-                        enabled = !isLoading && !isGoogleLoading
-                    ) {
+                    TextButton(onClick = { authMode = AuthMode.LOGIN }, enabled = !isLoading && !isGoogleLoading) {
                         Text("Voltar para o login")
                     }
                 }

@@ -20,6 +20,16 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // 🔐 NOVO: Configuração para assinar builds de release
+    signingConfigs {
+        create("release") {
+            storeFile = file("pillora-release-key.jks")
+            storePassword = "130521"
+            keyAlias = "Pillora"
+            keyPassword = "130521"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -27,8 +37,17 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
+            // 🔐 NOVO: usar a assinatura de release
+            signingConfig = signingConfigs.getByName("release")
+        }
+
+        debug {
+            // opcional: apenas garantindo que debug use assinatura automática
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -80,6 +99,4 @@ dependencies {
     implementation(libs.google.gson)
     implementation(libs.accompanist.permissions)
     implementation(libs.play.services.ads)
-
 }
-
