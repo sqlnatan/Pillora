@@ -42,8 +42,8 @@ object AlarmScheduler {
             putExtra(NotificationWorker.EXTRA_IS_VACINA, false) // Explicitar que NÃO é vacina
             // Passar tipo de lembrete (pode ser útil para diferenciar no futuro, mas não essencial para medicação agora)
             // putExtra(NotificationWorker.EXTRA_TIPO_LEMBRETE, "MEDICAMENTO") // Exemplo
-            putExtra(NotificationWorker.EXTRA_IS_SILENCIOSO, lembrete.isSilencioso) // NOVO: Controla a sonoridade
-            putExtra(NotificationWorker.EXTRA_TOQUE_ALARME_URI, lembrete.toqueAlarmeUri) // NOVO: URI do toque de alarme
+            //putExtra(NotificationWorker.EXTRA_IS_SILENCIOSO, lembrete.isSilencioso) // NOVO: Controla a sonoridade
+            //putExtra(NotificationWorker.EXTRA_TOQUE_ALARME_URI, lembrete.toqueAlarmeUri) // NOVO: URI do toque de alarme
         }
 
         val pendingIntent = PendingIntent.getBroadcast(

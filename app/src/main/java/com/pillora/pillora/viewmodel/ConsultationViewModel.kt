@@ -297,8 +297,8 @@ class ConsultationViewModel : ViewModel() {
             .putInt(NotificationWorker.EXTRA_HORA, lembrete.hora)
             .putInt(NotificationWorker.EXTRA_MINUTO, lembrete.minuto)
             .putBoolean(NotificationWorker.EXTRA_IS_CONSULTA, true)
-            .putBoolean(NotificationWorker.EXTRA_IS_SILENCIOSO, lembrete.isSilencioso)
-            .putString(NotificationWorker.EXTRA_TOQUE_ALARME_URI, lembrete.toqueAlarmeUri)
+            //.putBoolean(NotificationWorker.EXTRA_IS_SILENCIOSO, lembrete.isSilencioso)
+            //.putString(NotificationWorker.EXTRA_TOQUE_ALARME_URI, lembrete.toqueAlarmeUri)
             .build()
 
         val delay = lembrete.proximaOcorrenciaMillis - System.currentTimeMillis()
@@ -325,8 +325,8 @@ class ConsultationViewModel : ViewModel() {
             putExtra(NotificationWorker.EXTRA_HORA, lembrete.hora)
             putExtra(NotificationWorker.EXTRA_MINUTO, lembrete.minuto)
             putExtra(NotificationWorker.EXTRA_IS_CONSULTA, true)
-            putExtra(NotificationWorker.EXTRA_IS_SILENCIOSO, lembrete.isSilencioso)
-            putExtra(NotificationWorker.EXTRA_TOQUE_ALARME_URI, lembrete.toqueAlarmeUri)
+            //putExtra(NotificationWorker.EXTRA_IS_SILENCIOSO, lembrete.isSilencioso)
+            //putExtra(NotificationWorker.EXTRA_TOQUE_ALARME_URI, lembrete.toqueAlarmeUri)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
