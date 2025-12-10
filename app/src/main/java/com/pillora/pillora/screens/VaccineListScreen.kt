@@ -100,9 +100,30 @@ fun VaccineListScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                modifier = Modifier.height(48.dp),
                 windowInsets = WindowInsets(0),
-                title = { Text("Lembretes de Vacina") },
+                title = {
+                    Column(
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Text(
+                            "Lembretes de Vacina",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+
+                        val count = when (vaccinesState) {
+                            is DataResult.Success<*> -> {
+                                val success = vaccinesState as? DataResult.Success<List<Vaccine>>
+                                success?.data?.size ?: 0
+                            }
+                            else -> 0
+                        }
+
+                        Text(
+                            text = "$count ${if (count == 1) "lembrete" else "lembretes"}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
@@ -110,7 +131,7 @@ fun VaccineListScreen(navController: NavController) {
                 }
             )
         },
-        floatingActionButton = {
+                floatingActionButton = {
             FloatingActionButton(onClick = { navController.navigate(Screen.VaccineForm.route) }) {
                 Icon(Icons.Filled.Add, contentDescription = "Adicionar Lembrete")
             }

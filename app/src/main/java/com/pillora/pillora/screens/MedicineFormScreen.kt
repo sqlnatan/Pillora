@@ -205,7 +205,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
     Scaffold(
         topBar = {
             TopAppBar(
-                modifier = Modifier.height(48.dp),
                 windowInsets = WindowInsets(0),
                 title = { Text(if (isEditing) "Editar Medicamento" else "Cadastro de Medicamento") },
                 navigationIcon = {

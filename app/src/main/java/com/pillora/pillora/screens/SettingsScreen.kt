@@ -48,7 +48,6 @@ fun SettingsScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                modifier = Modifier.height(48.dp),
                 windowInsets = WindowInsets(0),
                 title = { Text("Configurações") },
                 navigationIcon = {

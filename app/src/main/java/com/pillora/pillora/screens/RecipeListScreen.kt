@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete // Import Delete icon
 import androidx.compose.material.icons.filled.Edit // Import Edit icon
@@ -28,6 +29,7 @@ import com.pillora.pillora.viewmodel.RecipeListUiState
 import com.pillora.pillora.viewmodel.RecipeViewModel
 import java.util.UUID
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeListScreen(
     navController: NavController,
@@ -41,12 +43,43 @@ fun RecipeListScreen(
     var recipeToDelete by remember { mutableStateOf<Recipe?>(null) }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                windowInsets = WindowInsets(0),
+                title = {
+                    Column(
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Text(
+                            "Minhas Receitas",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+
+                        val count = when (uiState) {
+                            is RecipeListUiState.Success ->
+                                (uiState as RecipeListUiState.Success).recipes.size
+                            else -> 0
+                        }
+
+                        Text(
+                            text = "$count ${if (count == 1) "receita" else "receitas"}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                    }
+                }
+            )
+
+        },
+
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    // Reset detail state before navigating to add new recipe
-                    recipeViewModel.resetDetailState() // <<< ADDED: Reset state for adding new
-                    // Navigate to Add Recipe Screen (pass empty ID or specific marker)
+                    recipeViewModel.resetDetailState()
                     navController.navigate("$RECIPE_FORM_ROUTE?id=")
                 }
             ) {
@@ -54,17 +87,12 @@ fun RecipeListScreen(
             }
         }
     ) { paddingValues ->
-        Column(
+    Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp) // Apply horizontal padding here
         ) {
-            Text(
-                "Minhas Receitas",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(vertical = 16.dp) // Add vertical padding
-            )
 
             when (val state = uiState) {
                 is RecipeListUiState.Loading -> {
@@ -110,7 +138,7 @@ fun RecipeListScreen(
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
                 title = { Text("Confirmar Exclusão") },
-                text = { Text("Tem certeza que deseja excluir a receita para \'${recipeToDelete?.patientName}\'?") },
+                text = { Text("Tem certeza que deseja excluir a receita para '${recipeToDelete?.patientName}'?") },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -180,4 +208,3 @@ fun RecipeListItem(
         }
     }
 }
-

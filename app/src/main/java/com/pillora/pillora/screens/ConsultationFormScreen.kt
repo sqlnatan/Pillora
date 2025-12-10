@@ -55,17 +55,6 @@ fun ConsultationFormScreen(
     val location = viewModel.location
     val observations = viewModel.observations
 
-    val isSilencioso by viewModel.isSilencioso
-    val toqueSelecionado by viewModel.toqueAlarmeUri
-
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val data = result.data
-        val uri: Uri? = data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
-        viewModel.setToqueAlarmeUri(uri?.toString())
-    }
-
 
 
 
@@ -100,7 +89,6 @@ fun ConsultationFormScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                modifier = Modifier.height(48.dp),
                 windowInsets = WindowInsets(0),
                 title = { Text(if (consultationId == null) "Adicionar Consulta" else "Editar Consulta") },
                 navigationIcon = {
@@ -201,52 +189,6 @@ fun ConsultationFormScreen(
                         capitalization = KeyboardCapitalization.Words
                     )
                 )
-
-                // --- NOVO BLOCO ---
-                Divider()
-                Text("Configurações do Lembrete", style = MaterialTheme.typography.titleMedium)
-
-                // Alternar modo silencioso
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                ) {
-                    Text("Modo silencioso")
-                    Switch(
-                        checked = isSilencioso,
-                        onCheckedChange = { viewModel.setSilencioso(it) }
-                    )
-                }
-
-                // Selecionar toque personalizado
-                OutlinedButton(
-                    onClick = {
-                        val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
-                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Escolha o som do lembrete")
-                            putExtra(
-                                RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
-                                if (toqueSelecionado != null) Uri.parse(toqueSelecionado) else null
-                            )
-                        }
-                        launcher.launch(intent)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Filled.MusicNote, contentDescription = "Escolher toque")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Escolher Toque")
-                }
-
-
-                toqueSelecionado?.let {
-                    Text(
-                        text = "Toque selecionado: ${Uri.parse(it).lastPathSegment ?: "Personalizado"}",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Button(

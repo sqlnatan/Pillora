@@ -55,6 +55,7 @@ fun ReportsScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0),
                 title = { Text("Relatórios") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {

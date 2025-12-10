@@ -103,9 +103,28 @@ fun ConsultationListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                modifier = Modifier.height(48.dp),
                 windowInsets = WindowInsets(0),
-                title = { Text("Consultas Médicas") },
+                title = {
+                    Column(
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Text(
+                            "Consultas Médicas",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+
+                        val count = when (consultationListState) {
+                            is ConsultationListUiState.Success ->
+                                (consultationListState as ConsultationListUiState.Success).consultations.size
+                            else -> 0
+                        }
+
+                        Text(
+                            text = "$count ${if (count == 1) "consulta" else "consultas"}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
