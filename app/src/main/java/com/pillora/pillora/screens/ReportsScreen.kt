@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.repository.MedicineRepository
 import com.pillora.pillora.viewmodel.ReportFile
@@ -45,7 +47,8 @@ fun ReportsScreen(navController: NavController) {
         factory = ReportsViewModel.provideFactory(
             application = application,
             userPreferences = application.userPreferences,
-            medicineRepository = MedicineRepository
+            medicineRepository = MedicineRepository,
+            currentUserId = Firebase.auth.currentUser?.uid // Adicionado o UID do usuário
         )
     )
 

@@ -36,7 +36,8 @@ data class ReportFile(
 class ReportsViewModel(
     application: Application,
     userPreferences: UserPreferences,
-    private val medicineRepository: MedicineRepository
+    private val medicineRepository: MedicineRepository,
+    private val currentUserId: String? // Adicionado o UID do usuário
 ) : AndroidViewModel(application) {
 
     private val context get() = getApplication<Application>().applicationContext
@@ -50,9 +51,10 @@ class ReportsViewModel(
         initialValue = false
     )
 
-    /** Diretório interno correto e compatível com o FileProvider (files/reports) */
+    /** Diretório interno correto e compatível com o FileProvider (files/reports/UID) */
     private val reportsDir: File by lazy {
-        File(context.filesDir, "reports").apply {
+        val userId = currentUserId ?: "guest" // Usa 'guest' se o UID for nulo
+        File(context.filesDir, "reports/$userId").apply {
             if (!exists()) mkdirs()
         }
     }
@@ -203,11 +205,12 @@ class ReportsViewModel(
         fun provideFactory(
             application: Application,
             userPreferences: UserPreferences,
-            medicineRepository: MedicineRepository
+            medicineRepository: MedicineRepository,
+            currentUserId: String? // Adicionado
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return ReportsViewModel(application, userPreferences, medicineRepository) as T
+                return ReportsViewModel(application, userPreferences, medicineRepository, currentUserId) as T
             }
         }
     }

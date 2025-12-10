@@ -8,6 +8,8 @@ import androidx.core.app.NotificationCompat
 import com.pillora.pillora.data.local.AppDatabase
 import com.pillora.pillora.repository.MedicineRepository
 import com.pillora.pillora.viewmodel.ReportsViewModel
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 import com.pillora.pillora.data.UserPreferences
 import com.pillora.pillora.repository.ConsultationRepository
 import com.pillora.pillora.repository.VaccineRepository
@@ -17,7 +19,10 @@ class PilloraApplication : Application() {
 
     val database by lazy { AppDatabase.getDatabase(this) }
     val medicineRepository by lazy { MedicineRepository }
-    val reportsViewModelFactory by lazy { ReportsViewModel.provideFactory(this, userPreferences, medicineRepository) }
+    val reportsViewModelFactory by lazy {
+        val currentUserId = Firebase.auth.currentUser?.uid
+        ReportsViewModel.provideFactory(this, userPreferences, medicineRepository, currentUserId)
+    }
     val userPreferences by lazy { UserPreferences (this) }
     companion object {
         // Canais existentess
