@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Share
@@ -25,12 +26,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.pillora.pillora.PilloraApplication
-import com.pillora.pillora.repository.MedicineRepository
 import com.pillora.pillora.viewmodel.ReportFile
 import com.pillora.pillora.viewmodel.ReportsViewModel
 import java.io.File
@@ -47,8 +48,7 @@ fun ReportsScreen(navController: NavController) {
         factory = ReportsViewModel.provideFactory(
             application = application,
             userPreferences = application.userPreferences,
-            medicineRepository = MedicineRepository,
-            currentUserId = Firebase.auth.currentUser?.uid // Adicionado o UID do usuário
+            currentUserId = Firebase.auth.currentUser?.uid
         )
     )
 
@@ -94,14 +94,46 @@ fun PremiumContent(
     reportFiles: List<ReportFile>,
     context: Context
 ) {
+    var showPatientDialog by remember { mutableStateOf(false) }
+    var patientNames by remember { mutableStateOf<List<String>>(emptyList()) }
+    var isLoadingNames by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
     Button(
         onClick = {
-            reportsViewModel.generateReport("Relatorio_Pillora")
-            Toast.makeText(context, "Geração de relatório iniciada...", Toast.LENGTH_SHORT).show()
+            // Buscar nomes de pacientes antes de mostrar o diálogo
+            isLoadingNames = true
+            coroutineScope.launch {
+                patientNames = reportsViewModel.getAllPatientNames()
+                isLoadingNames = false
+                showPatientDialog = true
+            }
         },
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !isLoadingNames
     ) {
-        Text("Gerar Novo Relatório (PDF)")
+        if (isLoadingNames) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                color = MaterialTheme.colorScheme.onPrimary,
+                strokeWidth = 2.dp
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+        Text(if (isLoadingNames) "Carregando..." else "Gerar Novo Relatório (PDF)")
+    }
+
+    // Diálogo de seleção de paciente
+    if (showPatientDialog) {
+        PatientSelectionDialog(
+            patientNames = patientNames,
+            onDismiss = { showPatientDialog = false },
+            onPatientSelected = { selectedPatient ->
+                showPatientDialog = false
+                reportsViewModel.generateReport("Relatorio_Pillora", selectedPatient)
+                Toast.makeText(context, "Gerando relatório para $selectedPatient...", Toast.LENGTH_SHORT).show()
+            }
+        )
     }
 
     Spacer(modifier = Modifier.height(16.dp))
@@ -343,4 +375,71 @@ fun downloadReport(context: Context, report: ReportFile) {
     } catch (e: Exception) {
         Toast.makeText(context, "Erro ao salvar relatório: ${e.message}", Toast.LENGTH_LONG).show()
     }
+}
+
+@Composable
+fun PatientSelectionDialog(
+    patientNames: List<String>,
+    onDismiss: () -> Unit,
+    onPatientSelected: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Selecione o Paciente",
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            if (patientNames.isEmpty()) {
+                Text(
+                    "Nenhum paciente encontrado. Cadastre medicamentos, consultas ou vacinas primeiro.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(patientNames) { patientName ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onPatientSelected(patientName)
+                                },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = patientName,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ArrowForward,
+                                    contentDescription = "Selecionar",
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
 }

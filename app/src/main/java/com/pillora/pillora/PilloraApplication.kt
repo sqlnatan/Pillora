@@ -11,9 +11,6 @@ import com.pillora.pillora.viewmodel.ReportsViewModel
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.pillora.pillora.data.UserPreferences
-import com.pillora.pillora.repository.ConsultationRepository
-import com.pillora.pillora.repository.VaccineRepository
-import com.pillora.pillora.viewmodel.HomeViewModel
 
 class PilloraApplication : Application() {
 
@@ -21,7 +18,7 @@ class PilloraApplication : Application() {
     val medicineRepository by lazy { MedicineRepository }
     val reportsViewModelFactory by lazy {
         val currentUserId = Firebase.auth.currentUser?.uid
-        ReportsViewModel.provideFactory(this, userPreferences, medicineRepository, currentUserId)
+        ReportsViewModel.provideFactory(this, userPreferences, currentUserId)
     }
     val userPreferences by lazy { UserPreferences (this) }
     companion object {
