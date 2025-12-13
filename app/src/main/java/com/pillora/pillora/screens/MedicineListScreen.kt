@@ -405,3 +405,4 @@ fun MedicineItem(
 // A carga agora é feita com Flow no LaunchedEffect
 // A deleção é feita diretamente no callback do AlertDialog usando MedicineRepository.deleteMedicine
 
+

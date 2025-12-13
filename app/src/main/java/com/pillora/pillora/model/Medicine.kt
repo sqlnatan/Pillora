@@ -21,3 +21,4 @@ data class Medicine(
     val stockQuantity: Double = 0.0, // Quantidade atual em estoque
     val stockUnit: String = "Unidades" // Unidade de medida do estoque (Unidades, ml, etc.)
 )
+
