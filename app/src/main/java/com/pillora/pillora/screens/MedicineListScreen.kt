@@ -229,6 +229,33 @@ fun MedicineListScreen(navController: NavController, homeViewModel: HomeViewMode
                             onDeleteClick = {
                                 medicineToDelete = medicine
                                 showDeleteDialog = true
+                            },
+                            onAlarmToggle = { isEnabled ->
+                                medicine.id?.let { id ->
+                                    scope.launch {
+                                        homeViewModel.toggleMedicineAlarms(
+                                            context = context,
+                                            medicineId = id,
+                                            alarmsEnabled = isEnabled,
+                                            onSuccess = {
+                                                Toast.makeText(
+                                                    context,
+                                                    if (isEnabled) "Alarmes ativados" else "Alarmes desativados",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            },
+                                            onError = { exception ->
+                                                Toast.makeText(
+                                                    context,
+                                                    "Erro ao atualizar alarmes: ${exception.message}",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            }
+                                        )
+                                    }
+                                } ?: run {
+                                    Toast.makeText(context, "Erro: ID do medicamento inválido", Toast.LENGTH_LONG).show()
+                                }
                             }
                         )
                     }
@@ -242,7 +269,8 @@ fun MedicineListScreen(navController: NavController, homeViewModel: HomeViewMode
 fun MedicineItem(
     medicine: Medicine,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onAlarmToggle: (Boolean) -> Unit
 ) {
     // Lógica para calcular a data final (mantida conforme original do usuário, mas com formato de parse ajustado)
     val finalDateText = if (medicine.duration > 0 && medicine.startDate.isNotEmpty()) {
@@ -394,6 +422,38 @@ fun MedicineItem(
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Switch para ativar/desativar alarmes
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Alarmes",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = if (medicine.alarmsEnabled) "Ativados" else "Desativados",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (medicine.alarmsEnabled)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Switch(
+                    checked = medicine.alarmsEnabled,
+                    onCheckedChange = onAlarmToggle
                 )
             }
         }

@@ -19,5 +19,8 @@ data class Medicine(
     // Novos campos para rastreamento de estoque
     val trackStock: Boolean = false, // Flag para indicar se o usuário deseja ser alertado quando o medicamento estiver acabando
     val stockQuantity: Double = 0.0, // Quantidade atual em estoque
-    val stockUnit: String = "Unidades" // Unidade de medida do estoque (Unidades, ml, etc.)
+    val stockUnit: String = "Unidades", // Unidade de medida do estoque (Unidades, ml, etc.)
+
+    // Campo para controlar ativação de alarmes
+    val alarmsEnabled: Boolean = true // Flag para ativar/desativar alarmes deste medicamento
 )

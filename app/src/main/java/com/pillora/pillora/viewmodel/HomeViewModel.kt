@@ -16,6 +16,7 @@ import com.pillora.pillora.data.local.AppDatabase // Adicionado
 import com.pillora.pillora.utils.AlarmScheduler // Adicionado
 import kotlinx.coroutines.Dispatchers // Adicionado
 import kotlinx.coroutines.launch // Adicionado
+import kotlinx.coroutines.withContext // Adicionado para mudar contexto de thread
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted // Importar SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -404,6 +405,87 @@ class HomeViewModel : ViewModel() {
                     onError(exception)
                 }
             )
+        }
+    }
+
+    // --- Função para ativar/desativar alarmes de um medicamento específico ---
+    fun toggleMedicineAlarms(
+        context: Context,
+        medicineId: String,
+        alarmsEnabled: Boolean,
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // 1. Buscar o medicamento atual do Firestore
+                MedicineRepository.getMedicineById(
+                    medicineId = medicineId,
+                    onSuccess = { medicine ->
+                        if (medicine == null) {
+                            onError(Exception("Medicamento não encontrado"))
+                            return@getMedicineById
+                        }
+
+                        // 2. Atualizar o campo alarmsEnabled
+                        val updatedMedicine = medicine.copy(alarmsEnabled = alarmsEnabled)
+
+                        // 3. Salvar no Firestore
+                        MedicineRepository.updateMedicine(
+                            medicineId = medicineId,
+                            medicine = updatedMedicine,
+                            onSuccess = {
+                                Log.d(tag, "Alarmes do medicamento $medicineId ${if (alarmsEnabled) "ativados" else "desativados"}")
+
+                                // 4. Gerenciar alarmes locais
+                                viewModelScope.launch(Dispatchers.IO) {
+                                    val lembreteDao = AppDatabase.getDatabase(context).lembreteDao()
+                                    val lembretes = lembreteDao.getLembretesByMedicamentoId(medicineId)
+
+                                    if (alarmsEnabled) {
+                                        // Reativar alarmes
+                                        lembretes.forEach { lembrete ->
+                                            AlarmScheduler.scheduleAlarm(context, lembrete)
+                                            Log.d(tag, "Alarme reativado para lembrete ID ${lembrete.id}")
+                                        }
+                                    } else {
+                                        // Desativar alarmes
+                                        lembretes.forEach { lembrete ->
+                                            AlarmScheduler.cancelAlarm(context, lembrete.id)
+                                            Log.d(tag, "Alarme desativado para lembrete ID ${lembrete.id}")
+                                        }
+                                    }
+
+                                    // Chamar onSuccess na thread principal (UI thread)
+                                    withContext(Dispatchers.Main) {
+                                        onSuccess()
+                                    }
+                                }
+                            },
+                            onError = { exception ->
+                                Log.e(tag, "Erro ao atualizar alarmes do medicamento $medicineId", exception)
+                                // Chamar onError na thread principal (UI thread)
+                                viewModelScope.launch(Dispatchers.Main) {
+                                    onError(exception)
+                                }
+                            }
+                        )
+                    },
+                    onError = { exception ->
+                        Log.e(tag, "Erro ao buscar medicamento $medicineId", exception)
+                        // Chamar onError na thread principal (UI thread)
+                        viewModelScope.launch(Dispatchers.Main) {
+                            onError(exception)
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(tag, "Erro ao alternar alarmes do medicamento $medicineId", e)
+                // Chamar onError na thread principal (UI thread)
+                viewModelScope.launch(Dispatchers.Main) {
+                    onError(e)
+                }
+            }
         }
     }
 }

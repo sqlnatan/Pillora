@@ -1046,8 +1046,13 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                                                         )
                                                                         try {
                                                                             val idLembreteSalvo = lembreteDao.insertLembrete(novoLembrete)
-                                                                            AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
-                                                                            Log.d("MedicineFormScreen", "Lembrete (vezes_dia) atualizado/agendado para medId: $medicineId, lembreteId: $idLembreteSalvo")
+                                                                            // Só agendar alarme se alarmsEnabled for true
+                                                                            if (medicine.alarmsEnabled) {
+                                                                                AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
+                                                                                Log.d("MedicineFormScreen", "Lembrete (vezes_dia) atualizado/agendado para medId: $medicineId, lembreteId: $idLembreteSalvo")
+                                                                            } else {
+                                                                                Log.d("MedicineFormScreen", "Lembrete (vezes_dia) salvo mas alarme não agendado (alarmsEnabled=false) para medId: $medicineId, lembreteId: $idLembreteSalvo")
+                                                                            }
                                                                         } catch (e: Exception) {
                                                                             Log.e("MedicineFormScreen", "Erro ao salvar/agendar lembrete (vezes_dia) para medId: $medicineId", e)
                                                                             lembretesProcessadosComSucesso = false
@@ -1091,8 +1096,13 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
 
                                                                     try {
                                                                         val idLembreteSalvo = lembreteDao.insertLembrete(novoLembrete)
-                                                                        AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
-                                                                        Log.d("MedicineFormScreen", "Lembrete (a_cada_x_horas) atualizado/agendado para medId: $medicineId, lembreteId: $idLembreteSalvo, timestamp: $timestamp")
+                                                                        // Só agendar alarme se alarmsEnabled for true
+                                                                        if (medicine.alarmsEnabled) {
+                                                                            AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
+                                                                            Log.d("MedicineFormScreen", "Lembrete (a_cada_x_horas) atualizado/agendado para medId: $medicineId, lembreteId: $idLembreteSalvo, timestamp: $timestamp")
+                                                                        } else {
+                                                                            Log.d("MedicineFormScreen", "Lembrete (a_cada_x_horas) salvo mas alarme não agendado (alarmsEnabled=false) para medId: $medicineId, lembreteId: $idLembreteSalvo")
+                                                                        }
                                                                     } catch (e: Exception) {
                                                                         Log.e("MedicineFormScreen", "Erro ao salvar/agendar lembrete (a_cada_x_horas) para medId: $medicineId", e)
                                                                         Log.e("PILLORA_DEBUG", "Criando lembrete para 'a cada X horas'. Intervalo: $intervalHours, Data início: $startDate")
@@ -1187,8 +1197,13 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                                                         )
                                                                         try {
                                                                             val idLembreteSalvo = lembreteDao.insertLembrete(novoLembrete)
-                                                                            AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
-                                                                            Log.d("MedicineFormScreen", "Lembrete (vezes_dia) criado/agendado para novo medId: $newMedicineId, lembreteId: $idLembreteSalvo")
+                                                                            // Só agendar alarme se alarmsEnabled for true
+                                                                            if (medicine.alarmsEnabled) {
+                                                                                AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
+                                                                                Log.d("MedicineFormScreen", "Lembrete (vezes_dia) criado/agendado para novo medId: $newMedicineId, lembreteId: $idLembreteSalvo")
+                                                                            } else {
+                                                                                Log.d("MedicineFormScreen", "Lembrete (vezes_dia) salvo mas alarme não agendado (alarmsEnabled=false) para novo medId: $newMedicineId, lembreteId: $idLembreteSalvo")
+                                                                            }
                                                                         } catch (e: Exception) {
                                                                             Log.e("MedicineFormScreen", "Erro ao salvar/agendar lembrete (vezes_dia) para novo medId: $newMedicineId", e)
                                                                             lembretesProcessadosComSucesso = false
@@ -1232,8 +1247,13 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
 
                                                                     try {
                                                                         val idLembreteSalvo = lembreteDao.insertLembrete(novoLembrete)
-                                                                        AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
-                                                                        Log.d("MedicineFormScreen", "Lembrete (a_cada_x_horas) criado/agendado para novo medId: $newMedicineId, lembreteId: $idLembreteSalvo, timestamp: $timestamp")
+                                                                        // Só agendar alarme se alarmsEnabled for true
+                                                                        if (medicine.alarmsEnabled) {
+                                                                            AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
+                                                                            Log.d("MedicineFormScreen", "Lembrete (a_cada_x_horas) criado/agendado para novo medId: $newMedicineId, lembreteId: $idLembreteSalvo, timestamp: $timestamp")
+                                                                        } else {
+                                                                            Log.d("MedicineFormScreen", "Lembrete (a_cada_x_horas) salvo mas alarme não agendado (alarmsEnabled=false) para novo medId: $newMedicineId, lembreteId: $idLembreteSalvo")
+                                                                        }
                                                                     } catch (e: Exception) {
                                                                         Log.e("MedicineFormScreen", "Erro ao salvar/agendar lembrete (a_cada_x_horas) para novo medId: $newMedicineId", e)
                                                                         lembretesProcessadosComSucesso = false
