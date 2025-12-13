@@ -49,30 +49,30 @@ object MedicineRepository {
             .addOnFailureListener { onError(it) }
     }
 
-	    fun updateMedicine(
-	        medicine: Medicine,
-	        onSuccess: () -> Unit,
-	        onError: (Exception) -> Unit
-	    ) {
-	        val medicineId = medicine.id
-	        if (medicineId.isNullOrBlank()) { // Verifica se medicineId é nulo ou vazio
-	            onError(Exception("Medicine ID is missing or invalid for update"))
-	            return
-	        }
-	        val userMedicinesRef = getUserMedicinesCollectionRef()
-	        if (userMedicinesRef == null) {
-	            onError(Exception("User not logged in or user ID is invalid for update"))
-	            return
-	        }
-	
-	        // Garante que o userId está no objeto e remove o ID para evitar que seja salvo como campo
-	        val medicineToUpdate = medicine.copy(userId = currentUserId, id = null)
-	
-	        userMedicinesRef.document(medicineId)
-	            .set(medicineToUpdate)
-	            .addOnSuccessListener { onSuccess() }
-	            .addOnFailureListener { onError(it) }
-	    }
+    fun updateMedicine(
+        medicineId: String, // ID do documento a ser atualizado
+        medicine: Medicine,
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        if (medicineId.isBlank()) { // Verifica se medicineId é branco (nulo ou vazio)
+            onError(Exception("Medicine ID is missing or invalid for update"))
+            return
+        }
+        val userMedicinesRef = getUserMedicinesCollectionRef()
+        if (userMedicinesRef == null) {
+            onError(Exception("User not logged in or user ID is invalid for update"))
+            return
+        }
+
+        // Garante que o userId e o id do objeto estejam corretos antes de salvar
+        val medicineToUpdate = medicine.copy(userId = currentUserId, id = null)
+
+        userMedicinesRef.document(medicineId)
+            .set(medicineToUpdate)
+            .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { onError(it) }
+    }
 
     fun deleteMedicine(
         medicineId: String,
@@ -210,4 +210,3 @@ object MedicineRepository {
             .addOnFailureListener { onError(it) }
     }
 }
-
