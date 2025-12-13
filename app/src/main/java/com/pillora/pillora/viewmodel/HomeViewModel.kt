@@ -374,7 +374,55 @@ class HomeViewModel : ViewModel() {
         medicineId: String,
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit
-    ) {
+	    ) {
+	        // A função de exclusão é a última função no arquivo, então adicionamos a nova função antes dela.
+	    }
+	
+	    fun updateMedicineAlarmsEnabled(
+	        context: Context,
+	        medicine: Medicine,
+	        alarmsEnabled: Boolean,
+	        onSuccess: () -> Unit,
+	        onError: (Exception) -> Unit
+	    ) {
+	        viewModelScope.launch(Dispatchers.IO) {
+	            val updatedMedicine = medicine.copy(alarmsEnabled = alarmsEnabled)
+	
+	            // 1. Atualizar o medicamento no Firestore
+	            MedicineRepository.updateMedicine(
+	                medicine = updatedMedicine,
+	                onSuccess = {
+	                    Log.d(tag, "Medicamento ${medicine.id} atualizado no Firestore (alarmsEnabled: $alarmsEnabled).")
+	
+	                    // 2. Agendar ou cancelar alarmes localmente
+	                    val lembreteDao = AppDatabase.getDatabase(context).lembreteDao()
+	                    val lembretes = lembreteDao.getLembretesByMedicamentoId(medicine.id!!)
+	
+	                    if (alarmsEnabled) {
+	                        // Reagendar todos os alarmes
+	                        lembretes.forEach { lembrete ->
+	                            AlarmScheduler.scheduleAlarm(context, lembrete)
+	                            Log.d(tag, "Alarme ID ${lembrete.id} (Medicamento ${medicine.id}) reagendado.")
+	                        }
+	                    } else {
+	                        // Cancelar todos os alarmes
+	                        lembretes.forEach { lembrete ->
+	                            AlarmScheduler.cancelAlarm(context, lembrete.id)
+	                            Log.d(tag, "Alarme ID ${lembrete.id} (Medicamento ${medicine.id}) cancelado.")
+	                        }
+	                    }
+	
+	                    onSuccess()
+	                },
+	                onError = { exception ->
+	                    Log.e(tag, "Erro ao atualizar medicamento ${medicine.id} no Firestore.", exception)
+	                    onError(exception)
+	                }
+	            )
+	        }
+	    }
+	
+	    fun deleteMedicine(
         viewModelScope.launch(Dispatchers.IO) {
             // 1. Buscar todos os lembretes associados ao medicamento no Room
             val lembreteDao = AppDatabase.getDatabase(context).lembreteDao()
