@@ -226,11 +226,28 @@ fun MedicineListScreen(navController: NavController, homeViewModel: HomeViewMode
                                     Toast.makeText(context, "Erro: ID do medicamento inválido para edição", Toast.LENGTH_LONG).show()
                                 }
                             },
-                            onDeleteClick = {
-                                medicineToDelete = medicine
-                                showDeleteDialog = true
-                            }
-                        )
+	                            onDeleteClick = {
+	                                medicineToDelete = medicine
+	                                showDeleteDialog = true
+	                            },
+	                            onToggleAlarmClick = { isChecked ->
+	                                medicine.id?.let {
+	                                    homeViewModel.updateMedicineAlarmsEnabled(
+	                                        context = context,
+	                                        medicine = medicine,
+	                                        alarmsEnabled = isChecked,
+	                                        onSuccess = {
+	                                            Toast.makeText(context, "Alarmes de ${medicine.name} ${if (isChecked) "ativados" else "desativados"}.", Toast.LENGTH_SHORT).show()
+	                                        },
+	                                        onError = { exception ->
+	                                            Toast.makeText(context, "Erro ao atualizar alarmes: ${exception.message}", Toast.LENGTH_LONG).show()
+	                                        }
+	                                    )
+	                                } ?: run {
+	                                    Toast.makeText(context, "Erro: ID do medicamento inválido para atualizar alarmes.", Toast.LENGTH_LONG).show()
+	                                }
+	                            }
+	                        )
                     }
                 }
             }
@@ -242,7 +259,8 @@ fun MedicineListScreen(navController: NavController, homeViewModel: HomeViewMode
 fun MedicineItem(
     medicine: Medicine,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onToggleAlarmClick: (Boolean) -> Unit
 ) {
     // Lógica para calcular a data final (mantida conforme original do usuário, mas com formato de parse ajustado)
     val finalDateText = if (medicine.duration > 0 && medicine.startDate.isNotEmpty()) {
@@ -324,8 +342,14 @@ fun MedicineItem(
                     }
                 }
 
-                Row {
-                    IconButton(onClick = onEditClick) {
+	                Row(verticalAlignment = Alignment.CenterVertically) {
+	                    // Switch para ativar/desativar alarmes
+	                    Switch(
+	                        checked = medicine.alarmsEnabled,
+	                        onCheckedChange = onToggleAlarmClick,
+	                        modifier = Modifier.padding(end = 8.dp)
+	                    )
+	                    IconButton(onClick = onEditClick) {
                         Icon(Icons.Default.Edit, contentDescription = "Editar")
                     }
                     IconButton(onClick = onDeleteClick) {
