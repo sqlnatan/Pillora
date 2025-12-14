@@ -114,8 +114,18 @@ class ReportsViewModel(
                 val consultations = ConsultationRepository.getAllConsultationsFlow().first()
                 val vaccinesResult = VaccineRepository.getAllVaccinesFlow().first()
                 val vaccines = when (vaccinesResult) {
-                    is DataResult.Success -> vaccinesResult.data
-                    else -> emptyList()
+                    is DataResult.Success -> {
+                        Log.d("ReportsViewModel", "✅ Vacinas carregadas: ${vaccinesResult.data.size}")
+                        vaccinesResult.data
+                    }
+                    is DataResult.Error -> {
+                        Log.e("ReportsViewModel", "❌ Erro ao carregar vacinas: ${vaccinesResult.message}")
+                        emptyList()
+                    }
+                    is DataResult.Loading -> {
+                        Log.w("ReportsViewModel", "⏳ Vacinas ainda carregando")
+                        emptyList()
+                    }
                 }
 
                 // Buscar nome do usuário logado
@@ -143,13 +153,20 @@ class ReportsViewModel(
                 }
 
                 // Adicionar nomes de vacinas
+                Log.d("ReportsViewModel", "💉 Processando ${vaccines.size} vacinas")
                 vaccines.forEach { vaccine ->
+                    Log.d("ReportsViewModel", "  - Vacina: ${vaccine.name}, Paciente: '${vaccine.patientName}'")
                     if (vaccine.patientName.isNotBlank()) {
                         names.add(vaccine.patientName)
+                        Log.d("ReportsViewModel", "    ✅ Nome adicionado: ${vaccine.patientName}")
+                    } else {
+                        Log.d("ReportsViewModel", "    ⚠️ Nome vazio, não adicionado")
                     }
                 }
 
                 // Retornar lista ordenada
+                Log.d("ReportsViewModel", "📋 Total de nomes únicos encontrados: ${names.size}")
+                Log.d("ReportsViewModel", "   Nomes: ${names.joinToString(", ")}")
                 names.sorted()
             } catch (e: Exception) {
                 Log.e("ReportsViewModel", "Erro ao buscar nomes de pacientes", e)
@@ -166,9 +183,8 @@ class ReportsViewModel(
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-            val fileName = "${reportName}_$timestamp.pdf"
-            val newFile = File(reportsDir, fileName)
+            // Formato de data para o nome do arquivo: DD-MM-YYYY
+            val dateStr = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
 
             try {
                 // Buscar dados
@@ -217,12 +233,23 @@ class ReportsViewModel(
                     allVaccines
                 }
 
+                Log.d("ReportsViewModel", "📊 Gerando relatório para: $selectedPatient")
+                Log.d("ReportsViewModel", "   Total de vacinas (todas): ${allVaccines.size}")
+                Log.d("ReportsViewModel", "   Vacinas filtradas: ${vaccines.size}")
+                vaccines.forEach { v ->
+                    Log.d("ReportsViewModel", "     - ${v.name} (Paciente: '${v.patientName}')")
+                }
+
                 // Nome do paciente para o relatório
                 val patientNameForReport = if (selectedPatient != null) {
                     if (selectedPatient.startsWith("Eu (")) userName else selectedPatient
                 } else {
                     userName
                 }
+
+                // Criar nome do arquivo no formato: Relatório Pillora (Nome) (DATA).pdf
+                val fileName = "Relatório Pillora ($patientNameForReport) ($dateStr).pdf"
+                val newFile = File(reportsDir, fileName)
 
                 // Criar documento PDF
                 val document = PdfDocument()
@@ -431,13 +458,16 @@ class ReportsViewModel(
                 canvas.drawText("💉 VACINAS", leftMargin, y, paint)
                 y += 25f
 
+                Log.d("ReportsViewModel", "📝 Renderizando seção de vacinas no PDF (${vaccines.size} vacinas)")
                 if (vaccines.isEmpty()) {
+                    Log.d("ReportsViewModel", "   ⚠️ Nenhuma vacina para renderizar")
                     paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
                     paint.textSize = 12f
                     paint.color = Color.GRAY
                     canvas.drawText("Nenhuma vacina cadastrada.", leftMargin + 10f, y, paint)
                     y += 30f
                 } else {
+                    Log.d("ReportsViewModel", "   ✅ Renderizando ${vaccines.size} vacinas")
                     vaccines.forEachIndexed { index, vaccine ->
                         if (y > pageHeight - 100) {
                             document.finishPage(page)
