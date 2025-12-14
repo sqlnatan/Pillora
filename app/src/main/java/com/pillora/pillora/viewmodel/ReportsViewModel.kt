@@ -183,8 +183,8 @@ class ReportsViewModel(
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            // Formato de data para o nome do arquivo: DD-MM-YYYY
-            val dateStr = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
+            // Formato de data e hora para o nome do arquivo: DD-MM-YYYY_HH-mm-ss
+            val dateTimeStr = SimpleDateFormat("dd-MM-yyyy_HH-mm-ss", Locale.getDefault()).format(Date())
 
             try {
                 // Buscar dados
@@ -203,8 +203,8 @@ class ReportsViewModel(
                 // Filtrar dados por paciente selecionado
                 val medicines = if (selectedPatient != null) {
                     if (selectedPatient.startsWith("Eu (")) {
-                        // Filtrar registros sem recipientName (do próprio usuário)
-                        allMedicines.filter { it.recipientName.isBlank() }
+                        // Filtrar registros sem recipientName OU com recipientName igual ao userName (do próprio usuário)
+                        allMedicines.filter { it.recipientName.isBlank() || it.recipientName == userName }
                     } else {
                         // Filtrar por nome específico
                         allMedicines.filter { it.recipientName == selectedPatient }
@@ -215,7 +215,8 @@ class ReportsViewModel(
 
                 val consultations = if (selectedPatient != null) {
                     if (selectedPatient.startsWith("Eu (")) {
-                        allConsultations.filter { it.patientName.isBlank() }
+                        // Filtrar registros sem patientName OU com patientName igual ao userName (do próprio usuário)
+                        allConsultations.filter { it.patientName.isBlank() || it.patientName == userName }
                     } else {
                         allConsultations.filter { it.patientName == selectedPatient }
                     }
@@ -225,7 +226,8 @@ class ReportsViewModel(
 
                 val vaccines = if (selectedPatient != null) {
                     if (selectedPatient.startsWith("Eu (")) {
-                        allVaccines.filter { it.patientName.isBlank() }
+                        // Filtrar registros sem patientName OU com patientName igual ao userName (do próprio usuário)
+                        allVaccines.filter { it.patientName.isBlank() || it.patientName == userName }
                     } else {
                         allVaccines.filter { it.patientName == selectedPatient }
                     }
@@ -247,8 +249,8 @@ class ReportsViewModel(
                     userName
                 }
 
-                // Criar nome do arquivo no formato: Relatório Pillora (Nome) (DATA).pdf
-                val fileName = "Relatório Pillora ($patientNameForReport) ($dateStr).pdf"
+                // Criar nome do arquivo no formato: Relatório Pillora (Nome) (DATA_HORA).pdf
+                val fileName = "Relatório Pillora ($patientNameForReport) ($dateTimeStr).pdf"
                 val newFile = File(reportsDir, fileName)
 
                 // Criar documento PDF
