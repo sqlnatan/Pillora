@@ -44,6 +44,7 @@ fun SettingsScreen(navController: NavController) {
     val currentThemePref by viewModel.themePreference.collectAsState()
     val doseRemindersEnabled by viewModel.doseRemindersEnabled.collectAsState()
     val stockAlertsEnabled by viewModel.stockAlertsEnabled.collectAsState()
+    val isPremium by viewModel.isPremium.collectAsState()
 
     Scaffold(
         topBar = {
@@ -67,6 +68,17 @@ fun SettingsScreen(navController: NavController) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Spacer(modifier = Modifier.height(8.dp)) // Espaço no topo
+
+            // Seção de Teste Premium
+            Text("Modo de Teste", style = MaterialTheme.typography.titleMedium)
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(vertical = 8.dp)) {
+                    PremiumTestOption(
+                        isPremium = isPremium,
+                        onPremiumChange = { viewModel.setPremiumStatus(it) }
+                    )
+                }
+            }
 
             // Seção de Tema
             Text("Tema do Aplicativo", style = MaterialTheme.typography.titleMedium)
@@ -143,6 +155,34 @@ fun NotificationOption(text: String, checked: Boolean, onCheckedChange: (Boolean
     ) {
         Text(text, style = MaterialTheme.typography.bodyLarge)
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+fun PremiumTestOption(isPremium: Boolean, onPremiumChange: (Boolean) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(72.dp)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column {
+            Text(
+                text = if (isPremium) "Modo Premium" else "Modo Free",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = "Alterne para testar funcionalidades",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = isPremium,
+            onCheckedChange = onPremiumChange
+        )
     }
 }
 

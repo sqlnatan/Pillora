@@ -5,8 +5,11 @@ import android.content.SharedPreferences
 import androidx.core.content.edit // Importar a extensão KTX
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pillora.pillora.data.UserPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 // Enum para preferências de tema
@@ -17,6 +20,7 @@ class SettingsViewModel(context: Context) : ViewModel() {
     // Usar applicationContext para evitar memory leaks
     private val appContext = context.applicationContext
     private val prefs: SharedPreferences = appContext.getSharedPreferences("pillora_prefs", Context.MODE_PRIVATE)
+    private val userPreferences = UserPreferences(appContext)
 
     private val _themePreference = MutableStateFlow(getThemePreference())
     val themePreference: StateFlow<ThemePreference> = _themePreference
@@ -27,6 +31,13 @@ class SettingsViewModel(context: Context) : ViewModel() {
 
     private val _stockAlertsEnabled = MutableStateFlow(prefs.getBoolean("notification_stock_alerts_enabled", true))
     val stockAlertsEnabled: StateFlow<Boolean> = _stockAlertsEnabled
+
+    // Estado Premium
+    val isPremium: StateFlow<Boolean> = userPreferences.isPremium.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
 
     // TODO: Adicionar StateFlows para outras notificações (consultas, vacinas) quando implementadas
 
@@ -65,6 +76,12 @@ class SettingsViewModel(context: Context) : ViewModel() {
                 putBoolean("notification_stock_alerts_enabled", enabled)
             }
             _stockAlertsEnabled.value = enabled
+        }
+    }
+
+    fun setPremiumStatus(isPremium: Boolean) {
+        viewModelScope.launch {
+            userPreferences.setPremium(isPremium)
         }
     }
 
