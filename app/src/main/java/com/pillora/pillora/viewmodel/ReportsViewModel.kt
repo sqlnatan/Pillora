@@ -112,7 +112,7 @@ class ReportsViewModel(
             try {
                 val medicines = MedicineRepository.getAllMedicinesFlow().first()
                 val consultations = ConsultationRepository.getAllConsultationsFlow().first()
-                
+
                 // Aguardar até receber DataResult.Success (pular Loading)
                 val vaccines = VaccineRepository.getAllVaccinesFlow()
                     .first { it is DataResult.Success || it is DataResult.Error }
@@ -192,7 +192,7 @@ class ReportsViewModel(
                 // Buscar dados
                 val allMedicines = MedicineRepository.getAllMedicinesFlow().first()
                 val allConsultations = ConsultationRepository.getAllConsultationsFlow().first()
-                
+
                 // Aguardar até receber DataResult.Success (pular Loading)
                 val allVaccines = VaccineRepository.getAllVaccinesFlow()
                     .first { it is DataResult.Success || it is DataResult.Error }
@@ -269,37 +269,111 @@ class ReportsViewModel(
                 var pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
                 var page = document.startPage(pageInfo)
                 var canvas = page.canvas
-                var y = 40f
+                var y = 25f
 
                 val paint = Paint()
                 val leftMargin = 40f
                 val rightMargin = pageWidth - 40f
                 val lineHeight = 18f
 
-                // ==================== LOGO E SLOGAN ====================
+                // ==================== CABEÇALHO EM DUAS COLUNAS ====================
+                val headerStartY = y
+                val currentDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
+
+                // ===== LADO ESQUERDO: LOGO, NOME E SLOGAN =====
+                var leftY = headerStartY
                 try {
                     val logo = BitmapFactory.decodeResource(context.resources, R.drawable.app_logo)
-                    val logoWidth = 80f
-                    val logoHeight = 80f
-                    val logoX = (pageWidth - logoWidth) / 2
+                    val logoWidth = 50f
+                    val logoHeight = 50f
+
+                    // Desenhar logo no canto esquerdo
                     canvas.drawBitmap(
                         logo,
                         null,
-                        android.graphics.RectF(logoX, y, logoX + logoWidth, y + logoHeight),
+                        android.graphics.RectF(leftMargin, leftY, leftMargin + logoWidth, leftY + logoHeight),
                         paint
                     )
-                    y += logoHeight + 10f
+
+                    // Desenhar texto "Pillora" ao lado do logo
+                    paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                    paint.textSize = 28f
+                    paint.color = Color.BLACK
+                    paint.textAlign = Paint.Align.LEFT
+                    val textX = leftMargin + logoWidth + 12f
+                    val textY = leftY + (logoHeight / 2f) + (paint.textSize / 3f)
+                    canvas.drawText("Pillora", textX, textY, paint)
+
+                    leftY += logoHeight + 8f
                 } catch (e: Exception) {
                     Log.e("ReportsViewModel", "Erro ao carregar logo", e)
                 }
 
-                // Slogan
+                // Slogan abaixo do logo (alinhado à esquerda)
                 paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
-                paint.textSize = 12f
+                paint.textSize = 10f
                 paint.color = Color.GRAY
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("Cuidando da sua saúde, um lembrete de cada vez", pageWidth / 2f, y, paint)
-                y += 25f
+                paint.textAlign = Paint.Align.LEFT
+                canvas.drawText("Cuidando da sua saúde, um lembrete de cada vez", leftMargin, leftY, paint)
+                leftY += 15f
+
+                // ===== LADO DIREITO: CARD DE IDENTIFICAÇÃO =====
+                val cardPadding = 10f
+                val titleHeight = 18f
+                val cardWidth = 250f
+                val cardHeight = titleHeight + (lineHeight * 2) + (cardPadding * 2)
+                val cornerRadius = 8f
+                val cardLeft = rightMargin - cardWidth
+                val cardTop = headerStartY
+
+                // Desenhar fundo azul muito claro (card) com cantos arredondados
+                paint.color = Color.rgb(245, 250, 255)
+                paint.style = Paint.Style.FILL
+                canvas.drawRoundRect(
+                    cardLeft,
+                    cardTop,
+                    rightMargin,
+                    cardTop + cardHeight,
+                    cornerRadius,
+                    cornerRadius,
+                    paint
+                )
+
+                // Desenhar borda do card
+                paint.color = Color.rgb(200, 220, 240)
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = 1f
+                canvas.drawRoundRect(
+                    cardLeft,
+                    cardTop,
+                    rightMargin,
+                    cardTop + cardHeight,
+                    cornerRadius,
+                    cornerRadius,
+                    paint
+                )
+
+                // Conteúdo do card
+                paint.style = Paint.Style.FILL
+                paint.textAlign = Paint.Align.LEFT
+                var cardY = cardTop + cardPadding + 12f
+
+                // Título dentro do card
+                paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                paint.textSize = 12f
+                paint.color = Color.BLACK
+                canvas.drawText("📋 IDENTIFICAÇÃO DO PACIENTE", cardLeft + 10f, cardY, paint)
+                cardY += titleHeight
+
+                // Dados do paciente
+                paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                paint.textSize = 10f
+                canvas.drawText("Nome: $patientNameForReport", cardLeft + 10f, cardY, paint)
+                cardY += lineHeight
+                canvas.drawText("Data: $currentDate", cardLeft + 10f, cardY, paint)
+
+                // Avançar Y para depois da seção mais alta (card ou logo+slogan)
+                y = Math.max(leftY, cardTop + cardHeight) + 10f
 
                 // Linha separadora
                 paint.strokeWidth = 1f
@@ -307,43 +381,11 @@ class ReportsViewModel(
                 canvas.drawLine(leftMargin, y, rightMargin, y, paint)
                 y += 20f
 
-                // ==================== IDENTIFICAÇÃO DO PACIENTE ====================
-                paint.textAlign = Paint.Align.LEFT
-                paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                paint.textSize = 16f
-                paint.color = Color.BLACK
-                canvas.drawText("📋 IDENTIFICAÇÃO DO PACIENTE", leftMargin, y, paint)
-                y += 25f
-
-                paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-                paint.textSize = 12f
-
-                canvas.drawText("Nome do paciente: $patientNameForReport", leftMargin + 10f, y, paint)
-                y += lineHeight
-
-                val currentDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
-                canvas.drawText("Data de geração do relatório: $currentDate", leftMargin + 10f, y, paint)
-                y += lineHeight
-
-                // Calcular período do relatório (do medicamento mais antigo ao mais recente)
-                val startDates = medicines.mapNotNull {
-                    try {
-                        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).parse(it.startDate)
-                    } catch (e: Exception) { null }
-                }
-                val periodText = if (startDates.isNotEmpty()) {
-                    val oldest = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(startDates.minOrNull()!!)
-                    val newest = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(startDates.maxOrNull()!!)
-                    "$oldest até $newest"
-                } else {
-                    "Não disponível"
-                }
-                canvas.drawText("Relatório referente ao período: $periodText", leftMargin + 10f, y, paint)
-                y += 30f
-
                 // ==================== MEDICAMENTOS ====================
                 paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 paint.textSize = 16f
+                paint.color = Color.BLACK
+                paint.textAlign = Paint.Align.LEFT
                 canvas.drawText("💊 MEDICAMENTOS", leftMargin, y, paint)
                 y += 25f
 
@@ -412,7 +454,16 @@ class ReportsViewModel(
                         } else {
                             "${medicine.duration} dias"
                         }
-                        canvas.drawText("   Início: ${medicine.startDate} | Duração: $durationText", leftMargin + 15f, y, paint)
+                        // Formatar data de início corretamente
+                        val formattedStartDate = try {
+                            val inputFormat = SimpleDateFormat("ddMMyyyy", Locale.getDefault())
+                            val outputFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                            val date = inputFormat.parse(medicine.startDate)
+                            if (date != null) outputFormat.format(date) else medicine.startDate
+                        } catch (e: Exception) {
+                            medicine.startDate // Se já estiver formatado ou outro formato, usar como está
+                        }
+                        canvas.drawText("   Início: $formattedStartDate | Duração: $durationText", leftMargin + 15f, y, paint)
                         y += lineHeight
 
                         // Observações
@@ -596,9 +647,9 @@ class ReportsViewModel(
                     }
                 }
 
-                // ==================== AVISO DE RESPONSABILIDADE ====================
+                // ==================== RODAPÉ OTIMIZADO ====================
                 // Ir para o final da página ou criar nova se necessário
-                val disclaimerHeight = 120f
+                val disclaimerHeight = 65f
                 if (y > pageHeight - disclaimerHeight - 40f) {
                     document.finishPage(page)
                     pageNumber++
@@ -614,48 +665,79 @@ class ReportsViewModel(
                 paint.strokeWidth = 1f
                 paint.color = Color.LTGRAY
                 canvas.drawLine(leftMargin, y, rightMargin, y, paint)
-                y += 15f
+                y += 12f
 
-                // Aviso
+                // Calcular largura das 2 colunas (mais largas)
+                val totalWidth = rightMargin - leftMargin
+                val columnSpacing = 20f
+                val columnWidth = (totalWidth - columnSpacing) / 2f
+                val col1X = leftMargin
+                val col2X = leftMargin + columnWidth + columnSpacing
+                val footerStartY = y
+
+                // ===== COLUNA 1: AVISO IMPORTANTE =====
+                var col1Y = footerStartY
                 paint.color = Color.DKGRAY
                 paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                paint.textSize = 10f
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("⚠️ AVISO IMPORTANTE", pageWidth / 2f, y, paint)
-                y += 15f
+                paint.textSize = 8f
+                paint.textAlign = Paint.Align.LEFT
+                canvas.drawText("⚠️ AVISO IMPORTANTE", col1X, col1Y, paint)
+                col1Y += 12f
 
                 paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-                paint.textSize = 9f
+                paint.textSize = 7f
 
-                val disclaimer = """
-                Este relatório é gerado automaticamente pelo aplicativo Pillora e destina-se
-                exclusivamente ao controle pessoal de medicamentos, consultas e vacinas.
-                
-                NÃO INCENTIVAMOS O USO DE QUALQUER MEDICAMENTO SEM PRESCRIÇÃO MÉDICA.
-                Sempre consulte um profissional de saúde qualificado antes de iniciar, alterar
-                ou interromper qualquer tratamento médico.
+                val disclaimer1 = """
+                Este relatório é gerado automaticamente pelo
+                aplicativo Pillora e destina-se exclusivamente
+                ao controle pessoal de medicamentos, consultas
+                e vacinas.
                 """.trimIndent()
 
-                disclaimer.lines().forEach { line ->
-                    canvas.drawText(line.trim(), pageWidth / 2f, y, paint)
-                    y += 12f
+                disclaimer1.lines().forEach { line ->
+                    canvas.drawText(line.trim(), col1X, col1Y, paint)
+                    col1Y += 9f
                 }
 
-                y += 10f
+                // ===== COLUNA 2: RESPONSABILIDADE MÉDICA =====
+                var col2Y = footerStartY
+                paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                paint.textSize = 8f
+                canvas.drawText("👨‍⚕️ RESPONSABILIDADE MÉDICA", col2X, col2Y, paint)
+                col2Y += 12f
 
-                // ==================== ASSINATURA DO APP ====================
+                paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                paint.textSize = 7f
+
+                val disclaimer2 = """
+                NÃO INCENTIVAMOS O USO DE QUALQUER
+                MEDICAMENTO SEM PRESCRIÇÃO MÉDICA.
+                Sempre consulte um profissional de saúde
+                qualificado antes de iniciar, alterar ou
+                interromper qualquer tratamento médico.
+                """.trimIndent()
+
+                disclaimer2.lines().forEach { line ->
+                    canvas.drawText(line.trim(), col2X, col2Y, paint)
+                    col2Y += 9f
+                }
+
+                // Avançar para depois dos avisos
+                y = Math.max(col1Y, col2Y) + 8f
+
+                // ===== ASSINATURA NO FINAL (CENTRALIZADA) =====
                 paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
-                paint.textSize = 9f
+                paint.textSize = 7f
                 paint.color = Color.GRAY
-                canvas.drawText("Relatório gerado automaticamente pelo aplicativo Pillora", pageWidth / 2f, y, paint)
-                y += 12f
+                paint.textAlign = Paint.Align.CENTER
 
                 val appVersion = try {
                     context.packageManager.getPackageInfo(context.packageName, 0).versionName
                 } catch (e: Exception) {
                     "1.0.0"
                 }
-                canvas.drawText("versão $appVersion — © 2025", pageWidth / 2f, y, paint)
+
+                canvas.drawText("Relatório gerado automaticamente pelo aplicativo Pillora - versão $appVersion © 2025", pageWidth / 2f, y, paint)
 
                 // Finalizar documento
                 document.finishPage(page)
