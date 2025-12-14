@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -303,6 +304,11 @@ fun DrawerContent(
         DrawerItem(icon = Icons.Default.Description, label = "Relatórios") {
             scope.launch { drawerState.close() }
             navController.navigate(Screen.Reports.route)
+        }
+
+        DrawerItem(icon = Icons.Default.Star, label = "Assinatura") {
+            scope.launch { drawerState.close() }
+            navController.navigate(Screen.Subscription.route)
         }
 
         Spacer(modifier = Modifier.weight(1f))

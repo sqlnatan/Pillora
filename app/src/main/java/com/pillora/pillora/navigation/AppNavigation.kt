@@ -32,6 +32,7 @@ import com.pillora.pillora.viewmodel.ConsultationViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.pillora.pillora.screens.ReportsScreen // Import ReportsScreen
+import com.pillora.pillora.screens.SubscriptionScreen // Import SubscriptionScreen
 
 
 
@@ -202,22 +203,27 @@ fun AppNavigation(
             composable(Screen.Reports.route) {
                 ReportsScreen(navController = navController)
             }
-        }
 
-            // *** CORREÇÃO: Navegar para a tela de edição de consulta OU vacina se necessário ***
-            if (openConsultationEdit && consultationId != null) {
-                LaunchedEffect(key1 = "consultation_$consultationId") { // Use uma chave única
-                    navController.navigate("${Screen.ConsultationForm.route}?id=$consultationId")
-                }
-            } else if (openVaccineEdit && vaccineId != null) {
-                LaunchedEffect(key1 = "vaccine_$vaccineId") { // Use uma chave única
-                    navController.navigate("${Screen.VaccineForm.route}?id=$vaccineId")
-                }
+            // Subscription Screen
+            composable(Screen.Subscription.route) {
+                SubscriptionScreen(navController = navController)
             }
-
-        } else {
-            // Opcional: Mostrar um indicador de carregamento ou tela vazia enquanto determina a rota inicial
-            // No entanto, a SplashActivity nativa já deve estar cobrindo este tempo.
         }
+
+        // *** CORREÇÃO: Navegar para a tela de edição de consulta OU vacina se necessário ***
+        if (openConsultationEdit && consultationId != null) {
+            LaunchedEffect(key1 = "consultation_$consultationId") { // Use uma chave única
+                navController.navigate("${Screen.ConsultationForm.route}?id=$consultationId")
+            }
+        } else if (openVaccineEdit && vaccineId != null) {
+            LaunchedEffect(key1 = "vaccine_$vaccineId") { // Use uma chave única
+                navController.navigate("${Screen.VaccineForm.route}?id=$vaccineId")
+            }
+        }
+
+    } else {
+        // Opcional: Mostrar um indicador de carregamento ou tela vazia enquanto determina a rota inicial
+        // No entanto, a SplashActivity nativa já deve estar cobrindo este tempo.
     }
+}
 
