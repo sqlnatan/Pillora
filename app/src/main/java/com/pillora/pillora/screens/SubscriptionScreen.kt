@@ -14,13 +14,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -73,11 +73,10 @@ fun SubscriptionScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(8.dp))
 
             // Header
-            Icon(
-                imageVector = Icons.Default.Star,
-                contentDescription = "Premium",
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary
+            androidx.compose.foundation.Image(
+                painter = painterResource(id = com.pillora.pillora.R.drawable.app_logo),
+                contentDescription = "Pillora Logo",
+                modifier = Modifier.size(80.dp)
             )
 
             Text(
