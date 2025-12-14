@@ -21,7 +21,7 @@ class UserPreferences(context: Context) {
     private val _acceptedTermsFlow = MutableStateFlow(getAcceptedTermsFromPrefs())
     val acceptedTerms: Flow<Boolean> = _acceptedTermsFlow.asStateFlow()
 
-    private val _isPremiumFlow = MutableStateFlow(true) // true pra testar depois inserir getPremiumFromPrefs() <---------------------------------- PREMIUM
+    private val _isPremiumFlow = MutableStateFlow(getPremiumFromPrefs()) // true pra testar depois inserir getPremiumFromPrefs() <---------------------------------- PREMIUM
     val isPremium: Flow<Boolean> = _isPremiumFlow.asStateFlow()
 
     companion object {
