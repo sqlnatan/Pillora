@@ -112,21 +112,23 @@ class ReportsViewModel(
             try {
                 val medicines = MedicineRepository.getAllMedicinesFlow().first()
                 val consultations = ConsultationRepository.getAllConsultationsFlow().first()
-                val vaccinesResult = VaccineRepository.getAllVaccinesFlow().first()
-                val vaccines = when (vaccinesResult) {
-                    is DataResult.Success -> {
-                        Log.d("ReportsViewModel", "✅ Vacinas carregadas: ${vaccinesResult.data.size}")
-                        vaccinesResult.data
+                
+                // Aguardar até receber DataResult.Success (pular Loading)
+                val vaccines = VaccineRepository.getAllVaccinesFlow()
+                    .first { it is DataResult.Success || it is DataResult.Error }
+                    .let { result ->
+                        when (result) {
+                            is DataResult.Success -> {
+                                Log.d("ReportsViewModel", "✅ Vacinas carregadas: ${result.data.size}")
+                                result.data
+                            }
+                            is DataResult.Error -> {
+                                Log.e("ReportsViewModel", "❌ Erro ao carregar vacinas: ${result.message}")
+                                emptyList()
+                            }
+                            is DataResult.Loading -> emptyList() // Não deve acontecer devido ao first{}
+                        }
                     }
-                    is DataResult.Error -> {
-                        Log.e("ReportsViewModel", "❌ Erro ao carregar vacinas: ${vaccinesResult.message}")
-                        emptyList()
-                    }
-                    is DataResult.Loading -> {
-                        Log.w("ReportsViewModel", "⏳ Vacinas ainda carregando")
-                        emptyList()
-                    }
-                }
 
                 // Buscar nome do usuário logado
                 val currentUser = Firebase.auth.currentUser
@@ -190,11 +192,16 @@ class ReportsViewModel(
                 // Buscar dados
                 val allMedicines = MedicineRepository.getAllMedicinesFlow().first()
                 val allConsultations = ConsultationRepository.getAllConsultationsFlow().first()
-                val vaccinesResult = VaccineRepository.getAllVaccinesFlow().first()
-                val allVaccines = when (vaccinesResult) {
-                    is DataResult.Success -> vaccinesResult.data
-                    else -> emptyList()
-                }
+                
+                // Aguardar até receber DataResult.Success (pular Loading)
+                val allVaccines = VaccineRepository.getAllVaccinesFlow()
+                    .first { it is DataResult.Success || it is DataResult.Error }
+                    .let { result ->
+                        when (result) {
+                            is DataResult.Success -> result.data
+                            else -> emptyList()
+                        }
+                    }
 
                 // Buscar nome do usuário
                 val currentUser = Firebase.auth.currentUser
