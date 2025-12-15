@@ -32,26 +32,24 @@ import kotlinx.coroutines.launch
 @Composable
 fun ConsultationListScreen(
     navController: NavController,
-    // IMPORTANTE: Receber o ViewModel compartilhado do NavHost em vez de criar um novo
     viewModel: ConsultationViewModel
 ) {
-    // --- State Management --- //
-    // Coletar o estado da UI da lista diretamente do ViewModel compartilhado
     val consultationListState by viewModel.consultationListUiState.collectAsStateWithLifecycle()
 
-    // Log para depuração - verificar se o estado está sendo atualizado
     LaunchedEffect(consultationListState) {
         when (consultationListState) {
             is ConsultationListUiState.Success -> {
-                val consultations = (consultationListState as ConsultationListUiState.Success).consultations
+                val consultations =
+                    (consultationListState as ConsultationListUiState.Success).consultations
                 Log.d("ConsultationListScreen", "Estado atualizado: ${consultations.size} consultas")
             }
-            is ConsultationListUiState.Loading -> {
+            is ConsultationListUiState.Loading ->
                 Log.d("ConsultationListScreen", "Estado: Carregando")
-            }
-            is ConsultationListUiState.Error -> {
-                Log.d("ConsultationListScreen", "Estado: Erro - ${(consultationListState as ConsultationListUiState.Error).message}")
-            }
+            is ConsultationListUiState.Error ->
+                Log.d(
+                    "ConsultationListScreen",
+                    "Estado: Erro - ${(consultationListState as ConsultationListUiState.Error).message}"
+                )
         }
     }
 
@@ -60,14 +58,16 @@ fun ConsultationListScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    // --- UI Components --- //
-
-    // Delete confirmation dialog (remains the same)
     if (showDeleteDialog && consultationToDelete != null) {
         AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Confirmar exclusão") },
-            text = { Text("Deseja realmente excluir a consulta de ${consultationToDelete?.specialty}?") },
+            text = {
+                Text("Deseja realmente excluir a consulta de ${consultationToDelete?.specialty}?")
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -76,11 +76,18 @@ fun ConsultationListScreen(
                                 ConsultationRepository.deleteConsultation(
                                     consultationId = id,
                                     onSuccess = {
-                                        Toast.makeText(context, "Consulta excluída com sucesso", Toast.LENGTH_SHORT).show()
-                                        // Flow updates the list automatically
+                                        Toast.makeText(
+                                            context,
+                                            "Consulta excluída com sucesso",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     },
                                     onFailure = {
-                                        Toast.makeText(context, "Erro ao excluir consulta: ${it.message}", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(
+                                            context,
+                                            "Erro ao excluir consulta: ${it.message}",
+                                            Toast.LENGTH_LONG
+                                        ).show()
                                     }
                                 )
                             }
@@ -89,7 +96,7 @@ fun ConsultationListScreen(
                         consultationToDelete = null
                     }
                 ) {
-                    Text("Excluir")
+                    Text("Excluir", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
@@ -101,13 +108,18 @@ fun ConsultationListScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.primary
+                ),
                 title = {
-                    Column(
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
                         Text(
                             "Consultas Médicas",
                             style = MaterialTheme.typography.titleMedium
@@ -121,31 +133,45 @@ fun ConsultationListScreen(
 
                         Text(
                             text = "$count ${if (count == 1) "consulta" else "consultas"}",
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Voltar"
+                        )
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { navController.navigate(Screen.ConsultationForm.route) }) {
+            FloatingActionButton(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                onClick = { navController.navigate(Screen.ConsultationForm.route) }
+            ) {
                 Icon(Icons.Filled.Add, contentDescription = "Adicionar Consulta")
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
             when (consultationListState) {
                 is ConsultationListUiState.Loading -> {
-                    // Estado de Carregamento
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center),
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
+
                 is ConsultationListUiState.Error -> {
-                    // Estado de Erro
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -155,17 +181,16 @@ fun ConsultationListScreen(
                     ) {
                         Text(
                             text = (consultationListState as ConsultationListUiState.Error).message,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            color = MaterialTheme.colorScheme.error
                         )
-                        // TODO: Consider adding a retry button here
                     }
                 }
+
                 is ConsultationListUiState.Success -> {
-                    // Estado de Sucesso
-                    val consultations = (consultationListState as ConsultationListUiState.Success).consultations // Lista já vem ordenada do ViewModel
+                    val consultations =
+                        (consultationListState as ConsultationListUiState.Success).consultations
+
                     if (consultations.isEmpty()) {
-                        // Lista Vazia
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -175,11 +200,10 @@ fun ConsultationListScreen(
                         ) {
                             Text(
                                 text = "Nenhuma consulta encontrada.",
-                                modifier = Modifier.padding(bottom = 16.dp)
+                                color = MaterialTheme.colorScheme.onBackground
                             )
                         }
                     } else {
-                        // Lista com Consultas
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(16.dp),
@@ -189,7 +213,9 @@ fun ConsultationListScreen(
                                 ConsultationListItem(
                                     consultation = consultation,
                                     onEditClick = {
-                                        navController.navigate("${Screen.ConsultationForm.route}?id=${consultation.id}")
+                                        navController.navigate(
+                                            "${Screen.ConsultationForm.route}?id=${consultation.id}"
+                                        )
                                     },
                                     onDeleteClick = {
                                         consultationToDelete = consultation
@@ -205,7 +231,6 @@ fun ConsultationListScreen(
     }
 }
 
-// ConsultationListItem remains the same
 @Composable
 fun ConsultationListItem(
     consultation: Consultation,
@@ -214,6 +239,9 @@ fun ConsultationListItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -226,58 +254,88 @@ fun ConsultationListItem(
                     Text(
                         text = consultation.specialty,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
+
                     Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
                         text = "Dr(a). ${consultation.doctorName.ifEmpty { "Não informado" }}",
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
                     if (consultation.patientName.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(4.dp)) // Adiciona um pequeno espaço
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Paciente: ${consultation.patientName}",
-                            style = MaterialTheme.typography.bodyMedium, // Mesmo estilo do nome do médico
-                            // Você pode adicionar um fontWeight aqui se quiser, por exemplo:
-                            // fontWeight = FontWeight.SemiBold
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
+
                 Row {
                     IconButton(onClick = onEditClick, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Edit, contentDescription = "Editar")
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Editar",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     IconButton(onClick = onDeleteClick, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Delete, contentDescription = "Excluir")
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Excluir",
+                            tint = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
             }
+
             Spacer(modifier = Modifier.height(8.dp))
+
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.DateRange, contentDescription = "Data e Hora", modifier = Modifier.size(16.dp))
+                Icon(
+                    Icons.Filled.DateRange,
+                    contentDescription = "Data e Hora",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.secondary
+                )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = consultation.dateTime.ifEmpty { "Data/Hora não informada" },
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
             if (consultation.location.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.LocationOn, contentDescription = "Local", modifier = Modifier.size(16.dp))
+                    Icon(
+                        Icons.Filled.LocationOn,
+                        contentDescription = "Local",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.secondary
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = consultation.location,
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
+
             if (consultation.observations.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Obs: ${consultation.observations}",
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2
                 )
             }

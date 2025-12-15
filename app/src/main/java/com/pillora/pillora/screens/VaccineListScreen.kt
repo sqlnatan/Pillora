@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -151,7 +152,10 @@ fun VaccineListScreen(navController: NavController) {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { navController.navigate(Screen.VaccineForm.route) }) {
+            FloatingActionButton(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                onClick = { navController.navigate(Screen.VaccineForm.route) }) {
                 Icon(Icons.Filled.Add, contentDescription = "Adicionar Lembrete")
             }
         }
@@ -199,6 +203,7 @@ fun VaccineListScreen(navController: NavController) {
                             items(vaccines, key = { vaccine -> vaccine.id }) { vaccine ->
                                 VaccineListItem(
                                     vaccine = vaccine,
+
                                     onEditClick = {
                                         if (vaccine.id.isNotEmpty()) {
                                             navController.navigate("${Screen.VaccineForm.route}?id=${vaccine.id}")
@@ -229,6 +234,9 @@ fun VaccineListItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -252,30 +260,43 @@ fun VaccineListItem(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onEditClick, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(20.dp))
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Editar",
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                     Spacer(modifier = Modifier.width(4.dp))
                     IconButton(onClick = onDeleteClick, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Delete, contentDescription = "Excluir", modifier = Modifier.size(20.dp))
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Excluir",
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
+
             }
 
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.DateRange, contentDescription = "Data", modifier = Modifier.size(16.dp))
+                Icon(Icons.Filled.DateRange, contentDescription = "Data", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = vaccine.reminderDate.ifEmpty { "Data não informada" },
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary
                 )
                 if (vaccine.reminderTime.isNotEmpty()) {
                     Spacer(modifier = Modifier.width(16.dp))
-                    Icon(Icons.Filled.Alarm, contentDescription = "Hora", modifier = Modifier.size(16.dp))
+                    Icon(Icons.Filled.Alarm, contentDescription = "Hora", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = vaccine.reminderTime,
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
                     )
                 }
             }

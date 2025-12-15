@@ -100,6 +100,8 @@ fun RecipeListScreen(
 
         floatingActionButton = {
             FloatingActionButton(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 onClick = {
                     recipeViewModel.resetDetailState()
                     navController.navigate("$RECIPE_FORM_ROUTE?id=")
@@ -191,6 +193,9 @@ fun RecipeListItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row( // Use Row to place content and buttons side-by-side
@@ -221,12 +226,21 @@ fun RecipeListItem(
             // Buttons Column
             Column(horizontalAlignment = Alignment.End) {
                 IconButton(onClick = onEditClick) {
-                    Icon(Icons.Default.Edit, contentDescription = "Editar Receita")
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Editar Receita",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
                 IconButton(onClick = onDeleteClick) {
-                    Icon(Icons.Default.Delete, contentDescription = "Excluir Receita", tint = MaterialTheme.colorScheme.error)
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Excluir Receita",
+                        tint = MaterialTheme.colorScheme.error
+                    )
                 }
             }
+
         }
     }
 }

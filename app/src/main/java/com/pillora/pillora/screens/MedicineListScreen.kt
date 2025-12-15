@@ -1,9 +1,11 @@
 package com.pillora.pillora.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -15,16 +17,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.model.Medicine
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.MedicineRepository
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pillora.pillora.viewmodel.HomeViewModel
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import android.widget.Toast
-import kotlinx.coroutines.flow.catch // Importar catch para tratamento de erro do Flow
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -52,14 +52,16 @@ private fun calculateTimesForDisplay(startTime: String?, intervalHours: Int?): S
             // Parar se já passou de 24h (lógica original do usuário)
             // Adicionado verificação de segurança para evitar loop infinito se intervalHours for 24
             val currentHour = calendar.get(Calendar.HOUR_OF_DAY)
-            val startHour = format.parse(startTime)?.let { Calendar.getInstance().apply { time = it }.get(Calendar.HOUR_OF_DAY) } ?: 0
-            if (currentHour == startHour && times.size > 0) break // Evita loop infinito
-            if (times.size >= (24 / intervalHours) + 1) break // Segurança adicional
+            val startHour = format.parse(startTime)?.let {
+                Calendar.getInstance().apply { time = it }.get(Calendar.HOUR_OF_DAY)
+            } ?: 0
+            if (currentHour == startHour && times.size > 0) break
+            if (times.size >= (24 / intervalHours) + 1) break
 
             times.add(format.format(calendar.time))
         }
     } catch (e: Exception) {
-        return startTime // Retorna apenas o horário inicial em caso de erro
+        return startTime
     }
 
     return times.joinToString(", ")
@@ -67,7 +69,10 @@ private fun calculateTimesForDisplay(startTime: String?, intervalHours: Int?): S
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MedicineListScreen(navController: NavController, homeViewModel: HomeViewModel = viewModel()) {
+fun MedicineListScreen(
+    navController: NavController,
+    homeViewModel: HomeViewModel = viewModel()
+) {
     val scope = rememberCoroutineScope()
     var medicines by remember { mutableStateOf<List<Medicine>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -100,25 +105,34 @@ fun MedicineListScreen(navController: NavController, homeViewModel: HomeViewMode
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // Garantir que o ID não é nulo antes de tentar deletar
                         medicineToDelete?.id?.let { id ->
                             scope.launch {
                                 homeViewModel.deleteMedicine(
                                     context = context,
                                     medicineId = id,
                                     onSuccess = {
-                                        Toast.makeText(context, "Medicamento excluído com sucesso!", Toast.LENGTH_SHORT).show()
-                                        // Flow atualiza a lista
+                                        Toast.makeText(
+                                            context,
+                                            "Medicamento excluído com sucesso!",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     },
                                     onError = { exception ->
                                         errorMessage = "Erro ao excluir: ${exception.message}"
-                                        Toast.makeText(context, "Erro ao excluir: ${exception.message}", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(
+                                            context,
+                                            "Erro ao excluir: ${exception.message}",
+                                            Toast.LENGTH_LONG
+                                        ).show()
                                     }
                                 )
                             }
                         } ?: run {
-                            // Caso o ID seja nulo (não deveria acontecer se veio do Firestore)
-                            Toast.makeText(context, "Erro: ID do medicamento inválido", Toast.LENGTH_LONG).show()
+                            Toast.makeText(
+                                context,
+                                "Erro: ID do medicamento inválido",
+                                Toast.LENGTH_LONG
+                            ).show()
                         }
                         showDeleteDialog = false
                         medicineToDelete = null
@@ -138,11 +152,9 @@ fun MedicineListScreen(navController: NavController, homeViewModel: HomeViewMode
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0), // remove o padding interno padrão (ex: status bar)
+                windowInsets = WindowInsets(0),
                 title = {
-                    Column(
-                        modifier = Modifier.padding(vertical = 4.dp) // reduz o espaço interno
-                    ) {
+                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
                         Text(
                             "Medicamentos",
                             style = MaterialTheme.typography.titleMedium
@@ -157,18 +169,23 @@ fun MedicineListScreen(navController: NavController, homeViewModel: HomeViewMode
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Voltar"
+                            contentDescription = "Voltar",
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
             )
         },
-
         floatingActionButton = {
             FloatingActionButton(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 onClick = { navController.navigate(Screen.MedicineForm.route) }
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Adicionar medicamento")
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = "Adicionar medicamento",
+                )
             }
         }
     ) { padding ->
@@ -207,14 +224,18 @@ fun MedicineListScreen(navController: NavController, homeViewModel: HomeViewMode
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(medicines, key = { it.id ?: it.hashCode() }) { medicine -> // Usar hashCode como fallback se ID for nulo
+                    items(
+                        medicines,
+                        key = { it.id ?: it.hashCode() }
+                    ) { medicine ->
                         MedicineItem(
                             medicine = medicine,
                             onEditClick = {
-                                // CORREÇÃO LINHA 203: Garantir que ID não é nulo antes de navegar
                                 medicine.id?.let { id ->
                                     try {
-                                        navController.navigate(Screen.MedicineForm.route + "?id=$id")
+                                        navController.navigate(
+                                            Screen.MedicineForm.route + "?id=$id"
+                                        )
                                     } catch (e: Exception) {
                                         Toast.makeText(
                                             context,
@@ -223,7 +244,11 @@ fun MedicineListScreen(navController: NavController, homeViewModel: HomeViewMode
                                         ).show()
                                     }
                                 } ?: run {
-                                    Toast.makeText(context, "Erro: ID do medicamento inválido para edição", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(
+                                        context,
+                                        "Erro: ID do medicamento inválido para edição",
+                                        Toast.LENGTH_LONG
+                                    ).show()
                                 }
                             },
                             onDeleteClick = {
@@ -254,7 +279,11 @@ fun MedicineListScreen(navController: NavController, homeViewModel: HomeViewMode
                                         )
                                     }
                                 } ?: run {
-                                    Toast.makeText(context, "Erro: ID do medicamento inválido", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(
+                                        context,
+                                        "Erro: ID do medicamento inválido",
+                                        Toast.LENGTH_LONG
+                                    ).show()
                                 }
                             }
                         )
@@ -272,29 +301,30 @@ fun MedicineItem(
     onDeleteClick: () -> Unit,
     onAlarmToggle: (Boolean) -> Unit
 ) {
-    // Lógica para calcular a data final (mantida conforme original do usuário, mas com formato de parse ajustado)
+    // Lógica para calcular a data final (mantida conforme original do usuário)
     val finalDateText = if (medicine.duration > 0 && medicine.startDate.isNotEmpty()) {
         try {
-            // Tentar formato "dd/MM/yyyy" primeiro (padrão do DatePicker)
             val parseFormatDisplay = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
             parseFormatDisplay.isLenient = false
             val startDateCalendar = Calendar.getInstance()
+
             try {
-                startDateCalendar.time = parseFormatDisplay.parse(medicine.startDate) ?: throw IllegalArgumentException("Data de início nula após parse dd/MM/yyyy")
-            } catch (e: java.text.ParseException) {
-                // Se falhar, tentar formato "ddMMyyyy" (formato antigo do usuário)
+                startDateCalendar.time =
+                    parseFormatDisplay.parse(medicine.startDate)
+                        ?: throw IllegalArgumentException()
+            } catch (e: Exception) {
                 val parseFormatLegacy = SimpleDateFormat("ddMMyyyy", Locale.getDefault())
                 parseFormatLegacy.isLenient = false
-                startDateCalendar.time = parseFormatLegacy.parse(medicine.startDate) ?: throw IllegalArgumentException("Data de início nula após parse ddMMyyyy")
+                startDateCalendar.time =
+                    parseFormatLegacy.parse(medicine.startDate)
+                        ?: throw IllegalArgumentException()
             }
 
             startDateCalendar.add(Calendar.DAY_OF_YEAR, medicine.duration - 1)
-
-            // Usar o formato "dd/MM/yyyy" para exibição amigável
             val displayFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
             "Último dia: ${displayFormat.format(startDateCalendar.time)}"
         } catch (e: Exception) {
-            "Último dia indisponível (Erro: ${e.message})"
+            "Último dia indisponível"
         }
     } else if (medicine.duration == -1) {
         "Contínuo"
@@ -304,6 +334,9 @@ fun MedicineItem(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -332,7 +365,6 @@ fun MedicineItem(
                         )
                     }
 
-                    // Exibir horários tratando nullabilidade
                     if (medicine.frequencyType == "vezes_dia" && !medicine.horarios.isNullOrEmpty()) {
                         Text(
                             text = "Horários: ${medicine.horarios.joinToString(", ")}",
@@ -340,8 +372,11 @@ fun MedicineItem(
                             fontWeight = FontWeight.Bold
                         )
                     } else if (medicine.frequencyType == "a_cada_x_horas") {
-                        // Passar valores potencialmente nulos para calculateTimesForDisplay
-                        val timesDisplay = calculateTimesForDisplay(medicine.startTime, medicine.intervalHours)
+                        val timesDisplay =
+                            calculateTimesForDisplay(
+                                medicine.startTime,
+                                medicine.intervalHours
+                            )
                         if (timesDisplay.isNotEmpty()) {
                             Text(
                                 text = "Horários: $timesDisplay",
@@ -354,17 +389,24 @@ fun MedicineItem(
 
                 Row {
                     IconButton(onClick = onEditClick) {
-                        Icon(Icons.Default.Edit, contentDescription = "Editar")
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Editar",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                     IconButton(onClick = onDeleteClick) {
-                        Icon(Icons.Default.Delete, contentDescription = "Excluir")
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Excluir",
+                            tint = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Tratar nullabilidade de doseUnit
             Text(
                 text = "Dose: ${medicine.dose}${medicine.doseUnit?.let { " $it" } ?: ""}",
                 style = MaterialTheme.typography.bodyMedium
@@ -385,11 +427,8 @@ fun MedicineItem(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            val durationText = if (medicine.duration == -1) {
-                "Contínuo"
-            } else {
-                "${medicine.duration} dias"
-            }
+            val durationText =
+                if (medicine.duration == -1) "Contínuo" else "${medicine.duration} dias"
 
             Text(
                 text = "Duração: $durationText",
@@ -406,15 +445,12 @@ fun MedicineItem(
 
             if (medicine.trackStock) {
                 Spacer(modifier = Modifier.height(4.dp))
-                // CORREÇÃO LINHA 361: Remover Elvis operator desnecessário pois stockUnit é String (não nulo)
                 Text(
-                    // text = "Estoque: ${medicine.stockQuantity} ${medicine.stockUnit ?: ""}", // Erro aqui, stockUnit não é nulo
                     text = "Estoque: ${medicine.stockQuantity} ${medicine.stockUnit}",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
 
-            // CORREÇÃO LINHA 367: Usar isNotEmpty() pois notes é String (não nulo)
             if (medicine.notes.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -425,7 +461,6 @@ fun MedicineItem(
                 )
             }
 
-            // Switch para ativar/desativar alarmes
             Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider()
             Spacer(modifier = Modifier.height(8.dp))
@@ -444,10 +479,11 @@ fun MedicineItem(
                     Text(
                         text = if (medicine.alarmsEnabled) "Ativados" else "Desativados",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (medicine.alarmsEnabled)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                        color =
+                            if (medicine.alarmsEnabled)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -459,9 +495,3 @@ fun MedicineItem(
         }
     }
 }
-
-// Comentários sobre remoção de funções mantidos
-// Remover as funções loadMedicines e deleteMedicine que usavam callbacks
-// A carga agora é feita com Flow no LaunchedEffect
-// A deleção é feita diretamente no callback do AlertDialog usando MedicineRepository.deleteMedicine
-

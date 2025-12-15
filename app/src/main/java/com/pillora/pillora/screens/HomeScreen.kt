@@ -294,7 +294,7 @@ fun DrawerContent(
             .fillMaxHeight()
             .width(260.dp)
             .padding(16.dp)
-            .background(MaterialTheme.colorScheme.surface),
+            .background(MaterialTheme.colorScheme.surfaceVariant),
         verticalArrangement = Arrangement.Top
     ) {
         DrawerItem(icon = Icons.Default.Person, label = "Perfil") {
@@ -361,15 +361,24 @@ fun HomeCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    )
+    {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(title, style = MaterialTheme.typography.titleLarge)
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = {
                     if (isPremium) {
@@ -378,10 +387,20 @@ fun HomeCard(
                         navController.navigate(Screen.Subscription.route)
                     }
                 }) {
-                    Icon(addIcon, contentDescription = "Adicionar")
+                    Icon(
+                        imageVector = addIcon,
+                        contentDescription = "Adicionar",
+                        tint = if (isPremium)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
             content()
         }
     }
@@ -417,8 +436,16 @@ fun UpcomingConsultationItem(consultation: Consultation) {
     } ?: "Data inválida"
 
     Column {
-        Text("Dr(a). ${consultation.doctorName}", fontWeight = FontWeight.Bold)
-        Text("Especialidade: ${consultation.specialty}")
+        Text(
+            text = "Dr(a). ${consultation.doctorName}",
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = "Especialidade: ${consultation.specialty}",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
         if (consultation.patientName.isNotBlank()) {
             Text("Paciente: ${consultation.patientName}", style = MaterialTheme.typography.bodySmall)
         }
