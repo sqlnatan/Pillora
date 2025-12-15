@@ -49,8 +49,8 @@ class PilloraApplication : Application() {
                 description =
                     "Notificações com som de alarme para medicamentos ou lembretes prévios de consultas/vacinas."
 
-                val alarmSound = android.media.RingtoneManager.getDefaultUri(
-                    android.media.RingtoneManager.TYPE_ALARM
+                val alarmSound = android.net.Uri.parse(
+                    "android.resource://${packageName}/${R.raw.alarme}"
                 )
 
                 val attributes = android.media.AudioAttributes.Builder()
@@ -59,6 +59,7 @@ class PilloraApplication : Application() {
                     .build()
 
                 setSound(alarmSound, attributes)
+
 
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 500, 200, 500)
