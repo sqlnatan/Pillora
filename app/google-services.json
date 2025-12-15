@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "426649307737-alfgqa77g0acabpgs04h1h631h3pfgbq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pillora.pillora",
+            "certificate_hash": "fbaf7e29dd4cba34000b7c42d2d48f10cd0faba6"
+          }
+        },
+        {
+          "client_id": "426649307737-neht6uebjtrgd3k4hstkhsibp0j2fccu.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pillora.pillora",
+            "certificate_hash": "410ef650fa00a5d0913d46c6a793508bf1e820d5"
+          }
+        },
+        {
           "client_id": "426649307737-pnpoav5qn0squ8gp78hpp8mlb62k6cvk.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -40,7 +56,8 @@
             }
           ]
         }
-      }
+      },
+      "admob_app_id": "ca-app-pub-8809749598570199~4181678386"
     }
   ],
   "configuration_version": "1"
