@@ -1,6 +1,5 @@
 package com.pillora.pillora.screens
 
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,11 +13,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -27,26 +28,38 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.edit
 import androidx.navigation.NavController
+import com.pillora.pillora.repository.AuthRepository
+import com.pillora.pillora.repository.TermsRepository
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TermsScreen(navController: NavController) {
-    val context = LocalContext.current
-    val prefs = context.getSharedPreferences("pillora_prefs", Context.MODE_PRIVATE)
+fun TermsScreen(
+    navController: NavController,
+    viewOnly: Boolean = false // Modo de visualização apenas (acessado pelas configurações)
+) {
     var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0),
-                title = { Text("Termos de Uso") })
+                title = { Text("Termos de Uso e Privacidade") },
+                navigationIcon = {
+                    if (viewOnly) {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                        }
+                    }
+                }
+            )
         }
     ) { padding ->
         Column(
@@ -57,63 +70,86 @@ fun TermsScreen(navController: NavController) {
                 .fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = """
-                    Bem-vindo ao Pillora!
+            Column {
+                Text(
+                    text = "Bem-vindo ao Pillora!",
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
 
-                    Ao utilizar este aplicativo, você concorda com os seguintes termos:
+                Text(
+                    text = """
+                        Ao utilizar este aplicativo, você concorda com os seguintes termos:
 
-                    1. Coletamos dados pessoais apenas para o funcionamento do app, como nome, medicamentos, consultas, vacinas e datas.
-                    2. Nenhum dado sensível é compartilhado com terceiros.
-                    3. É responsabilidade do usuário manter os dados atualizados e corretos.
-                    4. Este aplicativo oferece lembretes e notificações, mas não substitui o acompanhamento médico.
-                    5. Usuários Premium têm acesso a recursos extras, como múltiplos perfis, histórico expandido e sincronização em nuvem.
-                    6. O uso contínuo do app indica a aceitação destes termos e de futuras atualizações.
+                        1. COLETA DE DADOS
+                        Coletamos dados pessoais apenas para o funcionamento do app, como nome, medicamentos, consultas, vacinas e datas. Todos os dados são armazenados de forma segura no Firebase.
 
-                    Agradecemos por confiar no Pillora para ajudar no cuidado com sua saúde 💙
-                """.trimIndent(),
-                style = MaterialTheme.typography.bodyLarge
-            )
+                        2. PRIVACIDADE
+                        Nenhum dado sensível é compartilhado com terceiros. Seus dados são protegidos e utilizados exclusivamente para as funcionalidades do aplicativo.
 
-            Spacer(modifier = Modifier.height(24.dp))
+                        3. RESPONSABILIDADE DO USUÁRIO
+                        É responsabilidade do usuário manter os dados atualizados e corretos. O Pillora não se responsabiliza por informações incorretas inseridas pelo usuário.
 
-            Button(
-                onClick = {
-                    // Ativar indicador de carregamento
-                    isLoading = true
+                        4. NATUREZA DO SERVIÇO
+                        Este aplicativo oferece lembretes e notificações, mas não substitui o acompanhamento médico profissional. Sempre consulte um médico para orientações sobre sua saúde.
 
-                    // Usar Looper.getMainLooper() em vez do construtor depreciado
-                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                        // Grava aceite dos termos usando KTX
-                        prefs.edit {
-                            putBoolean("accepted_terms", true)
+                        5. RECURSOS PREMIUM
+                        Usuários Premium têm acesso a recursos extras, como relatórios em PDF, vacinas, receitas médicas e sincronização em nuvem.
+
+                        6. ATUALIZAÇÕES DOS TERMOS
+                        O uso contínuo do app indica a aceitação destes termos. Quando houver atualizações importantes nos termos, você será notificado e precisará aceitar novamente.
+
+                        7. VERSÃO DOS TERMOS
+                        Versão atual: ${TermsRepository.CURRENT_TERMS_VERSION}
+
+                        Agradecemos por confiar no Pillora para ajudar no cuidado com sua saúde 💙
+                    """.trimIndent(),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+
+            if (!viewOnly) {
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = {
+                        isLoading = true
+                        scope.launch {
+                            val userId = AuthRepository.getCurrentUser()?.uid
+                            if (userId != null) {
+                                val success = TermsRepository.acceptTerms(userId)
+                                if (success) {
+                                    // Navega para home após aceitar
+                                    navController.navigate("home") {
+                                        popUpTo("terms") { inclusive = true }
+                                    }
+                                } else {
+                                    isLoading = false
+                                    // TODO: Mostrar mensagem de erro
+                                }
+                            }
                         }
-                        // Navega para a tela de autenticação e remove esta do back-stack
-                        navController.navigate("auth") {
-                            popUpTo("terms") { inclusive = true }
-                        }
-                    }, 800) // Atraso de 800ms para mostrar o indicador
-                },
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-                enabled = !isLoading // Desabilitar o botão durante o carregamento
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                    },
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    enabled = !isLoading
                 ) {
-                    if (isLoading) {
-                        // Mostrar indicador de carregamento
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                    } else {
-                        Icon(Icons.Default.Check, contentDescription = "Aceitar")
-                        Spacer(modifier = Modifier.width(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        } else {
+                            Icon(Icons.Default.Check, contentDescription = "Aceitar")
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text("Aceito os termos")
                     }
-                    Text("Aceito os termos")
                 }
             }
         }

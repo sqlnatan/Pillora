@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.pillora.pillora.R
 import com.pillora.pillora.repository.AuthRepository
+import com.pillora.pillora.repository.TermsRepository
+import kotlinx.coroutines.launch
 
 enum class AuthMode {
     LOGIN, REGISTER, RESET_PASSWORD
@@ -48,6 +50,27 @@ fun AuthScreen(navController: NavController) {
     // Web Client ID do Firebase - substitua pelo seu
     val webClientId = "426649307737-na96tus1vjtdb49imu5gpum40sgnsgf7.apps.googleusercontent.com"
 
+    val scope = rememberCoroutineScope()
+
+    // Função para verificar termos e navegar
+    fun checkTermsAndNavigate() {
+        scope.launch {
+            val userId = AuthRepository.getCurrentUser()?.uid
+            if (userId != null) {
+                val hasAccepted = TermsRepository.hasAcceptedCurrentTerms(userId)
+                if (hasAccepted) {
+                    navController.navigate("home") {
+                        popUpTo("auth") { inclusive = true }
+                    }
+                } else {
+                    navController.navigate("terms") {
+                        popUpTo("auth") { inclusive = true }
+                    }
+                }
+            }
+        }
+    }
+
     // Launcher para login com Google
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -57,9 +80,7 @@ fun AuthScreen(navController: NavController) {
             onSuccess = {
                 isGoogleLoading = false
                 Toast.makeText(context, "Login com Google realizado com sucesso!", Toast.LENGTH_SHORT).show()
-                navController.navigate("home") {
-                    popUpTo("auth") { inclusive = true }
-                }
+                checkTermsAndNavigate()
             },
             onError = { exception ->
                 isGoogleLoading = false
@@ -235,9 +256,7 @@ fun AuthScreen(navController: NavController) {
                                 onSuccess = {
                                     isLoading = false
                                     Toast.makeText(context, "Login realizado com sucesso!", Toast.LENGTH_SHORT).show()
-                                    navController.navigate("home") {
-                                        popUpTo("auth") { inclusive = true }
-                                    }
+                                    checkTermsAndNavigate()
                                 },
                                 onError = { exception ->
                                     isLoading = false
@@ -252,9 +271,7 @@ fun AuthScreen(navController: NavController) {
                                 onSuccess = {
                                     isLoading = false
                                     Toast.makeText(context, "Conta criada com sucesso!", Toast.LENGTH_SHORT).show()
-                                    navController.navigate("home") {
-                                        popUpTo("auth") { inclusive = true }
-                                    }
+                                    checkTermsAndNavigate()
                                 },
                                 onError = { exception ->
                                     isLoading = false

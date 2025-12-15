@@ -51,19 +51,11 @@ fun SplashScreen(
                 .padding(bottom = 64.dp)
         )
 
-        // Check terms acceptance and authentication status
+        // Check authentication status
         LaunchedEffect(key1 = true) {
             delay(1500) // Show splash for 1.5 seconds
 
-            // First check if terms are accepted
-            if (!acceptedTerms) {
-                navController.navigate("terms") {
-                    popUpTo("splash") { inclusive = true }
-                }
-                return@LaunchedEffect
-            }
-
-            // Then check authentication status
+            // Check authentication status
             if (AuthRepository.isUserAuthenticated()) {
                 navController.navigate("home") {
                     popUpTo("splash") { inclusive = true }

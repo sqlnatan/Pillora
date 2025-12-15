@@ -76,6 +76,7 @@ import com.pillora.pillora.model.Consultation
 import com.pillora.pillora.model.Vaccine
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.AuthRepository
+import com.pillora.pillora.repository.TermsRepository
 import com.pillora.pillora.viewmodel.HomeViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -102,6 +103,19 @@ fun HomeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    // Verificar se o usuário aceitou os termos atuais
+    LaunchedEffect(Unit) {
+        val userId = AuthRepository.getCurrentUser()?.uid
+        if (userId != null) {
+            val hasAccepted = TermsRepository.hasAcceptedCurrentTerms(userId)
+            if (!hasAccepted) {
+                navController.navigate("terms") {
+                    popUpTo("home") { inclusive = true }
+                }
+            }
+        }
+    }
 
     LaunchedEffect(error) {
         error?.let {

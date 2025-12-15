@@ -3,11 +3,13 @@ package com.pillora.pillora.screens
 import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -105,6 +107,31 @@ fun SettingsScreen(navController: NavController) {
                         onCheckedChange = { viewModel.setStockAlertsEnabled(it) }
                     )
                     // TODO: Adicionar Switches para outros tipos de notificação (Consultas, Vacinas)
+                }
+            }
+
+            // Seção de Termos e Privacidade
+            Text("Legal", style = MaterialTheme.typography.titleMedium)
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(vertical = 8.dp)) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { navController.navigate("terms?viewOnly=true") }
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Description,
+                            contentDescription = "Termos",
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = "Termos de Uso e Privacidade",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
                 }
             }
 

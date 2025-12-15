@@ -66,14 +66,12 @@ fun AppNavigation(
 
     // Determinar a rota inicial de forma assíncrona ou síncrona
     LaunchedEffect(key1 = Unit) {
-        val acceptedTerms = prefs.getBoolean("accepted_terms", false)
         val isAuthenticated = withContext(Dispatchers.IO) { // Verificar autenticação fora da thread principal se necessário
             AuthRepository.isUserAuthenticated()
         }
 
         startRoute = when {
-            !acceptedTerms -> Screen.Terms.route
-            !isAuthenticated -> "auth" // Corrigido: Usar a string "auth" diretamente
+            !isAuthenticated -> "auth"
             else -> Screen.Home.route
         }
     }
@@ -83,9 +81,16 @@ fun AppNavigation(
         NavHost(navController = navController, startDestination = startRoute!!) {
             // Remover a rota "splash" - A SplashActivity nativa cuida da transição inicial
 
-            // Terms screen
-            composable(Screen.Terms.route) {
-                TermsScreen(navController = navController)
+            // Terms screen (com parâmetro opcional para modo visualização)
+            composable(
+                route = "terms?viewOnly={viewOnly}",
+                arguments = listOf(navArgument("viewOnly") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                })
+            ) { backStackEntry ->
+                val viewOnly = backStackEntry.arguments?.getBoolean("viewOnly") ?: false
+                TermsScreen(navController = navController, viewOnly = viewOnly)
             }
 
             // Authentication screen
