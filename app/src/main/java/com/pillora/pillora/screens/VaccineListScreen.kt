@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle // *** GARANTIR ESTE IMPORT ***
 import androidx.navigation.NavController
+import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.model.Vaccine
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.DataResult // *** USAR A CLASSE DO REPOSITÓRIO (ou mover para um arquivo comum) ***
@@ -46,6 +47,10 @@ import kotlinx.coroutines.launch
 @Composable
 fun VaccineListScreen(navController: NavController) {
 
+    val context = LocalContext.current
+    val application = context.applicationContext as PilloraApplication
+    val isPremium by application.userPreferences.isPremium.collectAsState(initial = false)
+
     // Coletar o estado do Flow usando collectAsStateWithLifecycle
     // Especificar explicitamente o tipo <DataResult<List<Vaccine>>> pode ajudar o compilador
     val vaccinesState: DataResult<List<Vaccine>> by VaccineRepository.getAllVaccinesFlow()
@@ -54,7 +59,7 @@ fun VaccineListScreen(navController: NavController) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var vaccineToDelete by remember { mutableStateOf<Vaccine?>(null) }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Diálogo de confirmação de exclusão
     if (showDeleteDialog && vaccineToDelete != null) {
@@ -97,7 +102,21 @@ fun VaccineListScreen(navController: NavController) {
         )
     }
 
+    // Verificar se é premium
+    LaunchedEffect(isPremium) {
+        if (!isPremium) {
+            navController.navigate("subscription") {
+                popUpTo(navController.graph.startDestinationId) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0),
@@ -131,7 +150,7 @@ fun VaccineListScreen(navController: NavController) {
                 }
             )
         },
-                floatingActionButton = {
+        floatingActionButton = {
             FloatingActionButton(onClick = { navController.navigate(Screen.VaccineForm.route) }) {
                 Icon(Icons.Filled.Add, contentDescription = "Adicionar Lembrete")
             }

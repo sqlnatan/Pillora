@@ -10,10 +10,12 @@ import androidx.compose.material.icons.filled.Delete // Import Delete icon
 import androidx.compose.material.icons.filled.Edit // Import Edit icon
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf // Import mutableStateOf
 import androidx.compose.runtime.remember // Import remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue // Import setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,11 +24,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.data.local.AppDatabase // *** CORRIGIDO: Import AppDatabase ***
 import com.pillora.pillora.model.Recipe
 import com.pillora.pillora.navigation.RECIPE_FORM_ROUTE // Import route constant
 import com.pillora.pillora.viewmodel.RecipeListUiState
 import com.pillora.pillora.viewmodel.RecipeViewModel
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,13 +40,31 @@ fun RecipeListScreen(
     recipeViewModel: RecipeViewModel = viewModel()
 ) {
     val context = LocalContext.current // *** CORRIGIDO: Obter Context ***
+    val application = context.applicationContext as PilloraApplication
+    val isPremium by application.userPreferences.isPremium.collectAsState(initial = false)
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val lembreteDao = remember { AppDatabase.getDatabase(context).lembreteDao() } // *** CORRIGIDO: Obter LembreteDao ***
 
     val uiState by recipeViewModel.recipeListState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var recipeToDelete by remember { mutableStateOf<Recipe?>(null) }
 
+    // Verificar se é premium
+    LaunchedEffect(isPremium) {
+        if (!isPremium) {
+            navController.navigate("subscription") {
+                popUpTo(navController.graph.startDestinationId) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0),
@@ -87,7 +109,7 @@ fun RecipeListScreen(
             }
         }
     ) { paddingValues ->
-    Column(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)

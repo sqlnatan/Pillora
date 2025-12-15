@@ -17,6 +17,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel // Ensure this import is present
 import androidx.navigation.NavController
+import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.data.local.AppDatabase // Import AppDatabase
 import com.pillora.pillora.viewmodel.VaccineViewModel
 import kotlinx.coroutines.launch
@@ -29,6 +30,8 @@ fun VaccineFormScreen(
     viewModel: VaccineViewModel = viewModel() // Correct ViewModel injection
 ) {
     val context = LocalContext.current
+    val application = context.applicationContext as PilloraApplication
+    val isPremium by application.userPreferences.isPremium.collectAsState(initial = false)
     val snackbarHostState = remember { SnackbarHostState() } // Correct SnackbarHostState
     val scope = rememberCoroutineScope()
     val lembreteDao = AppDatabase.getDatabase(context).lembreteDao() // Get LembreteDao instance
@@ -45,6 +48,19 @@ fun VaccineFormScreen(
     val location = viewModel.location
     val notes = viewModel.notes
     val patientName = viewModel.patientName
+
+    // Verificar se é premium
+    LaunchedEffect(isPremium) {
+        if (!isPremium) {
+            navController.navigate("subscription") {
+                popUpTo(navController.graph.startDestinationId) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
 
     // Load vaccine data if ID is provided (editing mode)
     LaunchedEffect(vaccineId) {

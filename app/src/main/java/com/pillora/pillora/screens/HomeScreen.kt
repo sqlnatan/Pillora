@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
@@ -70,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.DrawerItem
+import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.model.Consultation
 import com.pillora.pillora.model.Vaccine
 import com.pillora.pillora.navigation.Screen
@@ -95,6 +97,8 @@ fun HomeScreen(
     val error by viewModel.error.collectAsState()
 
     val context = LocalContext.current
+    val application = context.applicationContext as PilloraApplication
+    val isPremium by application.userPreferences.isPremium.collectAsState(initial = false)
     val snackbarHostState = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -252,7 +256,9 @@ fun HomeScreen(
                         title = "Próximas Vacinas (15 dias)",
                         addRoute = Screen.VaccineForm.route + "?id=",
                         listRoute = Screen.VaccineList.route,
-                        navController = navController
+                        navController = navController,
+                        addIcon = if (isPremium) Icons.Default.AddCircleOutline else Icons.Default.Lock,
+                        isPremium = isPremium
                     ) {
                         if (upcomingVaccines.isNotEmpty()) {
                             upcomingVaccines.forEachIndexed { i, vaccine ->
@@ -346,8 +352,13 @@ fun HomeCard(
     navController: NavController,
     addIcon: ImageVector = Icons.Default.AddCircleOutline,
     listIcon: ImageVector = Icons.AutoMirrored.Filled.List,
+    isPremium: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -360,7 +371,13 @@ fun HomeCard(
             ) {
                 Text(title, style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = { navController.navigate(addRoute) }) {
+                IconButton(onClick = {
+                    if (isPremium) {
+                        navController.navigate(addRoute)
+                    } else {
+                        navController.navigate(Screen.Subscription.route)
+                    }
+                }) {
                     Icon(addIcon, contentDescription = "Adicionar")
                 }
             }

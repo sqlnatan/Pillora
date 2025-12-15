@@ -26,10 +26,12 @@ import androidx.compose.ui.text.style.TextAlign // Import TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.data.local.AppDatabase // *** CORRIGIDO: Import AppDatabase ***
 import com.pillora.pillora.model.PrescribedMedication
 import com.pillora.pillora.viewmodel.RecipeDetailUiState
 import com.pillora.pillora.viewmodel.RecipeViewModel
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -41,6 +43,10 @@ fun RecipeFormScreen(
     recipeViewModel: RecipeViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val application = context.applicationContext as PilloraApplication
+    val isPremium by application.userPreferences.isPremium.collectAsState(initial = false)
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     // *** CORRIGIDO: Obter LembreteDao ***
     val lembreteDao = remember { AppDatabase.getDatabase(context).lembreteDao() }
 
@@ -52,6 +58,19 @@ fun RecipeFormScreen(
 
     val isEditingRecipe = !recipeId.isNullOrBlank()
     val screenTitle = if (isEditingRecipe) "Editar Receita" else "Adicionar Receita"
+
+    // Verificar se é premium
+    LaunchedEffect(isPremium) {
+        if (!isPremium) {
+            navController.navigate("subscription") {
+                popUpTo(navController.graph.startDestinationId) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
 
     // Load recipe details when editing, only if not already loaded or loading
     LaunchedEffect(recipeId) {
@@ -120,6 +139,7 @@ fun RecipeFormScreen(
 
     // --- UI ---
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0),

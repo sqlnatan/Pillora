@@ -82,7 +82,7 @@ fun ReportsScreen(navController: NavController) {
                     context = context
                 )
             } else {
-                FreeContent()
+                FreeContent(navController)
             }
         }
     }
@@ -168,7 +168,7 @@ fun PremiumContent(
 }
 
 @Composable
-fun FreeContent() {
+fun FreeContent(navController: NavController) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
         modifier = Modifier.fillMaxWidth()
@@ -186,7 +186,7 @@ fun FreeContent() {
                 color = MaterialTheme.colorScheme.onErrorContainer
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = { /* TODO: Navegar para tela de upgrade */ }) {
+            Button(onClick = { navController.navigate("subscription") }) {
                 Text("Fazer Upgrade para Premium")
             }
         }
