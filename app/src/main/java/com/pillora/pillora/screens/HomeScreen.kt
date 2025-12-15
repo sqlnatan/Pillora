@@ -3,6 +3,7 @@ package com.pillora.pillora.screens
 import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -70,7 +71,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.pillora.pillora.DrawerItem
 import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.model.Consultation
 import com.pillora.pillora.model.Vaccine
@@ -122,9 +122,7 @@ fun HomeScreen(
             ModalDrawerSheet(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .width(drawerWidth)
-                    .clip(RoundedCornerShape(24.dp))
-                    .padding(16.dp),
+                    .width(drawerWidth),
                 drawerContainerColor = MaterialTheme.colorScheme.surface,
                 drawerTonalElevation = 8.dp
             ) {
@@ -136,6 +134,7 @@ fun HomeScreen(
                     context = context
                 )
             }
+
         }
     ) {
         Scaffold(
@@ -291,26 +290,46 @@ fun DrawerContent(
 ) {
     Column(
         modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Pillora",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = "Organize sua saúde",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+    Column(
+        modifier = Modifier
             .fillMaxHeight()
-            .width(260.dp)
-            .padding(16.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-        verticalArrangement = Arrangement.Top
+            .padding(16.dp),
+        verticalArrangement = Arrangement.Center
     ) {
         DrawerItem(icon = Icons.Default.Person, label = "Perfil") {
             scope.launch { drawerState.close() }
             navController.navigate(Screen.Profile.route)
         }
+        Spacer(modifier = Modifier.height(8.dp))
 
         DrawerItem(icon = Icons.Default.Settings, label = "Configurações") {
             scope.launch { drawerState.close() }
             navController.navigate(Screen.Settings.route)
         }
+        Spacer(modifier = Modifier.height(8.dp))
 
         DrawerItem(icon = Icons.Default.Description, label = "Relatórios") {
             scope.launch { drawerState.close() }
             navController.navigate(Screen.Reports.route)
         }
+        Spacer(modifier = Modifier.height(8.dp))
 
         DrawerItem(icon = Icons.Default.Star, label = "Assinatura") {
             scope.launch { drawerState.close() }
@@ -333,15 +352,35 @@ fun DrawerContent(
 }
 
 @Composable
-fun DrawerItem(icon: ImageVector, label: String, onClick: () -> Unit) {
-    NavigationDrawerItem(
-        icon = { Icon(icon, contentDescription = label) },
-        label = { Text(label) },
-        selected = false,
-        onClick = onClick,
-        modifier = Modifier.padding(vertical = 8.dp)
-    )
+
+fun DrawerItem(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .clickable { onClick() },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            icon,
+            contentDescription = label,
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
 }
+
 
 // --- Generic Cards ---
 @Composable
