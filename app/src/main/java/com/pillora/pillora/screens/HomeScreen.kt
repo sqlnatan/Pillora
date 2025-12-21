@@ -27,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Lock
@@ -62,6 +63,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -77,6 +79,8 @@ import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.R
 import com.pillora.pillora.model.Consultation
 import com.pillora.pillora.model.Vaccine
+import com.pillora.pillora.navigation.RECIPE_FORM_ROUTE
+import com.pillora.pillora.navigation.RECIPE_LIST_ROUTE
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.AuthRepository
 import com.pillora.pillora.repository.TermsRepository
@@ -100,6 +104,10 @@ fun HomeScreen(
     val upcomingVaccines by viewModel.upcomingVaccines.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+
+    val stockAlerts by viewModel.stockAlerts.collectAsState()
+    val expiringRecipes by viewModel.expiringRecipes.collectAsState() // <<< ADDED: Observe expiring recipes
+    val allRecipes by viewModel.allRecipes.collectAsState() // <<< NEW: Observe all recipes
 
     // Contadores totais para verificação de limites do plano Free
     val totalMedicinesCount by viewModel.totalMedicinesCount.collectAsState()
@@ -315,6 +323,83 @@ fun HomeScreen(
                         }
                     }
 
+                    // <<< UPDATED: Card "Receitas Médicas" >>>
+                    HomeCard(
+                        title = "Receitas Médicas (15 dias)",
+                        addRoute = "$RECIPE_FORM_ROUTE?id=",
+                        listRoute = RECIPE_LIST_ROUTE,
+                        listIcon = Icons.AutoMirrored.Filled.Notes, // Use specific icon
+                        navController = navController,
+                        addIcon = if (isPremium) Icons.Default.AddCircleOutline else Icons.Default.Lock,
+                        isPremium = isPremium
+                    ) {
+                        // <<< UPDATED: Display list of recipes >>>
+                        if (allRecipes.isNotEmpty()) {
+                            // Display a few recent recipes, for example
+                            allRecipes.take(3).forEach { recipe -> // Limit to 3 for brevity on home screen
+                                val doctorInfo = "(Dr. ${recipe.doctorName}) - ${recipe.prescriptionDate}"
+                                val displayText = if (recipe.patientName.isNotBlank()) {
+                                    "Receita p/ ${recipe.patientName} $doctorInfo"
+                                } else {
+                                    "Receita $doctorInfo"
+                                }
+                                Text(
+                                    text = displayText,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+                            if (allRecipes.size > 3) {
+                                Text("... e mais ${allRecipes.size - 3}", style = MaterialTheme.typography.bodySmall)
+                            }
+                        } else {
+                            Text("Nenhuma receita cadastrada.", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+
+                    // <<< ADDED: Card "Alertas de Validade" >>>
+                    if (expiringRecipes.isNotEmpty()) {
+                        AlertCard(
+                            title = "Alertas de Validade (Próximos 15 dias)",
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer, // Use theme color
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer // Use theme color
+                        ) {
+                            expiringRecipes.forEach { recipe ->
+                                val daysLeft = calculateDaysUntil(recipe.validityDate)
+                                val daysText = when {
+                                    daysLeft == 0L -> "(Hoje)"
+                                    daysLeft == 1L -> "(Amanhã)"
+                                    daysLeft != null -> "(em $daysLeft dias)"
+                                    else -> ""
+                                }
+                                Text(
+                                    text = "Receita para ${recipe.patientName} vence em ${recipe.validityDate} $daysText",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer // Use theme color
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+                        }
+                    }
+
+                    // Card "Alertas de Estoque" (Using AlertCard)
+                    if (stockAlerts.isNotEmpty()) {
+                        AlertCard(
+                            title = "Alertas de Estoque",
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        ) {
+                            stockAlerts.forEach { med ->
+                                Text(
+                                    text = "${med.name}: Estoque baixo (${med.stockQuantity} ${med.stockUnit})",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(24.dp))
                 }
 
@@ -322,6 +407,32 @@ fun HomeScreen(
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
             }
+        }
+    }
+}
+
+// <<< ADDED: Generic Alert Card Composable >>>
+@Composable
+fun AlertCard(
+    title: String,
+    containerColor: Color,
+    contentColor: Color,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = contentColor
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = contentColor.copy(alpha = 0.5f))
+            content()
         }
     }
 }
