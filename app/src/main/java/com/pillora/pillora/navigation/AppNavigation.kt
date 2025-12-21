@@ -33,7 +33,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.pillora.pillora.screens.ReportsScreen // Import ReportsScreen
 import com.pillora.pillora.screens.SubscriptionScreen // Import SubscriptionScreen
-
+import com.pillora.pillora.screens.WelcomeScreen
 
 
 // Define routes for Recipe screens (can be added to Screen sealed class if preferred)
@@ -65,16 +65,21 @@ fun AppNavigation(
     val sharedConsultationViewModel: ConsultationViewModel = viewModel()
 
     // Determinar a rota inicial de forma assíncrona ou síncrona
-    LaunchedEffect(key1 = Unit) {
-        val isAuthenticated = withContext(Dispatchers.IO) { // Verificar autenticação fora da thread principal se necessário
+    LaunchedEffect(Unit) {
+
+        val hasSeenWelcome = prefs.getBoolean("has_seen_welcome", false)
+
+        val isAuthenticated = withContext(Dispatchers.IO) {
             AuthRepository.isUserAuthenticated()
         }
 
         startRoute = when {
-            !isAuthenticated -> "auth"
-            else -> Screen.Home.route
+            isAuthenticated -> Screen.Home.route
+            !hasSeenWelcome -> Screen.Welcome.route
+            else -> "auth"
         }
     }
+
 
     // Só exibe o NavHost quando a rota inicial for determinada
     if (startRoute != null) {
@@ -92,6 +97,21 @@ fun AppNavigation(
                 val viewOnly = backStackEntry.arguments?.getBoolean("viewOnly") ?: false
                 TermsScreen(navController = navController, viewOnly = viewOnly)
             }
+
+            composable("welcome") {
+                WelcomeScreen(
+                    onFinish = {
+                        prefs.edit()
+                            .putBoolean("has_seen_welcome", true)
+                            .apply()
+
+                        navController.navigate("auth") {
+                            popUpTo(Screen.Welcome.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
 
             // Authentication screen
             composable("auth") { // Garantir que a definição da rota também use "auth"

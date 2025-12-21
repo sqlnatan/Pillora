@@ -187,7 +187,7 @@ class MainActivity : ComponentActivity() {
                     Scaffold(
                         bottomBar = {
                             val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-                            val shouldShowBottomBar = currentRoute !in listOf("terms?viewOnly={viewOnly}", "auth")
+                            val shouldShowBottomBar = currentRoute !in listOf("terms?viewOnly={viewOnly}", "auth", "welcome")
 
                             if (shouldShowBottomBar) {
                                 BottomNavigationBar(navController, currentRoute)
@@ -195,7 +195,7 @@ class MainActivity : ComponentActivity() {
                         }
                     ) { padding ->
                         val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-                        val shouldShowBottomBar = currentRoute !in listOf("terms?viewOnly={viewOnly}", "auth")
+                        val shouldShowBottomBar = currentRoute !in listOf("terms?viewOnly={viewOnly}", "auth", "welcome")
 
                         val adjustedPadding = if (shouldShowBottomBar) {
                             padding

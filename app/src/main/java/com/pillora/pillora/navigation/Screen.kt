@@ -1,6 +1,7 @@
 package com.pillora.pillora.navigation
 
 enum class Screen(val route: String) {
+    Welcome("welcome"),
     Home("home"),
     // Firestore("firestore"), // Comentado pois não está sendo usado
     Terms("terms"),
@@ -14,6 +15,8 @@ enum class Screen(val route: String) {
     Profile("profile"),
     Reports("reports"),
     Subscription("subscription");
+
+
 }
 
 /* // Comentado pois não está sendo usado
