@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -720,17 +721,32 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Checkbox(
-                            checked = trackStock,
-                            onCheckedChange = { checked ->
-                                trackStock = checked
-                                if (!checked) {
-                                    stockQuantity = ""
-                                    stockQuantityError = ""
+                        if (isPremium) {
+                            Checkbox(
+                                checked = trackStock,
+                                onCheckedChange = { checked ->
+                                    trackStock = checked
+                                    if (!checked) {
+                                        stockQuantity = ""
+                                        stockQuantityError = ""
+                                    }
                                 }
-                            }
-                        )
-                        Text("Avisar quando estiver acabando")
+                            )
+                            Text("Avisar quando estiver acabando")
+                        } else {
+                            // Usuário Free: mostra cadeado e texto desabilitado
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Recurso Premium",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Avisar quando estiver acabando (Premium)",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
                     if (trackStock) {
@@ -807,11 +823,25 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
 
                     OutlinedTextField(
                         value = recipientName,
-                        onValueChange = { recipientName = it },
-                        label = { Text("Para quem é este medicamento? (opcional)") },
-                        placeholder = { Text("Deixe em branco se for para você") },
+                        onValueChange = {
+                            if (isPremium) {
+                                recipientName = it
+                            }
+                        },
+                        label = { Text("Para quem é este medicamento? (Premium)") },
+                        placeholder = { Text(if (isPremium) "Deixe em branco se for para você" else "Recurso disponível apenas no plano Premium") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
+                        enabled = isPremium,
+                        trailingIcon = {
+                            if (!isPremium) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = "Recurso Premium",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     )
 
 
