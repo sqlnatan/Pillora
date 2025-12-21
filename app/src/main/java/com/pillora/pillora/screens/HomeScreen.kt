@@ -80,6 +80,7 @@ import com.pillora.pillora.model.Vaccine
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.AuthRepository
 import com.pillora.pillora.repository.TermsRepository
+import com.pillora.pillora.utils.FreeLimits
 import com.pillora.pillora.viewmodel.HomeViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -99,6 +100,10 @@ fun HomeScreen(
     val upcomingVaccines by viewModel.upcomingVaccines.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+
+    // Contadores totais para verificação de limites do plano Free
+    val totalMedicinesCount by viewModel.totalMedicinesCount.collectAsState()
+    val totalConsultationsCount by viewModel.totalConsultationsCount.collectAsState()
 
     val context = LocalContext.current
     val application = context.applicationContext as PilloraApplication
@@ -232,11 +237,18 @@ fun HomeScreen(
                     )
 
                     // --- Medicamentos de Hoje ---
+                    // Verifica se usuário Free atingiu o limite de medicamentos
+                    val canAddMedicine = isPremium || totalMedicinesCount < FreeLimits.MAX_MEDICINES_FREE
                     HomeCard(
                         title = "Medicamentos de Hoje",
                         addRoute = Screen.MedicineForm.route,
                         listRoute = Screen.MedicineList.route,
-                        navController = navController
+                        navController = navController,
+                        isPremium = canAddMedicine,
+                        addIcon = if (canAddMedicine) Icons.Default.AddCircleOutline else Icons.Default.Lock,
+                        freeLimitText = if (!isPremium) "Limite Free: ${FreeLimits.MAX_MEDICINES_FREE}" else null,
+                        currentCount = if (!isPremium) totalMedicinesCount else null,
+                        maxCount = if (!isPremium) FreeLimits.MAX_MEDICINES_FREE else null
                     ) {
                         if (medicinesToday.isNotEmpty()) {
                             medicinesToday.forEach { med ->
@@ -261,11 +273,18 @@ fun HomeScreen(
                     }
 
                     // --- Consultas ---
+                    // Verifica se usuário Free atingiu o limite de consultas
+                    val canAddConsultation = isPremium || totalConsultationsCount < FreeLimits.MAX_CONSULTATIONS_FREE
                     HomeCard(
                         title = "Próximas Consultas (7 dias)",
                         addRoute = Screen.ConsultationForm.route + "?id=",
                         listRoute = Screen.ConsultationList.route,
-                        navController = navController
+                        navController = navController,
+                        isPremium = canAddConsultation,
+                        addIcon = if (canAddConsultation) Icons.Default.AddCircleOutline else Icons.Default.Lock,
+                        freeLimitText = if (!isPremium) "Limite Free: ${FreeLimits.MAX_CONSULTATIONS_FREE}" else null,
+                        currentCount = if (!isPremium) totalConsultationsCount else null,
+                        maxCount = if (!isPremium) FreeLimits.MAX_CONSULTATIONS_FREE else null
                     ) {
                         if (upcomingConsultations.isNotEmpty()) {
                             upcomingConsultations.forEachIndexed { i, consultation ->
@@ -425,6 +444,9 @@ fun HomeCard(
     addIcon: ImageVector = Icons.Default.AddCircleOutline,
     listIcon: ImageVector = Icons.AutoMirrored.Filled.List,
     isPremium: Boolean = true,
+    freeLimitText: String? = null,
+    currentCount: Int? = null,
+    maxCount: Int? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val context = LocalContext.current
@@ -452,6 +474,20 @@ fun HomeCard(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(Modifier.weight(1f))
+
+                // Aviso de limite Free ao lado do botão de adicionar
+                if (freeLimitText != null && currentCount != null && maxCount != null) {
+                    Text(
+                        text = "$currentCount/$maxCount",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (currentCount >= maxCount)
+                            MaterialTheme.colorScheme.error
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 4.dp)
+                    )
+                }
+
                 IconButton(onClick = {
                     if (isPremium) {
                         navController.navigate(addRoute)

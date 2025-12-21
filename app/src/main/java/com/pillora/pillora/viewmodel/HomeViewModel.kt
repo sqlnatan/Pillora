@@ -63,6 +63,13 @@ class HomeViewModel : ViewModel() {
     private val _allRecipes = MutableStateFlow<List<Recipe>>(emptyList()) // <<< NEW: State for ALL recipes
     val allRecipes: StateFlow<List<Recipe>> = _allRecipes
 
+    // Contadores totais para verificação de limites do plano Free
+    private val _totalMedicinesCount = MutableStateFlow(0)
+    val totalMedicinesCount: StateFlow<Int> = _totalMedicinesCount
+
+    private val _totalConsultationsCount = MutableStateFlow(0)
+    val totalConsultationsCount: StateFlow<Int> = _totalConsultationsCount
+
     // General States
     private val _isLoadingMedicines = MutableStateFlow(true)
     private val _isLoadingConsultations = MutableStateFlow(true)
@@ -96,6 +103,7 @@ class HomeViewModel : ViewModel() {
             .onEach { medicines ->
                 Log.d(tag, "Received ${medicines.size} medicines from flow. Processing...")
                 _isLoadingMedicines.value = false // Mark medicines as loaded
+                _totalMedicinesCount.value = medicines.size // Atualiza contador total
                 processMedicines(medicines)
             }
             .catch { e ->
@@ -111,6 +119,7 @@ class HomeViewModel : ViewModel() {
             .onEach { consultations ->
                 Log.d(tag, "Received ${consultations.size} consultations from flow. Processing...")
                 _isLoadingConsultations.value = false // Mark consultations as loaded
+                _totalConsultationsCount.value = consultations.size // Atualiza contador total
                 processConsultations(consultations)
             }
             .catch { e ->

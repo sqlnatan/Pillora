@@ -72,6 +72,9 @@ import com.pillora.pillora.ui.components.DateTextField
 import com.pillora.pillora.utils.AlarmScheduler
 import com.pillora.pillora.utils.DateTimeUtils
 import com.pillora.pillora.utils.DateValidator
+import com.pillora.pillora.utils.FreeLimits
+import com.pillora.pillora.PilloraApplication
+import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -113,6 +116,12 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
 
     var notes by remember { mutableStateOf("") }
     val context = LocalContext.current
+
+    // Verificação de limite do plano Free
+    val application = context.applicationContext as PilloraApplication
+    val isPremium by application.userPreferences.isPremium.collectAsState(initial = false)
+    var showFreeLimitDialog by remember { mutableStateOf(false) }
+    var currentMedicineCount by remember { mutableStateOf(0) }
     val horarios = remember { mutableStateListOf<String>().apply {
         if (medicineId == null) { // Se for novo medicamento, adiciona um horário inicial
             add("00:00")
@@ -140,6 +149,19 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
     var recipientName by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
     val lembreteDao = remember { AppDatabase.getDatabase(context).lembreteDao() }
+
+    // Contar medicamentos existentes para verificação de limite Free
+    LaunchedEffect(Unit) {
+        if (!isPremium && medicineId.isNullOrBlank()) {
+            // Só verifica limite se for novo medicamento e usuário Free
+            MedicineRepository.getAllMedicinesFlow().collect { medicines ->
+                currentMedicineCount = medicines.size
+                if (currentMedicineCount >= FreeLimits.MAX_MEDICINES_FREE) {
+                    showFreeLimitDialog = true
+                }
+            }
+        }
+    }
 
     LaunchedEffect(medicineId) {
         if (!medicineId.isNullOrBlank()) {
@@ -200,6 +222,50 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                 isLoading = false
             }
         }
+    }
+
+    // Dialog de limite Free atingido
+    if (showFreeLimitDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showFreeLimitDialog = false
+                navController.popBackStack()
+            },
+            title = { Text("Limite do Plano Free") },
+            text = {
+                Column {
+                    Text(
+                        "Você atingiu o limite de ${FreeLimits.MAX_MEDICINES_FREE} medicamentos do plano Free."
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Para adicionar mais medicamentos, faça upgrade para o plano Premium."
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showFreeLimitDialog = false
+                        navController.navigate("subscription") {
+                            popUpTo(navController.graph.startDestinationId)
+                        }
+                    }
+                ) {
+                    Text("Ver Planos")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showFreeLimitDialog = false
+                        navController.popBackStack()
+                    }
+                ) {
+                    Text("Voltar")
+                }
+            }
+        )
     }
 
     Scaffold(

@@ -22,6 +22,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.data.dao.LembreteDao
 import com.pillora.pillora.viewmodel.ConsultationViewModel
+import com.pillora.pillora.utils.FreeLimits
+import com.pillora.pillora.PilloraApplication
+import com.pillora.pillora.repository.ConsultationRepository
 import kotlinx.coroutines.launch
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -37,6 +40,12 @@ fun ConsultationFormScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    // Verificação de limite do plano Free
+    val application = context.applicationContext as PilloraApplication
+    val isPremium by application.userPreferences.isPremium.collectAsState(initial = false)
+    var showFreeLimitDialog by remember { mutableStateOf(false) }
+    var currentConsultationCount by remember { mutableStateOf(0) }
 
     // Obter o LembreteDao
     val database = remember { com.pillora.pillora.data.local.AppDatabase.getDatabase(context) }
@@ -55,8 +64,18 @@ fun ConsultationFormScreen(
     val location = viewModel.location
     val observations = viewModel.observations
 
-
-
+    // Contar consultas existentes para verificação de limite Free
+    LaunchedEffect(Unit) {
+        if (!isPremium && consultationId.isNullOrEmpty()) {
+            // Só verifica limite se for nova consulta e usuário Free
+            ConsultationRepository.getAllConsultationsFlow().collect { consultations ->
+                currentConsultationCount = consultations.size
+                if (currentConsultationCount >= FreeLimits.MAX_CONSULTATIONS_FREE) {
+                    showFreeLimitDialog = true
+                }
+            }
+        }
+    }
 
     // Carregar dados se for edição
     LaunchedEffect(consultationId) {
@@ -83,6 +102,50 @@ fun ConsultationFormScreen(
             }
             viewModel.onErrorShown()
         }
+    }
+
+    // Dialog de limite Free atingido
+    if (showFreeLimitDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showFreeLimitDialog = false
+                navController.popBackStack()
+            },
+            title = { Text("Limite do Plano Free") },
+            text = {
+                Column {
+                    Text(
+                        "Você atingiu o limite de ${FreeLimits.MAX_CONSULTATIONS_FREE} consulta do plano Free."
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Para adicionar mais consultas, faça upgrade para o plano Premium."
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showFreeLimitDialog = false
+                        navController.navigate("subscription") {
+                            popUpTo(navController.graph.startDestinationId)
+                        }
+                    }
+                ) {
+                    Text("Ver Planos")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showFreeLimitDialog = false
+                        navController.popBackStack()
+                    }
+                ) {
+                    Text("Voltar")
+                }
+            }
+        )
     }
 
     Scaffold(
