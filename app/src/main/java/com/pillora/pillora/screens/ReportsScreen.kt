@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -75,24 +76,26 @@ fun ReportsScreen(navController: NavController) {
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (isPremium) {
-                PremiumContent(
-                    reportsViewModel = reportsViewModel,
-                    reportFiles = reportFiles,
-                    context = context
-                )
-            } else {
-                FreeContent(navController)
-            }
+            // Todos os usuários (Free e Premium) veem o mesmo conteúdo
+            // A diferença é que Free tem botão bloqueado
+            UnifiedContent(
+                reportsViewModel = reportsViewModel,
+                reportFiles = reportFiles,
+                context = context,
+                isPremium = isPremium,
+                navController = navController
+            )
         }
     }
 }
 
 @Composable
-fun PremiumContent(
+fun UnifiedContent(
     reportsViewModel: ReportsViewModel,
     reportFiles: List<ReportFile>,
-    context: Context
+    context: Context,
+    isPremium: Boolean,
+    navController: NavController
 ) {
     var showPatientDialog by remember { mutableStateOf(false) }
     var patientNames by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -101,18 +104,39 @@ fun PremiumContent(
 
     Button(
         onClick = {
-            // Buscar nomes de pacientes antes de mostrar o diálogo
-            isLoadingNames = true
-            coroutineScope.launch {
-                patientNames = reportsViewModel.getAllPatientNames()
-                isLoadingNames = false
-                showPatientDialog = true
+            if (isPremium) {
+                // Premium: Buscar nomes de pacientes antes de mostrar o diálogo
+                isLoadingNames = true
+                coroutineScope.launch {
+                    patientNames = reportsViewModel.getAllPatientNames()
+                    isLoadingNames = false
+                    showPatientDialog = true
+                }
+            } else {
+                // Free: Redirecionar para tela de assinatura
+                navController.navigate("subscription")
             }
         },
         modifier = Modifier.fillMaxWidth(),
-        enabled = !isLoadingNames
+        enabled = isPremium && !isLoadingNames,
+        colors = if (!isPremium) {
+            ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            ButtonDefaults.buttonColors()
+        }
     ) {
-        if (isLoadingNames) {
+        if (!isPremium) {
+            Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = "Recurso Premium",
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+        if (isLoadingNames && isPremium) {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
                 color = MaterialTheme.colorScheme.onPrimary,
@@ -120,7 +144,11 @@ fun PremiumContent(
             )
             Spacer(modifier = Modifier.width(8.dp))
         }
-        Text(if (isLoadingNames) "Carregando..." else "Gerar Novo Relatório (PDF)")
+        Text(
+            if (isLoadingNames && isPremium) "Carregando..."
+            else if (!isPremium) "Gerar Novo Relatório (Premium)"
+            else "Gerar Novo Relatório (PDF)"
+        )
     }
 
     // Diálogo de seleção de paciente
@@ -162,32 +190,6 @@ fun PremiumContent(
                     onOpen = { openReport(context, report) },
                     onDownload = { downloadReport(context, report) }
                 )
-            }
-        }
-    }
-}
-
-@Composable
-fun FreeContent(navController: NavController) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                "Funcionalidade Premium",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onErrorContainer
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "A geração e o gerenciamento de relatórios em PDF são exclusivos para usuários Premium.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = { navController.navigate("subscription") }) {
-                Text("Fazer Upgrade para Premium")
             }
         }
     }
