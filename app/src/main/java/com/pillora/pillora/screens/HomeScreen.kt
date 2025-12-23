@@ -211,13 +211,13 @@ fun HomeScreen(
                         Image(
                             painter = painterResource(id = R.drawable.app_logo),
                             contentDescription = "Logo Pillora",
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(48.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Pillora",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Thin,
                             color = MaterialTheme.colorScheme.onBackground
                         )
                     }
@@ -268,7 +268,7 @@ fun HomeScreen(
                                     if (med.recipientName.isNotBlank()) {
                                         Text(
                                             text = "Para: ${med.recipientName}",
-                                            style = MaterialTheme.typography.bodySmall,
+                                            style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
@@ -350,7 +350,7 @@ fun HomeScreen(
                                 Spacer(modifier = Modifier.height(4.dp))
                             }
                             if (allRecipes.size > 3) {
-                                Text("... e mais ${allRecipes.size - 3}", style = MaterialTheme.typography.bodySmall)
+                                Text("... e mais ${allRecipes.size - 3}", style = MaterialTheme.typography.bodyMedium)
                             }
                         } else {
                             Text("Nenhuma receita cadastrada.", style = MaterialTheme.typography.bodyMedium)
@@ -360,7 +360,7 @@ fun HomeScreen(
                     // <<< ADDED: Card "Alertas de Validade" >>>
                     if (expiringRecipes.isNotEmpty()) {
                         AlertCard(
-                            title = "Alertas de Validade (Próximos 15 dias)",
+                            title = "Alertas de Validade (15 dias)",
                             containerColor = MaterialTheme.colorScheme.tertiaryContainer, // Use theme color
                             contentColor = MaterialTheme.colorScheme.onTertiaryContainer // Use theme color
                         ) {
@@ -459,13 +459,13 @@ fun DrawerContent(
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = "Pillora",
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
         Text(
             text = "Organize sua saúde",
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -538,7 +538,7 @@ fun DrawerItem(
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface
         )
     }
@@ -663,10 +663,10 @@ fun UpcomingConsultationItem(consultation: Consultation) {
         Text(
             text = "Especialidade: ${consultation.specialty}",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall
+            style = MaterialTheme.typography.bodyMedium
         )
         if (consultation.patientName.isNotBlank()) {
-            Text("Paciente: ${consultation.patientName}", style = MaterialTheme.typography.bodySmall)
+            Text("Paciente: ${consultation.patientName}", style = MaterialTheme.typography.bodyMedium)
         }
         Text("Data: $dateText")
         if (consultation.location.isNotBlank()) Text("Local: ${consultation.location}")
@@ -693,7 +693,7 @@ fun UpcomingVaccineItem(vaccine: Vaccine) {
         Text(vaccine.name, fontWeight = FontWeight.Bold)
         if (vaccine.patientName.isNotBlank()) {
             Spacer(modifier = Modifier.height(4.dp))
-            Text("Paciente: ${vaccine.patientName}", style = MaterialTheme.typography.bodySmall)
+            Text("Paciente: ${vaccine.patientName}", style = MaterialTheme.typography.bodyMedium)
         }
         Text("Lembrete: ${dateText ?: "Data inválida"} ${vaccine.reminderTime} $dayLabel")
         if (vaccine.notes.isNotBlank()) Text("Notas: ${vaccine.notes}")

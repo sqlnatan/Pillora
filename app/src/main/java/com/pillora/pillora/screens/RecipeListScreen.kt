@@ -206,8 +206,7 @@ fun RecipeListItem(
                 if (recipe.patientName.isNotBlank()) {
                     Text(
                         text = "Paciente: ${recipe.patientName}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.titleLarge,
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
@@ -217,7 +216,7 @@ fun RecipeListItem(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Medicamentos: ${recipe.prescribedMedications.joinToString { it.name }}",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1, // Limit lines if needed
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis // Add ellipsis
                     )

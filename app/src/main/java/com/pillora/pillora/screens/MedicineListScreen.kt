@@ -353,15 +353,13 @@ fun MedicineItem(
                     Text(
                         text = medicine.name,
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
                     )
 
                     if (medicine.recipientName.isNotBlank()) {
                         Text(
                             text = "Para: ${medicine.recipientName}",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium
                         )
                     }
 
@@ -369,7 +367,6 @@ fun MedicineItem(
                         Text(
                             text = "Horários: ${medicine.horarios.joinToString(", ")}",
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
                         )
                     } else if (medicine.frequencyType == "a_cada_x_horas") {
                         val timesDisplay =
@@ -381,7 +378,6 @@ fun MedicineItem(
                             Text(
                                 text = "Horários: $timesDisplay",
                                 style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
@@ -455,7 +451,7 @@ fun MedicineItem(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Observações: ${medicine.notes}",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )

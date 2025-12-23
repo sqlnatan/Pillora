@@ -14,10 +14,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -26,24 +24,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
-import com.google.accompanist.permissions.isGranted
+import com.google.android.gms.ads.MobileAds
 import com.google.firebase.FirebaseApp
 import com.google.firebase.analytics.ktx.analytics
 import com.google.firebase.ktx.Firebase
-import com.google.android.gms.ads.MobileAds
 import com.pillora.pillora.navigation.*
 import com.pillora.pillora.repository.AuthRepository
 import com.pillora.pillora.screens.DrawerContent
@@ -56,8 +53,8 @@ class MainActivity : ComponentActivity() {
     private val themePreferenceKey = "theme_preference"
     private var showExactAlarmPermissionDialog = false
 
-    // 🔹 Launcher do Google Sign-In
-    private lateinit var googleSignInLauncher: androidx.activity.result.ActivityResultLauncher<Intent>
+    private lateinit var googleSignInLauncher:
+            androidx.activity.result.ActivityResultLauncher<Intent>
 
     @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,72 +62,110 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         FirebaseApp.initializeApp(this)
-        val analytics = Firebase.analytics
-        analytics.logEvent(com.google.firebase.analytics.FirebaseAnalytics.Event.APP_OPEN, null)
+        Firebase.analytics.logEvent(
+            com.google.firebase.analytics.FirebaseAnalytics.Event.APP_OPEN,
+            null
+        )
 
-        MobileAds.initialize(this) { initializationStatus ->
-            Log.d("AdMob", "SDK inicializado: $initializationStatus")
+        MobileAds.initialize(this) {
+            Log.d("AdMob", "SDK inicializado: $it")
         }
 
         enableEdgeToEdge()
 
-        // 🔹 Inicializa o launcher do Google Sign-In
         googleSignInLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
             if (result.resultCode == RESULT_OK) {
                 AuthRepository.handleGoogleSignInResult(
-                    result = result,
+                    result,
                     onSuccess = {
-                        Toast.makeText(this, "Login com Google realizado com sucesso!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            this,
+                            "Login com Google realizado com sucesso!",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     },
-                    onError = { exception: Exception ->
-                        Toast.makeText(this, "Erro ao fazer login com Google: ${exception.message}", Toast.LENGTH_LONG).show()
+                    onError = {
+                        Toast.makeText(
+                            this,
+                            "Erro ao fazer login: ${it.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 )
             }
         }
 
         setContent {
-            var currentThemePreference by remember { mutableStateOf(getInitialThemePreference()) }
+            var currentThemePreference by remember {
+                mutableStateOf(getInitialThemePreference())
+            }
             var showExactAlarmPermissionDialog by remember { mutableStateOf(false) }
+
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
 
-            // Atualiza tema quando mudar nas prefs
             DisposableEffect(Unit) {
-                val prefs = context.getSharedPreferences("pillora_prefs", MODE_PRIVATE)
-                val listener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
-                    if (key == themePreferenceKey) {
-                        currentThemePreference = getThemePreferenceFromPrefs(sharedPreferences)
+                val prefs =
+                    context.getSharedPreferences("pillora_prefs", MODE_PRIVATE)
+                val listener =
+                    SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
+                        if (key == themePreferenceKey) {
+                            currentThemePreference =
+                                getThemePreferenceFromPrefs(sp)
+                        }
                     }
-                }
                 prefs.registerOnSharedPreferenceChangeListener(listener)
                 onDispose {
                     prefs.unregisterOnSharedPreferenceChangeListener(listener)
                 }
             }
 
-            val useDarkTheme = shouldUseDarkTheme(currentThemePreference)
-
-            PilloraTheme(darkTheme = useDarkTheme) {
+            PilloraTheme(
+                darkTheme = shouldUseDarkTheme(currentThemePreference)
+            ) {
                 val navController = rememberNavController()
-                val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+                val drawerState =
+                    rememberDrawerState(initialValue = DrawerValue.Closed)
 
-                // Permissão de notificação (Android 13+)
+                val currentRoute =
+                    navController.currentBackStackEntryAsState().value
+                        ?.destination
+                        ?.route
+
+                val noDrawerRoutes = listOf(
+                    "welcome",
+                    "auth",
+                    "terms"
+                )
+
+                val shouldShowDrawer = currentRoute !in noDrawerRoutes
+
+                // Notificação Android 13+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    val notificationPermissionState = rememberPermissionState(android.Manifest.permission.POST_NOTIFICATIONS)
-                    LaunchedEffect(notificationPermissionState.status) {
-                        if (!notificationPermissionState.status.isGranted && !notificationPermissionState.status.shouldShowRationale) {
-                            notificationPermissionState.launchPermissionRequest()
+                    val permissionState =
+                        rememberPermissionState(
+                            android.Manifest.permission.POST_NOTIFICATIONS
+                        )
+                    LaunchedEffect(permissionState.status) {
+                        if (
+                            !permissionState.status.isGranted &&
+                            !permissionState.status.shouldShowRationale
+                        ) {
+                            permissionState.launchPermissionRequest()
                         }
                     }
                 }
 
-                // Permissão de alarme exato (Android 12+)
+                // Alarme exato
                 LaunchedEffect(Unit) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        val alarmManager = ContextCompat.getSystemService(context, AlarmManager::class.java)
+                        val alarmManager =
+                            ContextCompat.getSystemService(
+                                context,
+                                AlarmManager::class.java
+                            )
                         if (alarmManager?.canScheduleExactAlarms() == false) {
                             showExactAlarmPermissionDialog = true
                         }
@@ -139,79 +174,62 @@ class MainActivity : ComponentActivity() {
 
                 if (showExactAlarmPermissionDialog) {
                     ExactAlarmPermissionDialog(
-                        onDismiss = { showExactAlarmPermissionDialog = false },
+                        onDismiss = {
+                            showExactAlarmPermissionDialog = false
+                        },
                         onConfirm = {
                             showExactAlarmPermissionDialog = false
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                                    data = Uri.fromParts("package", context.packageName, null)
-                                }
-                                try {
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    Log.e("Permissions", "Não foi possível abrir as configurações de alarme exato", e)
-                                }
+                                context.startActivity(
+                                    Intent(
+                                        Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                        Uri.fromParts(
+                                            "package",
+                                            context.packageName,
+                                            null
+                                        )
+                                    )
+                                )
                             }
                         }
                     )
                 }
 
-                val statusBarHeightDp: Dp = with(LocalDensity.current) {
-                    WindowInsets.statusBars.getTop(this).toDp()
-                }
-
-                ModalNavigationDrawer(
-                    drawerState = drawerState,
-                    drawerContent = {
-                        ModalDrawerSheet(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .width(with(LocalDensity.current) {
-                                    LocalWindowInfo.current.containerSize.width.toDp() * 0.75f
-                                })
-                                .clip(RoundedCornerShape(24.dp))
-                                .padding(16.dp),
-                            drawerContainerColor = MaterialTheme.colorScheme.surface,
-                            drawerTonalElevation = 8.dp
-                        ) {
-                            DrawerContent(
-                                navController = navController,
-                                scope = scope,
-                                drawerState = drawerState,
-                                authRepository = AuthRepository,
-                                context = context,
-                            )
-                        }
-                    }
-                ) {
-                    Scaffold(
-                        bottomBar = {
-                            val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-                            val shouldShowBottomBar = currentRoute !in listOf("terms?viewOnly={viewOnly}", "auth", "welcome")
-
-                            if (shouldShowBottomBar) {
-                                BottomNavigationBar(navController, currentRoute)
+                if (shouldShowDrawer) {
+                    ModalNavigationDrawer(
+                        drawerState = drawerState,
+                        drawerContent = {
+                            ModalDrawerSheet(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .width(
+                                        with(LocalDensity.current) {
+                                            LocalWindowInfo.current
+                                                .containerSize
+                                                .width
+                                                .toDp() * 0.75f
+                                        }
+                                    )
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .padding(16.dp),
+                                drawerContainerColor =
+                                    MaterialTheme.colorScheme.surface,
+                                drawerTonalElevation = 8.dp
+                            ) {
+                                DrawerContent(
+                                    navController = navController,
+                                    scope = scope,
+                                    drawerState = drawerState,
+                                    authRepository = AuthRepository,
+                                    context = context
+                                )
                             }
                         }
-                    ) { padding ->
-                        val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-                        val shouldShowBottomBar = currentRoute !in listOf("terms?viewOnly={viewOnly}", "auth", "welcome")
-
-                        val adjustedPadding = if (shouldShowBottomBar) {
-                            padding
-                        } else {
-                            PaddingValues(
-                                top = padding.calculateTopPadding(),
-                                bottom = 0.dp,
-                                start = padding.calculateStartPadding(LocalLayoutDirection.current),
-                                end = padding.calculateEndPadding(LocalLayoutDirection.current)
-                            )
-                        }
-
-                        Box(modifier = Modifier.padding(adjustedPadding)) {
-                            AppNavigation(navController = navController)
-                        }
+                    ) {
+                        AppScaffold(navController)
                     }
+                } else {
+                    AppScaffold(navController)
                 }
             }
         }
@@ -220,44 +238,93 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
-            if (alarmManager.canScheduleExactAlarms() && showExactAlarmPermissionDialog) {
+            val alarmManager =
+                getSystemService(ALARM_SERVICE) as AlarmManager
+            if (alarmManager.canScheduleExactAlarms()) {
                 showExactAlarmPermissionDialog = false
             }
         }
     }
 
     private fun getInitialThemePreference(): ThemePreference {
-        val prefs = getSharedPreferences("pillora_prefs", MODE_PRIVATE)
+        val prefs =
+            getSharedPreferences("pillora_prefs", MODE_PRIVATE)
         return getThemePreferenceFromPrefs(prefs)
     }
 
-    private fun getThemePreferenceFromPrefs(prefs: SharedPreferences): ThemePreference {
-        return when (prefs.getString(themePreferenceKey, ThemePreference.SYSTEM.name)) {
+    private fun getThemePreferenceFromPrefs(
+        prefs: SharedPreferences
+    ): ThemePreference =
+        when (prefs.getString(
+            themePreferenceKey,
+            ThemePreference.SYSTEM.name
+        )) {
             ThemePreference.LIGHT.name -> ThemePreference.LIGHT
             ThemePreference.DARK.name -> ThemePreference.DARK
             else -> ThemePreference.SYSTEM
+        }
+}
+
+@Composable
+private fun shouldUseDarkTheme(
+    preference: ThemePreference
+): Boolean =
+    when (preference) {
+        ThemePreference.LIGHT -> false
+        ThemePreference.DARK -> true
+        else -> androidx.compose.foundation.isSystemInDarkTheme()
+    }
+
+@Composable
+fun AppScaffold(navController: NavHostController) {
+    val currentRoute =
+        navController.currentBackStackEntryAsState().value
+            ?.destination
+            ?.route
+
+    val noBottomBarRoutes = listOf(
+        "welcome",
+        "auth",
+        "terms"
+    )
+
+    Scaffold(
+        bottomBar = {
+            if (currentRoute !in noBottomBarRoutes) {
+                BottomNavigationBar(navController, currentRoute)
+            }
+        }
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding)) {
+            AppNavigation(navController)
         }
     }
 }
 
 @Composable
-private fun shouldUseDarkTheme(preference: ThemePreference): Boolean = when (preference) {
-    ThemePreference.LIGHT -> false
-    ThemePreference.DARK -> true
-    else -> androidx.compose.foundation.isSystemInDarkTheme()
-}
-
-@Composable
-fun ExactAlarmPermissionDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+fun ExactAlarmPermissionDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Permissão Necessária para Lembretes") },
+        title = { Text("Permissão Necessária") },
         text = {
-            Text("Para que os lembretes de medicamentos funcionem corretamente, o Pillora precisa da sua permissão para agendar alarmes precisos. Por favor, conceda essa permissão nas configurações do aplicativo.")
+            Text(
+                "Para que os lembretes funcionem corretamente, " +
+                        "é necessário permitir alarmes precisos."
+            )
         },
-        confirmButton = { Button(onClick = onConfirm) { Text("Abrir Configurações") } },
-        dismissButton = { Button(onClick = onDismiss) { Text("Agora não") } }
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text("Abrir Configurações")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("Agora não")
+            }
+        }
     )
 }
 
@@ -274,16 +341,20 @@ fun BottomNavigationBar(
         bottomNavItems.first { it.name == "Receitas" }
     )
 
-    NavigationBar(tonalElevation = 4.dp, modifier = Modifier.fillMaxWidth()) {
+    NavigationBar {
         bottomNavItemsOrdered.forEach { item ->
             NavigationBarItem(
-                icon = { Icon(item.icon, contentDescription = item.contentDescription) },
+                icon = {
+                    Icon(item.icon, contentDescription = item.contentDescription)
+                },
                 label = { Text(item.name) },
                 selected = currentRoute == item.route,
                 onClick = {
                     if (currentRoute != item.route) {
                         navController.navigate(item.route) {
-                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            popUpTo(
+                                navController.graph.startDestinationId
+                            ) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
                         }
@@ -295,7 +366,11 @@ fun BottomNavigationBar(
 }
 
 @Composable
-fun DrawerItem(icon: ImageVector, label: String, onClick: () -> Unit) {
+fun DrawerItem(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
     NavigationDrawerItem(
         icon = { Icon(icon, contentDescription = label) },
         label = { Text(label) },

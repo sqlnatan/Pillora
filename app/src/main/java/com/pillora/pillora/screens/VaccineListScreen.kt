@@ -248,13 +248,12 @@ fun VaccineListItem(
                 Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     Text(
                         text = vaccine.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.titleLarge,
                     )
                     if (vaccine.patientName.isNotBlank()) {
                         Text(
                             text = "Paciente: ${vaccine.patientName}",
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
@@ -286,7 +285,7 @@ fun VaccineListItem(
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = vaccine.reminderDate.ifEmpty { "Data não informada" },
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary
                 )
                 if (vaccine.reminderTime.isNotEmpty()) {
@@ -295,7 +294,7 @@ fun VaccineListItem(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = vaccine.reminderTime,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.secondary
                     )
                 }
@@ -308,7 +307,7 @@ fun VaccineListItem(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = vaccine.location,
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
@@ -324,7 +323,7 @@ fun VaccineListItem(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = vaccine.notes,
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }

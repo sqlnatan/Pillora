@@ -1,6 +1,9 @@
 package com.pillora.pillora.screens
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,8 +17,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 
 @Composable
 fun WelcomeScreen(
@@ -50,6 +55,10 @@ fun WelcomeScreen(
 
     var currentPage by remember { mutableIntStateOf(0) }
 
+    // 🔹 Controle de swipe
+    var dragAmount by remember { mutableFloatStateOf(0f) }
+    val swipeThreshold = 80f
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -57,38 +66,87 @@ fun WelcomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(24.dp)
+                .pointerInput(currentPage) {
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { _, dragDelta ->
+                            dragAmount += dragDelta
+                        },
+                        onDragEnd = {
+                            if (abs(dragAmount) > swipeThreshold) {
+                                if (dragAmount < 0 && currentPage < pages.lastIndex) {
+                                    currentPage++
+                                } else if (dragAmount > 0 && currentPage > 0) {
+                                    currentPage--
+                                }
+                            }
+                            dragAmount = 0f
+                        },
+                        onDragCancel = {
+                            dragAmount = 0f
+                        }
+                    )
+                },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- Ícone ---
-            Icon(
-                imageVector = pages[currentPage].icon,
-                contentDescription = null,
-                modifier = Modifier.size(160.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
+            // 🔥 CONTEÚDO ANIMADO (ícone + textos)
+            AnimatedContent(
+                targetState = currentPage,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        slideInHorizontally(
+                            animationSpec = tween(350),
+                            initialOffsetX = { it }
+                        ) + fadeIn() togetherWith
+                                slideOutHorizontally(
+                                    animationSpec = tween(350),
+                                    targetOffsetX = { -it }
+                                ) + fadeOut()
+                    } else {
+                        slideInHorizontally(
+                            animationSpec = tween(350),
+                            initialOffsetX = { -it }
+                        ) + fadeIn() togetherWith
+                                slideOutHorizontally(
+                                    animationSpec = tween(350),
+                                    targetOffsetX = { it }
+                                ) + fadeOut()
+                    }
+                },
+                label = "OnboardingContent"
+            ) { page ->
 
-            Spacer(modifier = Modifier.height(32.dp))
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = pages[page].icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(160.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
 
-            // --- Título ---
-            Text(
-                text = pages[currentPage].title,
-                style = MaterialTheme.typography.headlineMedium,
-                textAlign = TextAlign.Center
-            )
+                    Spacer(modifier = Modifier.height(32.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = pages[page].title,
+                        style = MaterialTheme.typography.headlineLarge,
+                        textAlign = TextAlign.Center
+                    )
 
-            // --- Descrição ---
-            Text(
-                text = pages[currentPage].description,
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
-            )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = pages[page].description,
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.weight(1f))
 
@@ -127,10 +185,15 @@ fun WelcomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(
-                    text = if (currentPage == pages.lastIndex) "Começar" else "Próximo"
-                )
+                AnimatedContent(
+                    targetState = currentPage == pages.lastIndex,
+                    label = "ButtonText"
+                ) { isLast ->
+                    Text(text = if (isLast) "Começar" else "Próximo")
+                }
             }
+
+            Spacer(modifier = Modifier.height(60.dp))
         }
     }
 }

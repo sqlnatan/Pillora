@@ -253,8 +253,7 @@ fun ConsultationListItem(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = consultation.specialty,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
@@ -307,7 +306,7 @@ fun ConsultationListItem(
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = consultation.dateTime.ifEmpty { "Data/Hora não informada" },
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -324,7 +323,7 @@ fun ConsultationListItem(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = consultation.location,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -334,7 +333,7 @@ fun ConsultationListItem(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Obs: ${consultation.observations}",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2
                 )
