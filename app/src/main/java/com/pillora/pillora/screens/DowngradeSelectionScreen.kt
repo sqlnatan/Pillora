@@ -1,5 +1,6 @@
 package com.pillora.pillora.screens
 
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -365,7 +366,9 @@ fun DowngradeSelectionScreen(
 
                                 val consultationsToUpdate = if (consultationsOverLimit) {
                                     consultations.filter { consultation ->
-                                        consultation.isActive != (consultation.id == selectedConsultationId)
+                                        // CORREÇÃO: Filtrar apenas consultas com ID válido E que precisam ser atualizadas
+                                        consultation.id.isNotEmpty() &&
+                                                consultation.isActive != (consultation.id == selectedConsultationId)
                                     }
                                 } else emptyList()
 
@@ -434,21 +437,29 @@ fun DowngradeSelectionScreen(
 
                                 // Desativar consultas não selecionadas
                                 consultationsToUpdate.forEach { consultation ->
-                                    val shouldBeActive = consultation.id == selectedConsultationId
-                                    ConsultationRepository.updateConsultationActiveStatus(
-                                        consultationId = consultation.id,
-                                        isActive = shouldBeActive,
-                                        onSuccess = {
-                                            completedOperations.incrementAndGet()
-                                            checkCompletion()
-                                        },
-                                        onFailure = { e ->
-                                            allSuccessful.set(false)
-                                            errorMessage = "Erro ao atualizar consulta: ${e.message}"
-                                            completedOperations.incrementAndGet()
-                                            checkCompletion()
-                                        }
-                                    )
+                                    // CORREÇÃO: Verificar se o ID não está vazio antes de atualizar
+                                    if (consultation.id.isNotEmpty()) {
+                                        val shouldBeActive = consultation.id == selectedConsultationId
+                                        ConsultationRepository.updateConsultationActiveStatus(
+                                            consultationId = consultation.id,
+                                            isActive = shouldBeActive,
+                                            onSuccess = {
+                                                completedOperations.incrementAndGet()
+                                                checkCompletion()
+                                            },
+                                            onFailure = { e ->
+                                                allSuccessful.set(false)
+                                                errorMessage = "Erro ao atualizar consulta: ${e.message}"
+                                                completedOperations.incrementAndGet()
+                                                checkCompletion()
+                                            }
+                                        )
+                                    } else {
+                                        // Se o ID está vazio, pular esta consulta e contar como completada
+                                        Log.w("DowngradeSelection", "Consulta com ID vazio encontrada, pulando atualização")
+                                        completedOperations.incrementAndGet()
+                                        checkCompletion()
+                                    }
                                 }
                             }
                         },
