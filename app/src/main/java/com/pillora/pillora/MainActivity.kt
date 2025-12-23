@@ -140,7 +140,9 @@ class MainActivity : ComponentActivity() {
                     "terms"
                 )
 
-                val shouldShowDrawer = currentRoute !in noDrawerRoutes
+                val shouldShowDrawer =
+                    currentRoute != null && currentRoute !in noDrawerRoutes
+
 
                 // Notificação Android 13+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -277,6 +279,7 @@ private fun shouldUseDarkTheme(
 
 @Composable
 fun AppScaffold(navController: NavHostController) {
+
     val currentRoute =
         navController.currentBackStackEntryAsState().value
             ?.destination
@@ -290,7 +293,10 @@ fun AppScaffold(navController: NavHostController) {
 
     Scaffold(
         bottomBar = {
-            if (currentRoute !in noBottomBarRoutes) {
+            if (
+                currentRoute != null &&
+                currentRoute !in noBottomBarRoutes
+            ) {
                 BottomNavigationBar(navController, currentRoute)
             }
         }
@@ -300,6 +306,7 @@ fun AppScaffold(navController: NavHostController) {
         }
     }
 }
+
 
 @Composable
 fun ExactAlarmPermissionDialog(
