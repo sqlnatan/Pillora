@@ -3,9 +3,11 @@ package com.pillora.pillora.navigation
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -14,7 +16,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.NavHostController
 import androidx.navigation.navArgument
+import com.pillora.pillora.PilloraApplication
+import com.pillora.pillora.data.SubscriptionStatus
 import com.pillora.pillora.screens.AuthScreen
+import com.pillora.pillora.screens.DowngradeSelectionScreen
+import com.pillora.pillora.screens.GracePeriodWarningDialog
 import com.pillora.pillora.screens.HomeScreen
 import com.pillora.pillora.screens.MedicineFormScreen
 import com.pillora.pillora.screens.MedicineListScreen
@@ -29,6 +35,7 @@ import com.pillora.pillora.screens.RecipeListScreen // Import RecipeListScreen
 import com.pillora.pillora.screens.VaccineFormScreen
 import com.pillora.pillora.screens.VaccineListScreen
 import com.pillora.pillora.viewmodel.ConsultationViewModel
+import com.pillora.pillora.viewmodel.SubscriptionViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.pillora.pillora.screens.ReportsScreen // Import ReportsScreen
@@ -53,36 +60,82 @@ fun AppNavigation(
 ) {
     // val navController = rememberNavController() // REMOVIDO: Recebido como parâmetro
     val context = LocalContext.current
+    val application = context.applicationContext as PilloraApplication
     val prefs = remember {
         context.getSharedPreferences("pillora_prefs", Context.MODE_PRIVATE)
     }
 
     // Estado para armazenar a rota inicial, começando com um valor temporário
-    var startRoute by remember { mutableStateOf<String?>(null) }
+    var startRoute by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // Flag para garantir que a inicialização só ocorra uma vez
+    var hasInitialized by rememberSaveable { mutableStateOf(false) }
 
     // IMPORTANTE: Criar uma única instância do ConsultationViewModel no escopo do NavHost
     // Isso garante que todas as telas compartilhem a mesma instância e vejam as mesmas atualizações
     val sharedConsultationViewModel: ConsultationViewModel = viewModel()
 
-    // Determinar a rota inicial de forma assíncrona ou síncrona
-    LaunchedEffect(Unit) {
+    // ViewModel para gerenciar estado de assinatura
+    val subscriptionViewModel: SubscriptionViewModel = viewModel(
+        factory = SubscriptionViewModel.provideFactory(
+            application = application,
+            userPreferences = application.userPreferences
+        )
+    )
 
-        val hasSeenWelcome = prefs.getBoolean("has_seen_welcome", false)
+    // Observar estados de assinatura
+    val subscriptionStatus by subscriptionViewModel.subscriptionStatus.collectAsState()
+    val showGracePeriodWarning by subscriptionViewModel.showGracePeriodWarning.collectAsState()
+    val gracePeriodDaysRemaining by subscriptionViewModel.gracePeriodDaysRemaining.collectAsState()
+    val requiresDowngrade by subscriptionViewModel.requiresDowngrade.collectAsState()
 
-        val isAuthenticated = withContext(Dispatchers.IO) {
-            AuthRepository.isUserAuthenticated()
-        }
+    // Determinar a rota inicial de forma assíncrona ou síncrona - APENAS UMA VEZ
+    LaunchedEffect(hasInitialized) {
+        if (!hasInitialized) {
+            val hasSeenWelcome = prefs.getBoolean("has_seen_welcome", false)
 
-        startRoute = when {
-            isAuthenticated -> Screen.Home.route
-            !hasSeenWelcome -> Screen.Welcome.route
-            else -> "auth"
+            val isAuthenticated = withContext(Dispatchers.IO) {
+                AuthRepository.isUserAuthenticated()
+            }
+
+            // Verificar status da assinatura após autenticação
+            if (isAuthenticated) {
+                subscriptionViewModel.checkSubscriptionStatus()
+            }
+
+            startRoute = when {
+                isAuthenticated -> Screen.Home.route
+                !hasSeenWelcome -> Screen.Welcome.route
+                else -> "auth"
+            }
+
+            hasInitialized = true
         }
     }
 
+    // Mostrar dialog de aviso de período de carência
+    if (showGracePeriodWarning && gracePeriodDaysRemaining > 0) {
+        GracePeriodWarningDialog(
+            daysRemaining = gracePeriodDaysRemaining,
+            onDismiss = {
+                subscriptionViewModel.dismissGracePeriodWarning()
+            },
+            onRenewSubscription = {
+                subscriptionViewModel.dismissGracePeriodWarning()
+                navController.navigate(Screen.Subscription.route)
+            }
+        )
+    }
 
-    // Só exibe o NavHost quando a rota inicial for determinada
-    if (startRoute != null) {
+    // Se downgrade é obrigatório, mostrar tela de seleção
+    if (requiresDowngrade) {
+        DowngradeSelectionScreen(
+            onDowngradeComplete = {
+                subscriptionViewModel.completeDowngrade()
+            }
+        )
+    } else if (startRoute != null) {
+        // Só exibe o NavHost quando a rota inicial for determinada e não precisa de downgrade
         NavHost(navController = navController, startDestination = startRoute!!) {
             // Remover a rota "splash" - A SplashActivity nativa cuida da transição inicial
 
@@ -233,6 +286,16 @@ fun AppNavigation(
             composable(Screen.Subscription.route) {
                 SubscriptionScreen(navController = navController)
             }
+
+            // Downgrade Selection Screen (pode ser acessada manualmente também)
+            composable(Screen.DowngradeSelection.route) {
+                DowngradeSelectionScreen(
+                    onDowngradeComplete = {
+                        subscriptionViewModel.completeDowngrade()
+                        navController.popBackStack()
+                    }
+                )
+            }
         }
 
         // *** CORREÇÃO: Navegar para a tela de edição de consulta OU vacina se necessário ***
@@ -251,4 +314,3 @@ fun AppNavigation(
         // No entanto, a SplashActivity nativa já deve estar cobrindo este tempo.
     }
 }
-

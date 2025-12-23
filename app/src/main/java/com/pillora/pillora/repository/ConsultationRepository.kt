@@ -181,6 +181,41 @@ object ConsultationRepository {
             }
     }
 
+    /**
+     * Atualiza apenas o campo isActive de uma consulta.
+     * Usado para ativar/desativar consultas no processo de downgrade.
+     */
+    fun updateConsultationActiveStatus(
+        consultationId: String,
+        isActive: Boolean,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        val userConsultationsRef = getUserConsultationsCollection()
+        if (userConsultationsRef == null) {
+            Log.w(TAG, "User not logged in for updateConsultationActiveStatus")
+            onFailure(Exception("User not logged in"))
+            return
+        }
+        if (consultationId.isEmpty()) {
+            Log.w(TAG, "Consultation ID is empty, cannot update active status")
+            onFailure(Exception("Consultation ID is missing"))
+            return
+        }
+
+        userConsultationsRef
+            .document(consultationId)
+            .update("isActive", isActive)
+            .addOnSuccessListener {
+                Log.d(TAG, "Consultation active status updated to $isActive: $consultationId")
+                onSuccess()
+            }
+            .addOnFailureListener {
+                Log.e(TAG, "Error updating consultation active status", it)
+                onFailure(it)
+            }
+    }
+
     fun deleteConsultation(
         consultationId: String,
         onSuccess: () -> Unit,

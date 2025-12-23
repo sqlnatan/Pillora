@@ -120,11 +120,14 @@ fun HomeScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    // Verificar se o usuário aceitou os termos atuais
-    LaunchedEffect(Unit) {
-        val userId = AuthRepository.getCurrentUser()?.uid
-        if (userId != null) {
-            val hasAccepted = TermsRepository.hasAcceptedCurrentTerms(userId)
+    // Obter userId atual para usar como chave
+    val currentUserId = remember { AuthRepository.getCurrentUser()?.uid }
+
+    // Verificar termos apenas quando userId mudar (login/logout)
+    // NÃO reexecuta quando isPremium muda
+    LaunchedEffect(currentUserId) {
+        if (currentUserId != null) {
+            val hasAccepted = TermsRepository.hasAcceptedCurrentTerms(currentUserId)
             if (!hasAccepted) {
                 navController.navigate("terms") {
                     popUpTo("home") { inclusive = true }

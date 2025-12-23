@@ -19,9 +19,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.model.Medicine
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.MedicineRepository
+import com.pillora.pillora.utils.FreeLimits
 import com.pillora.pillora.viewmodel.HomeViewModel
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
@@ -81,6 +83,10 @@ fun MedicineListScreen(
     var medicineToDelete by remember { mutableStateOf<Medicine?>(null) }
     val context = LocalContext.current
 
+    // Obter status premium do UserPreferences
+    val application = context.applicationContext as PilloraApplication
+    val isPremium by application.userPreferences.isPremium.collectAsState(initial = false)
+
     // Carregar medicamentos usando Flow
     LaunchedEffect(Unit) {
         isLoading = true
@@ -95,6 +101,9 @@ fun MedicineListScreen(
                 isLoading = false
             }
     }
+
+    // Calcular quantos medicamentos estão com alarmes ativos
+    val activeMedicinesCount = medicines.count { it.alarmsEnabled }
 
     // Diálogo de confirmação para exclusão
     if (showDeleteDialog && medicineToDelete != null) {
@@ -159,10 +168,26 @@ fun MedicineListScreen(
                             "Medicamentos",
                             style = MaterialTheme.typography.titleMedium
                         )
-                        Text(
-                            text = "${medicines.size} ${if (medicines.size == 1) "medicamento" else "medicamentos"}",
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "${medicines.size} ${if (medicines.size == 1) "medicamento" else "medicamentos"}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            // Mostrar contador de ativos se não for premium
+                            if (!isPremium) {
+                                Text(
+                                    text = "• $activeMedicinesCount/${FreeLimits.MAX_MEDICINES_FREE} ativos",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (activeMedicinesCount >= FreeLimits.MAX_MEDICINES_FREE)
+                                        MaterialTheme.colorScheme.error
+                                    else
+                                        MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     }
                 },
                 navigationIcon = {
@@ -224,12 +249,39 @@ fun MedicineListScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Aviso de limite para usuários Free
+                    if (!isPremium && activeMedicinesCount >= FreeLimits.MAX_MEDICINES_FREE) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = "⚠️ Limite de ${FreeLimits.MAX_MEDICINES_FREE} medicamentos ativos atingido. Desative um para ativar outro.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+
                     items(
                         medicines,
                         key = { it.id ?: it.hashCode() }
                     ) { medicine ->
                         MedicineItem(
                             medicine = medicine,
+                            isPremium = isPremium,
+                            activeMedicinesCount = activeMedicinesCount,
                             onEditClick = {
                                 medicine.id?.let { id ->
                                     try {
@@ -256,6 +308,16 @@ fun MedicineListScreen(
                                 showDeleteDialog = true
                             },
                             onAlarmToggle = { isEnabled ->
+                                // Verificar limite para usuários Free
+                                if (!isPremium && isEnabled && activeMedicinesCount >= FreeLimits.MAX_MEDICINES_FREE) {
+                                    Toast.makeText(
+                                        context,
+                                        "Limite de ${FreeLimits.MAX_MEDICINES_FREE} medicamentos ativos atingido. Desative um para ativar outro.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    return@MedicineItem
+                                }
+
                                 medicine.id?.let { id ->
                                     scope.launch {
                                         homeViewModel.toggleMedicineAlarms(
@@ -297,6 +359,8 @@ fun MedicineListScreen(
 @Composable
 fun MedicineItem(
     medicine: Medicine,
+    isPremium: Boolean = true,
+    activeMedicinesCount: Int = 0,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onAlarmToggle: (Boolean) -> Unit
@@ -331,6 +395,9 @@ fun MedicineItem(
     } else {
         null
     }
+
+    // Verificar se pode ativar (para usuários Free)
+    val canActivate = isPremium || medicine.alarmsEnabled || activeMedicinesCount < FreeLimits.MAX_MEDICINES_FREE
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -481,11 +548,20 @@ fun MedicineItem(
                             else
                                 MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    // Mostrar aviso se não pode ativar
+                    if (!canActivate && !medicine.alarmsEnabled) {
+                        Text(
+                            text = "Limite atingido",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
 
                 Switch(
                     checked = medicine.alarmsEnabled,
-                    onCheckedChange = onAlarmToggle
+                    onCheckedChange = onAlarmToggle,
+                    enabled = canActivate || medicine.alarmsEnabled // Sempre pode desativar
                 )
             }
         }

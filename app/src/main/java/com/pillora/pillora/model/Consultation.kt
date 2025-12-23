@@ -13,6 +13,7 @@ import com.google.firebase.firestore.DocumentId
  * @property location Location of the consultation (clinic name or address).
  * @property observations Additional notes or observations about the consultation.
  * @property patientName Name of the patient for whom the consultation is scheduled. // Added patientName field
+ * @property isActive Flag to indicate if the consultation is active (for free plan limits).
  */
 data class Consultation(
     val id: String = "",
@@ -24,5 +25,6 @@ data class Consultation(
     val observations: String = "",
     val patientName: String = "", // Added patientName fiel
     val isSilencioso: Boolean = false,   // NOVO
-    val toqueAlarmeUri: String? = null   // NOVO
+    val toqueAlarmeUri: String? = null,   // NOVO
+    val isActive: Boolean = true // NOVO: Flag para controlar se a consulta está ativa (para limites do plano Free)
 )

@@ -74,6 +74,35 @@ object MedicineRepository {
             .addOnFailureListener { onError(it) }
     }
 
+    /**
+     * Atualiza apenas o campo alarmsEnabled de um medicamento.
+     * Usado para ativar/desativar medicamentos no processo de downgrade.
+     */
+    fun updateMedicineAlarmsEnabled(
+        medicineId: String,
+        alarmsEnabled: Boolean,
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        if (medicineId.isBlank()) {
+            onError(Exception("Medicine ID is missing or invalid for update"))
+            return
+        }
+        val userMedicinesRef = getUserMedicinesCollectionRef()
+        if (userMedicinesRef == null) {
+            onError(Exception("User not logged in or user ID is invalid for update"))
+            return
+        }
+
+        userMedicinesRef.document(medicineId)
+            .update("alarmsEnabled", alarmsEnabled)
+            .addOnSuccessListener {
+                Log.d(TAG, "Medicine alarmsEnabled updated to $alarmsEnabled: $medicineId")
+                onSuccess()
+            }
+            .addOnFailureListener { onError(it) }
+    }
+
     fun deleteMedicine(
         medicineId: String,
         onSuccess: () -> Unit,

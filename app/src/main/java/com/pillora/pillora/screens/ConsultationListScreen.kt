@@ -21,9 +21,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.model.Consultation
 import com.pillora.pillora.repository.ConsultationRepository
 import com.pillora.pillora.navigation.Screen
+import com.pillora.pillora.utils.FreeLimits
 import com.pillora.pillora.viewmodel.ConsultationListUiState
 import com.pillora.pillora.viewmodel.ConsultationViewModel
 import kotlinx.coroutines.launch
@@ -35,6 +37,11 @@ fun ConsultationListScreen(
     viewModel: ConsultationViewModel
 ) {
     val consultationListState by viewModel.consultationListUiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // Obter status premium do UserPreferences
+    val application = context.applicationContext as PilloraApplication
+    val isPremium by application.userPreferences.isPremium.collectAsState(initial = false)
 
     LaunchedEffect(consultationListState) {
         when (consultationListState) {
@@ -56,7 +63,6 @@ fun ConsultationListScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var consultationToDelete by remember { mutableStateOf<Consultation?>(null) }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
 
     if (showDeleteDialog && consultationToDelete != null) {
         AlertDialog(
@@ -107,6 +113,14 @@ fun ConsultationListScreen(
         )
     }
 
+    // Calcular consultas ativas
+    val consultations = when (consultationListState) {
+        is ConsultationListUiState.Success ->
+            (consultationListState as ConsultationListUiState.Success).consultations
+        else -> emptyList()
+    }
+    val activeConsultationsCount = consultations.count { it.isActive }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground,
@@ -125,17 +139,27 @@ fun ConsultationListScreen(
                             style = MaterialTheme.typography.titleMedium
                         )
 
-                        val count = when (consultationListState) {
-                            is ConsultationListUiState.Success ->
-                                (consultationListState as ConsultationListUiState.Success).consultations.size
-                            else -> 0
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "${consultations.size} ${if (consultations.size == 1) "consulta" else "consultas"}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            // Mostrar contador de ativas se não for premium
+                            if (!isPremium && consultations.isNotEmpty()) {
+                                Text(
+                                    text = "• $activeConsultationsCount/${FreeLimits.MAX_CONSULTATIONS_FREE} ativas",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (activeConsultationsCount >= FreeLimits.MAX_CONSULTATIONS_FREE)
+                                        MaterialTheme.colorScheme.error
+                                    else
+                                        MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
-
-                        Text(
-                            text = "$count ${if (count == 1) "consulta" else "consultas"}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 },
                 navigationIcon = {
@@ -187,9 +211,6 @@ fun ConsultationListScreen(
                 }
 
                 is ConsultationListUiState.Success -> {
-                    val consultations =
-                        (consultationListState as ConsultationListUiState.Success).consultations
-
                     if (consultations.isEmpty()) {
                         Column(
                             modifier = Modifier
@@ -209,9 +230,35 @@ fun ConsultationListScreen(
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            // Aviso de limite para usuários Free
+                            if (!isPremium && activeConsultationsCount >= FreeLimits.MAX_CONSULTATIONS_FREE && consultations.size > FreeLimits.MAX_CONSULTATIONS_FREE) {
+                                item {
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.errorContainer
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(
+                                                text = "⚠️ Limite de ${FreeLimits.MAX_CONSULTATIONS_FREE} consulta ativa atingido. Consultas inativas estão marcadas.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                            }
+
                             items(consultations, key = { it.id }) { consultation ->
                                 ConsultationListItem(
                                     consultation = consultation,
+                                    isPremium = isPremium,
                                     onEditClick = {
                                         navController.navigate(
                                             "${Screen.ConsultationForm.route}?id=${consultation.id}"
@@ -234,15 +281,23 @@ fun ConsultationListScreen(
 @Composable
 fun ConsultationListItem(
     consultation: Consultation,
+    isPremium: Boolean = true,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
+    // Estilização diferente para consultas inativas (apenas para Free)
+    val isInactive = !isPremium && !consultation.isActive
+    val cardAlpha = if (isInactive) 0.6f else 1f
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = if (isInactive)
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = cardAlpha)
+            else
+                MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isInactive) 1.dp else 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -251,11 +306,34 @@ fun ConsultationListItem(
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = consultation.specialty,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = consultation.specialty,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = if (isInactive)
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            else
+                                MaterialTheme.colorScheme.onSurface
+                        )
+
+                        // Badge de status para consultas inativas
+                        if (isInactive) {
+                            Surface(
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.errorContainer
+                            ) {
+                                Text(
+                                    text = "Inativa",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(4.dp))
 

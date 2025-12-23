@@ -14,7 +14,9 @@ enum class Screen(val route: String) {
     VaccineForm("vaccine_form"), // Nova rota para formulário de vacinas
     Profile("profile"),
     Reports("reports"),
-    Subscription("subscription");
+    Subscription("subscription"),
+    DowngradeSelection("downgrade_selection"), // Nova rota para seleção de downgrade
+    GracePeriodWarning("grace_period_warning"); // Nova rota para aviso de período de carência
 
 
 }
@@ -25,4 +27,3 @@ enum class FrequencyType {
     EVERY_X_HOURS
 }
 */
-
