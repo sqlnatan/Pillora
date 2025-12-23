@@ -36,6 +36,7 @@ import com.pillora.pillora.screens.VaccineFormScreen
 import com.pillora.pillora.screens.VaccineListScreen
 import com.pillora.pillora.viewmodel.ConsultationViewModel
 import com.pillora.pillora.viewmodel.SubscriptionViewModel
+import com.pillora.pillora.repository.TermsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.pillora.pillora.screens.ReportsScreen // Import ReportsScreen
@@ -103,7 +104,25 @@ fun AppNavigation(
                 subscriptionViewModel.checkSubscriptionStatus()
             }
 
+            // CORREÇÃO: Verificar termos de uso AQUI, apenas uma vez na inicialização
+            // Se o usuário está autenticado mas não aceitou os termos, vai para a tela de termos
+            val hasAcceptedTerms = if (isAuthenticated) {
+                val userId = withContext(Dispatchers.IO) {
+                    AuthRepository.getCurrentUser()?.uid
+                }
+                if (userId != null) {
+                    withContext(Dispatchers.IO) {
+                        TermsRepository.hasAcceptedCurrentTerms(userId)
+                    }
+                } else {
+                    false
+                }
+            } else {
+                true // Se não está autenticado, não precisa verificar termos
+            }
+
             startRoute = when {
+                isAuthenticated && !hasAcceptedTerms -> "terms" // Vai para termos se não aceitou
                 isAuthenticated -> Screen.Home.route
                 !hasSeenWelcome -> Screen.Welcome.route
                 else -> "auth"

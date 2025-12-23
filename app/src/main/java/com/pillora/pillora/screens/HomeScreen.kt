@@ -83,7 +83,7 @@ import com.pillora.pillora.navigation.RECIPE_FORM_ROUTE
 import com.pillora.pillora.navigation.RECIPE_LIST_ROUTE
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.AuthRepository
-import com.pillora.pillora.repository.TermsRepository
+// import com.pillora.pillora.repository.TermsRepository // Movido para AppNavigation
 import com.pillora.pillora.utils.FreeLimits
 import com.pillora.pillora.viewmodel.HomeViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -120,21 +120,9 @@ fun HomeScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    // Obter userId atual para usar como chave
-    val currentUserId = remember { AuthRepository.getCurrentUser()?.uid }
-
-    // Verificar termos apenas quando userId mudar (login/logout)
-    // NÃO reexecuta quando isPremium muda
-    LaunchedEffect(currentUserId) {
-        if (currentUserId != null) {
-            val hasAccepted = TermsRepository.hasAcceptedCurrentTerms(currentUserId)
-            if (!hasAccepted) {
-                navController.navigate("terms") {
-                    popUpTo("home") { inclusive = true }
-                }
-            }
-        }
-    }
+    // CORREÇÃO: A verificação dos termos foi movida para o AppNavigation
+    // Isso garante que a verificação só ocorra UMA VEZ na inicialização do app,
+    // e não toda vez que a HomeScreen é recriada (ex: ao voltar das configurações)
 
     LaunchedEffect(error) {
         error?.let {

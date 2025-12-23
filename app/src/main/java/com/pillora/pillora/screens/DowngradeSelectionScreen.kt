@@ -33,6 +33,8 @@ import com.pillora.pillora.repository.MedicineRepository
 import com.pillora.pillora.utils.FreeLimits
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Tela obrigatória de seleção de itens para downgrade.
@@ -352,57 +354,101 @@ fun DowngradeSelectionScreen(
                         onClick = {
                             scope.launch {
                                 isSaving = true
+                                errorMessage = null
 
-                                try {
-                                    // Desativar medicamentos não selecionados
-                                    if (medicinesOverLimit) {
-                                        medicines.forEach { medicine ->
-                                            medicine.id?.let { id ->
-                                                val shouldBeActive = selectedMedicineIds.contains(id)
-                                                if (medicine.alarmsEnabled != shouldBeActive) {
-                                                    MedicineRepository.updateMedicineAlarmsEnabled(
-                                                        medicineId = id,
-                                                        alarmsEnabled = shouldBeActive,
-                                                        onSuccess = {},
-                                                        onError = { e ->
-                                                            errorMessage = "Erro ao atualizar medicamento: ${e.message}"
-                                                        }
-                                                    )
-                                                }
-                                            }
-                                        }
+                                // Calcular quantas operações precisamos fazer
+                                val medicinesToUpdate = if (medicinesOverLimit) {
+                                    medicines.filter { medicine ->
+                                        medicine.id != null && medicine.alarmsEnabled != selectedMedicineIds.contains(medicine.id)
                                     }
+                                } else emptyList()
 
-                                    // Desativar consultas não selecionadas
-                                    if (consultationsOverLimit) {
-                                        consultations.forEach { consultation ->
-                                            val shouldBeActive = consultation.id == selectedConsultationId
-                                            if (consultation.isActive != shouldBeActive) {
-                                                ConsultationRepository.updateConsultationActiveStatus(
-                                                    consultationId = consultation.id,
-                                                    isActive = shouldBeActive,
-                                                    onSuccess = {},
-                                                    onFailure = { e ->
-                                                        errorMessage = "Erro ao atualizar consulta: ${e.message}"
-                                                    }
-                                                )
-                                            }
-                                        }
+                                val consultationsToUpdate = if (consultationsOverLimit) {
+                                    consultations.filter { consultation ->
+                                        consultation.isActive != (consultation.id == selectedConsultationId)
                                     }
+                                } else emptyList()
 
-                                    // Marcar downgrade como completo
+                                val totalOperations = medicinesToUpdate.size + consultationsToUpdate.size
+
+                                // Se não há nada para atualizar, apenas finaliza
+                                if (totalOperations == 0) {
                                     userPreferences.setDowngradeCompleted(true)
-
                                     Toast.makeText(
                                         context,
                                         "Configurações salvas com sucesso!",
                                         Toast.LENGTH_SHORT
                                     ).show()
-
-                                    onDowngradeComplete()
-                                } catch (e: Exception) {
-                                    errorMessage = "Erro ao salvar: ${e.message}"
                                     isSaving = false
+                                    onDowngradeComplete()
+                                    return@launch
+                                }
+
+                                // Contadores thread-safe para rastrear operações
+                                val completedOperations = AtomicInteger(0)
+                                val allSuccessful = AtomicBoolean(true)
+
+                                val checkCompletion: () -> Unit = {
+                                    if (completedOperations.get() == totalOperations) {
+                                        scope.launch {
+                                            if (allSuccessful.get()) {
+                                                userPreferences.setDowngradeCompleted(true)
+                                                Toast.makeText(
+                                                    context,
+                                                    "Configurações salvas com sucesso!",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                                onDowngradeComplete()
+                                            } else {
+                                                Toast.makeText(
+                                                    context,
+                                                    "Algumas atualizações falharam. Tente novamente.",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            }
+                                            isSaving = false
+                                        }
+                                    }
+                                }
+
+                                // Desativar medicamentos não selecionados
+                                medicinesToUpdate.forEach { medicine ->
+                                    medicine.id?.let { id ->
+                                        val shouldBeActive = selectedMedicineIds.contains(id)
+                                        MedicineRepository.updateMedicineAlarmsEnabled(
+                                            medicineId = id,
+                                            alarmsEnabled = shouldBeActive,
+                                            onSuccess = {
+                                                completedOperations.incrementAndGet()
+                                                checkCompletion()
+                                            },
+                                            onError = { e ->
+                                                allSuccessful.set(false)
+                                                errorMessage = "Erro ao atualizar medicamento: ${e.message}"
+                                                completedOperations.incrementAndGet()
+                                                checkCompletion()
+                                            }
+                                        )
+                                    }
+                                }
+
+                                // Desativar consultas não selecionadas
+                                consultationsToUpdate.forEach { consultation ->
+                                    val shouldBeActive = consultation.id == selectedConsultationId
+                                    ConsultationRepository.updateConsultationActiveStatus(
+                                        consultationId = consultation.id,
+                                        isActive = shouldBeActive,
+                                        onSuccess = {
+                                            completedOperations.incrementAndGet()
+                                            checkCompletion()
+                                        },
+                                        onFailure = { e ->
+                                            allSuccessful.set(false)
+                                            errorMessage = "Erro ao atualizar consulta: ${e.message}"
+                                            completedOperations.incrementAndGet()
+                                            checkCompletion()
+                                        }
+                                    )
                                 }
                             }
                         },
@@ -439,6 +485,18 @@ fun DowngradeSelectionScreen(
                                     "Selecione 1 consulta para manter ativa"
                                 else -> ""
                             },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    // Mostrar mensagem de erro se houver
+                    errorMessage?.let { error ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = error,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                             textAlign = TextAlign.Center,
