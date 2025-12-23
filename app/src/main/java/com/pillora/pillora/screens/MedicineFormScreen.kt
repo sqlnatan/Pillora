@@ -668,6 +668,10 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             startDateError = ""
                         },
                         label = "Data de Início (DD/MM/AAAA)",
+                        onDateSelected = { newDate ->
+                            startDate = newDate
+                            startDateError = ""
+                        },
                         isError = startDateError.isNotEmpty(),
                         errorMessage = startDateError,
                         modifier = Modifier.fillMaxWidth()
