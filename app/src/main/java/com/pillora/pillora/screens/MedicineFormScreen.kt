@@ -116,6 +116,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
     var stockUnitExpanded by remember { mutableStateOf(false) }
 
     var notes by remember { mutableStateOf("") }
+    var alarmsEnabled by remember { mutableStateOf(true) }
     val context = LocalContext.current
 
     // Verificação de limite do plano Free
@@ -182,6 +183,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                             isContinuousMedication = medicine.duration == -1
                             duration = if (medicine.duration == -1) "" else medicine.duration.toString()
                             notes = medicine.notes
+                            alarmsEnabled = medicine.alarmsEnabled
 
                             // Carregar dados de rastreamento de estoque
                             trackStock = medicine.trackStock
@@ -1051,7 +1053,8 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                     notes = notes,
                                     trackStock = trackStock,
                                     stockQuantity = if (trackStock) (stockQuantity.toDoubleOrNull() ?: 0.0) else 0.0,
-                                    stockUnit = stockUnit
+                                    stockUnit = stockUnit,
+                                    alarmsEnabled = alarmsEnabled
                                 )
 
                                 // Verifica se a data é futura usando o DateValidator novamente, passando a string de 8 dígitos.
