@@ -21,6 +21,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.pillora.pillora.R
 
 @Composable
 fun WelcomeScreen(
@@ -122,12 +125,21 @@ fun WelcomeScreen(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(
-                        imageVector = pages[page].icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(160.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    if (page == 0) {
+                        Image(
+                            painter = painterResource(id = R.drawable.app_logo),
+                            contentDescription = "Logo do Pillora",
+                            modifier = Modifier.size(160.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = pages[page].icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(160.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
 
                     Spacer(modifier = Modifier.height(32.dp))
 
