@@ -137,7 +137,7 @@ class MainActivity : ComponentActivity() {
                 val noDrawerRoutes = listOf(
                     "welcome",
                     "auth",
-                    "terms"
+                    "terms?viewOnly={viewOnly}"
                 )
 
                 val shouldShowDrawer =
@@ -288,7 +288,7 @@ fun AppScaffold(navController: NavHostController) {
     val noBottomBarRoutes = listOf(
         "welcome",
         "auth",
-        "terms"
+        "terms?viewOnly={viewOnly}"
     )
 
     Scaffold(
