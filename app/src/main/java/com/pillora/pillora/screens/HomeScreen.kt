@@ -86,6 +86,7 @@ import com.pillora.pillora.repository.AuthRepository
 // import com.pillora.pillora.repository.TermsRepository // Movido para AppNavigation
 import com.pillora.pillora.ads.NativeAdCard
 import com.pillora.pillora.utils.FreeLimits
+import com.pillora.pillora.utils.startInAppReview
 import com.pillora.pillora.viewmodel.HomeViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -499,6 +500,14 @@ fun DrawerContent(
         }
 
         Spacer(modifier = Modifier.weight(1f))
+
+        DrawerItem(icon = Icons.Default.Star, label = "Avaliar o App") {
+            scope.launch {
+                drawerState.close()
+                startInAppReview(context, scope)
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
 
         DrawerItem(icon = Icons.AutoMirrored.Filled.ExitToApp, label = "Sair") {
             scope.launch {

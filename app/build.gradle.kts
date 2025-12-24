@@ -99,4 +99,5 @@ dependencies {
     implementation(libs.google.gson)
     implementation(libs.accompanist.permissions)
     implementation(libs.play.services.ads)
+    implementation(libs.review.ktx)
 }
