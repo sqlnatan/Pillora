@@ -169,17 +169,22 @@ fun ConsultationListScreen(
                             contentDescription = "Voltar"
                         )
                     }
+                },
+                actions = {
+                    FilledIconButton(
+                        onClick = { navController.navigate(Screen.ConsultationForm.route) },
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Adicionar Consulta"
+                        )
+                    }
                 }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                onClick = { navController.navigate(Screen.ConsultationForm.route) }
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "Adicionar Consulta")
-            }
         }
     ) { padding ->
         Box(

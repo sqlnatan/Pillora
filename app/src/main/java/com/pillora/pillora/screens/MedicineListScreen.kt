@@ -198,20 +198,22 @@ fun MedicineListScreen(
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
+                },
+                actions = {
+                    FilledIconButton(
+                        onClick = { navController.navigate(Screen.MedicineForm.route) },
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Adicionar medicamento"
+                        )
+                    }
                 }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                onClick = { navController.navigate(Screen.MedicineForm.route) }
-            ) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = "Adicionar medicamento",
-                )
-            }
         }
     ) { padding ->
         Box(

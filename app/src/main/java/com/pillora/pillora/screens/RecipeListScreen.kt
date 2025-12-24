@@ -93,22 +93,26 @@ fun RecipeListScreen(
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
                     }
+                },
+                actions = {
+                    FilledIconButton(
+                        onClick = {
+                            recipeViewModel.resetDetailState()
+                            navController.navigate("$RECIPE_FORM_ROUTE?id=")
+                        },
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Adicionar Receita"
+                        )
+                    }
                 }
             )
 
-        },
-
-        floatingActionButton = {
-            FloatingActionButton(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                onClick = {
-                    recipeViewModel.resetDetailState()
-                    navController.navigate("$RECIPE_FORM_ROUTE?id=")
-                }
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Adicionar Receita")
-            }
         }
     ) { paddingValues ->
         Column(
