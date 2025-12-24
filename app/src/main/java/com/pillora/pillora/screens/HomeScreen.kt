@@ -30,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
@@ -87,7 +88,11 @@ import com.pillora.pillora.repository.AuthRepository
 import com.pillora.pillora.ads.NativeAdCard
 import com.pillora.pillora.utils.FreeLimits
 import com.pillora.pillora.utils.startInAppReview
+import com.pillora.pillora.utils.SupportDialog
 import com.pillora.pillora.viewmodel.HomeViewModel
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -121,6 +126,7 @@ fun HomeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    var showSupportDialog by remember { mutableStateOf(false) } // NOVO: Estado para o Dialog de Suporte
 
     // CORREÇÃO: A verificação dos termos foi movida para o AppNavigation
     // Isso garante que a verificação só ocorra UMA VEZ na inicialização do app,
@@ -154,12 +160,17 @@ fun HomeScreen(
                     scope = scope,
                     drawerState = drawerState,
                     authRepository = AuthRepository,
-                    context = context
+                    context = context,
+                    onShowSupportDialog = { showSupportDialog = true } // NOVO: Callback
                 )
             }
 
         }
     ) {
+        // NOVO: Exibir o Dialog de Suporte
+        if (showSupportDialog) {
+            SupportDialog(onDismiss = { showSupportDialog = false })
+        }
         Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
@@ -443,7 +454,8 @@ fun DrawerContent(
     scope: CoroutineScope,
     drawerState: DrawerState,
     authRepository: AuthRepository,
-    context: Context
+    context: Context,
+    onShowSupportDialog: () -> Unit // NOVO: Callback para mostrar o dialog
 ) {
     Column(
         modifier = Modifier
@@ -497,6 +509,12 @@ fun DrawerContent(
         DrawerItem(icon = Icons.Default.Star, label = "Assinatura") {
             scope.launch { drawerState.close() }
             navController.navigate(Screen.Subscription.route)
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        DrawerItem(icon = Icons.Default.Info, label = "Suporte") {
+            scope.launch { drawerState.close() }
+            onShowSupportDialog()
         }
 
         Spacer(modifier = Modifier.weight(1f))

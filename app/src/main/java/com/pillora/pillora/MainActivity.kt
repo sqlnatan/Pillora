@@ -46,6 +46,7 @@ import com.pillora.pillora.repository.AuthRepository
 import com.pillora.pillora.screens.DrawerContent
 import com.pillora.pillora.ui.theme.PilloraTheme
 import com.pillora.pillora.viewmodel.ThemePreference
+import com.pillora.pillora.utils.SupportDialog
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -102,6 +103,7 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(getInitialThemePreference())
             }
             var showExactAlarmPermissionDialog by remember { mutableStateOf(false) }
+            var showSupportDialog by remember { mutableStateOf(false) } // NOVO: Estado para o Dialog de Suporte
 
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
@@ -223,7 +225,8 @@ class MainActivity : ComponentActivity() {
                                     scope = scope,
                                     drawerState = drawerState,
                                     authRepository = AuthRepository,
-                                    context = context
+                                    context = context,
+                                    onShowSupportDialog = { showSupportDialog = true } // NOVO: Callback
                                 )
                             }
                         }
@@ -232,6 +235,11 @@ class MainActivity : ComponentActivity() {
                     }
                 } else {
                     AppScaffold(navController)
+                }
+
+                // NOVO: Exibir o Dialog de Suporte
+                if (showSupportDialog) {
+                    SupportDialog(onDismiss = { showSupportDialog = false })
                 }
             }
         }
