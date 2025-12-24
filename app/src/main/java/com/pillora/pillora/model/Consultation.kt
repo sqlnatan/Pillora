@@ -1,6 +1,6 @@
 package com.pillora.pillora.model
 
-import com.google.firebase.firestore.DocumentId
+import com.google.firebase.firestore.PropertyName
 
 /**
  * Data class representing a medical consultation.
@@ -12,19 +12,28 @@ import com.google.firebase.firestore.DocumentId
  * @property dateTime Date and time of the consultation (Stored as String, e.g., "dd/MM/yyyy HH:mm").
  * @property location Location of the consultation (clinic name or address).
  * @property observations Additional notes or observations about the consultation.
- * @property patientName Name of the patient for whom the consultation is scheduled. // Added patientName field
+ * @property patientName Name of the patient for whom the consultation is scheduled.
  * @property isActive Flag to indicate if the consultation is active (for free plan limits).
+ * @property isSilencioso Flag to indicate if the consultation alarm is silent.
+ * @property toqueAlarmeUri URI for custom alarm sound.
  */
 data class Consultation(
     val id: String = "",
     val userId: String = "",
     val specialty: String = "",
     val doctorName: String = "",
-    val dateTime: String = "", // Consider using Timestamp for Firestore sorting/querying later
+    val dateTime: String = "",
     val location: String = "",
     val observations: String = "",
-    val patientName: String = "", // Added patientName fiel
-    val isSilencioso: Boolean = false,   // NOVO
-    val toqueAlarmeUri: String? = null,   // NOVO
-    val isActive: Boolean = true // NOVO: Flag para controlar se a consulta está ativa (para limites do plano Free)
+    val patientName: String = "",
+
+    @get:PropertyName("isSilencioso")
+    @set:PropertyName("isSilencioso")
+    var isSilencioso: Boolean = false,
+
+    val toqueAlarmeUri: String? = null,
+
+    @get:PropertyName("isActive")
+    @set:PropertyName("isActive")
+    var isActive: Boolean = true
 )
