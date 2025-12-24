@@ -84,6 +84,7 @@ import com.pillora.pillora.navigation.RECIPE_LIST_ROUTE
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.AuthRepository
 // import com.pillora.pillora.repository.TermsRepository // Movido para AppNavigation
+import com.pillora.pillora.ads.NativeAdCard
 import com.pillora.pillora.utils.FreeLimits
 import com.pillora.pillora.viewmodel.HomeViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -269,6 +270,13 @@ fun HomeScreen(
                         } else {
                             Text("Nenhum medicamento agendado para hoje.")
                         }
+                    }
+
+                    // --- Anúncio Nativo (apenas para usuários FREE) ---
+                    if (!isPremium) {
+                        NativeAdCard(
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
 
                     // --- Consultas ---

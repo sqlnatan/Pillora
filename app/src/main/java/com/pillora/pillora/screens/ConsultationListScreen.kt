@@ -25,7 +25,9 @@ import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.model.Consultation
 import com.pillora.pillora.repository.ConsultationRepository
 import com.pillora.pillora.navigation.Screen
+import com.pillora.pillora.ads.NativeAdCard
 import com.pillora.pillora.utils.FreeLimits
+import androidx.compose.foundation.lazy.itemsIndexed
 import com.pillora.pillora.viewmodel.ConsultationListUiState
 import com.pillora.pillora.viewmodel.ConsultationViewModel
 import kotlinx.coroutines.launch
@@ -260,7 +262,14 @@ fun ConsultationListScreen(
                                 }
                             }
 
-                            items(consultations, key = { it.id }) { consultation ->
+                            itemsIndexed(consultations, key = { _, consultation -> consultation.id }) { index, consultation ->
+                                // Exibir anúncio após a primeira consulta (apenas para FREE)
+                                if (index == 1 && !isPremium) {
+                                    NativeAdCard(
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+
                                 ConsultationListItem(
                                     consultation = consultation,
                                     isPremium = isPremium,

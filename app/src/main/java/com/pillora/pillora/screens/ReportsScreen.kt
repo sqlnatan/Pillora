@@ -34,6 +34,7 @@ import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.viewmodel.ReportFile
+import com.pillora.pillora.ads.NativeAdCard
 import com.pillora.pillora.viewmodel.ReportsViewModel
 import java.io.File
 import java.text.SimpleDateFormat
@@ -165,6 +166,14 @@ fun UnifiedContent(
     }
 
     Spacer(modifier = Modifier.height(16.dp))
+
+    // Anúncio Nativo (apenas para usuários FREE)
+    if (!isPremium) {
+        NativeAdCard(
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+    }
 
     Text(
         "Relatórios Gerados:",

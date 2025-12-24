@@ -23,7 +23,9 @@ import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.model.Medicine
 import com.pillora.pillora.navigation.Screen
 import com.pillora.pillora.repository.MedicineRepository
+import com.pillora.pillora.ads.NativeAdCard
 import com.pillora.pillora.utils.FreeLimits
+import androidx.compose.foundation.lazy.itemsIndexed
 import com.pillora.pillora.viewmodel.HomeViewModel
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
@@ -276,10 +278,17 @@ fun MedicineListScreen(
                         }
                     }
 
-                    items(
+                    itemsIndexed(
                         medicines,
-                        key = { it.id ?: it.hashCode() }
-                    ) { medicine ->
+                        key = { _, medicine -> medicine.id ?: medicine.hashCode() }
+                    ) { index, medicine ->
+                        // Exibir anúncio após o primeiro medicamento (apenas para FREE)
+                        if (index == 1 && !isPremium) {
+                            NativeAdCard(
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
                         MedicineItem(
                             medicine = medicine,
                             isPremium = isPremium,
