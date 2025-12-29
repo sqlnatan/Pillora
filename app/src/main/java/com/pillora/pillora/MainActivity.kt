@@ -139,6 +139,19 @@ class MainActivity : ComponentActivity() {
                 val noDrawerRoutes = listOf(
                     "welcome",
                     "auth",
+                    "terms",
+                    "medicine_form",
+                    "medicine_list",
+                    "settings",
+                    "consultation_list",
+                    "vaccine_list",
+                    "recipe_list",
+                    "consultation_form",
+                    "vaccine_form",
+                    "recipe_form",
+                    "profile",
+                    "reports",
+                    "subscription",
                     "terms?viewOnly={viewOnly}"
                 )
 
