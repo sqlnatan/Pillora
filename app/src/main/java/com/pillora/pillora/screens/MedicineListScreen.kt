@@ -163,7 +163,6 @@ fun MedicineListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
                 title = {
                     Column(modifier = Modifier.padding(vertical = 4.dp)) {
                         Text(
@@ -221,7 +220,7 @@ fun MedicineListScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(top = padding.calculateTopPadding())
         ) {
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))

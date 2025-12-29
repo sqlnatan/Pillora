@@ -51,7 +51,6 @@ fun SubscriptionScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
                 title = { Text("Assinatura") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -64,7 +63,7 @@ fun SubscriptionScreen(navController: NavController) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(top = padding.calculateTopPadding())
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,

@@ -121,7 +121,6 @@ fun DowngradeSelectionScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
                 title = {
                     Text(
                         "Ajuste seu Plano",
@@ -140,7 +139,7 @@ fun DowngradeSelectionScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(top = padding.calculateTopPadding()),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
@@ -149,8 +148,8 @@ fun DowngradeSelectionScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp),
+                    .padding(top = padding.calculateTopPadding())
+                    .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Cabeçalho explicativo

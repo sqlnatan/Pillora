@@ -274,7 +274,6 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
                 title = { Text(if (isEditing) "Editar Medicamento" else "Cadastro de Medicamento") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -288,7 +287,7 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(top = padding.calculateTopPadding())
         ) {
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))

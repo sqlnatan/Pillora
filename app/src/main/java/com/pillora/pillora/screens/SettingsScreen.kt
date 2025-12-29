@@ -71,7 +71,6 @@ fun SettingsScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
                 title = { Text("Configurações") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -83,7 +82,7 @@ fun SettingsScreen(navController: NavController) {
     ) { padding ->
         Column(
             modifier = Modifier
-                .padding(padding)
+                .padding(top = padding.calculateTopPadding())
                 .padding(horizontal = 16.dp) // Apenas horizontal aqui
                 .verticalScroll(rememberScrollState())
                 .fillMaxSize(),

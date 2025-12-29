@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.pillora.pillora.R
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.AlertDialog
@@ -22,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 
 // --- Funções de Utilidade ---
 
@@ -31,7 +32,7 @@ import androidx.core.net.toUri
  */
 fun openEmail(context: Context, email: String) {
     val intent = Intent(Intent.ACTION_SENDTO).apply {
-        data = "mailto:".toUri() // Somente aplicativos de e-mail devem lidar com isso
+        data = Uri.parse("mailto:") // Somente aplicativos de e-mail devem lidar com isso
         putExtra(Intent.EXTRA_EMAIL, arrayOf(email))
         putExtra(Intent.EXTRA_SUBJECT, "Suporte - App Pillora")
     }
@@ -44,7 +45,7 @@ fun openEmail(context: Context, email: String) {
  * Abre o navegador com a URL fornecida.
  */
 fun openWebsite(context: Context, url: String) {
-    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
     if (intent.resolveActivity(context.packageManager) != null) {
         context.startActivity(intent)
     }
@@ -118,9 +119,10 @@ fun SupportDialog(
             }
         },
         icon = {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Fechar"
+            Image(
+                painter = painterResource(id = R.drawable.app_logo),
+                contentDescription = "Logo Pillora",
+                modifier = Modifier.height(40.dp)
             )
         }
     )

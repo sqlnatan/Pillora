@@ -47,7 +47,6 @@ fun ProfileScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
                 title = { Text("Meu Perfil") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -60,8 +59,8 @@ fun ProfileScreen(navController: NavController) {
     ) { padding ->
         Column(
             modifier = Modifier
-                .padding(padding)
-                .padding(16.dp)
+                .padding(top = padding.calculateTopPadding())
+                .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
                 .fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,

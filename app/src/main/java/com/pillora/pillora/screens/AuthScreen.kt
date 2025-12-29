@@ -90,25 +90,12 @@ fun AuthScreen(navController: NavController) {
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                windowInsets = WindowInsets(0),
-                title = {
-                    Text(
-                        when (authMode) {
-                            AuthMode.LOGIN -> "Entrar"
-                            AuthMode.REGISTER -> "Criar Conta"
-                            AuthMode.RESET_PASSWORD -> "Recuperar Senha"
-                        }
-                    )
-                }
-            )
-        }
     ) { paddingValues ->
         Column(
             modifier = Modifier
-                .padding(paddingValues)
-                .padding(16.dp)
+                .padding(top = paddingValues.calculateTopPadding())
+                .padding(bottom = paddingValues.calculateBottomPadding())
+                .padding(horizontal = 16.dp)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,

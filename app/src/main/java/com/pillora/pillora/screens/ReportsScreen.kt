@@ -14,7 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lock
@@ -60,7 +60,6 @@ fun ReportsScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
                 title = { Text("Relatórios") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -73,8 +72,8 @@ fun ReportsScreen(navController: NavController) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+                .padding(top = padding.calculateTopPadding())
+                .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Todos os usuários (Free e Premium) veem o mesmo conteúdo
@@ -436,7 +435,7 @@ fun PatientSelectionDialog(
                                     modifier = Modifier.weight(1f)
                                 )
                                 Icon(
-                                    imageVector = Icons.Default.ArrowForward,
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                     contentDescription = "Selecionar",
                                     tint = MaterialTheme.colorScheme.onSecondaryContainer
                                 )

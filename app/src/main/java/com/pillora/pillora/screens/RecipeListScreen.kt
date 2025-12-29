@@ -67,7 +67,6 @@ fun RecipeListScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
                 title = {
                     Column(
                         modifier = Modifier.padding(vertical = 4.dp)
@@ -118,7 +117,7 @@ fun RecipeListScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(top = paddingValues.calculateTopPadding())
                 .padding(horizontal = 16.dp) // Apply horizontal padding here
         ) {
 

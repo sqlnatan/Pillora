@@ -299,7 +299,10 @@ fun AppScaffold(navController: NavHostController) {
         "terms?viewOnly={viewOnly}"
     )
 
+    // CORREÇÃO: Usar contentWindowInsets para controlar onde o Scaffold aplica padding
+    // Isso permite que o conteúdo fique edge-to-edge, mas a BottomNavigationBar respeite os insets
     Scaffold(
+        contentWindowInsets = WindowInsets(0), // Remove padding automático do conteúdo
         bottomBar = {
             if (
                 currentRoute != null &&
@@ -309,7 +312,9 @@ fun AppScaffold(navController: NavHostController) {
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
+        // CORREÇÃO: Aplicar padding apenas para a BottomNavigationBar
+        // O padding top (status bar) será gerenciado por cada tela individualmente
+        Box(modifier = Modifier.padding(bottom = padding.calculateBottomPadding())) {
             AppNavigation(navController)
         }
     }

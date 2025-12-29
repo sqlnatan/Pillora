@@ -142,7 +142,6 @@ fun RecipeFormScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
                 title = { Text(screenTitle) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -168,7 +167,7 @@ fun RecipeFormScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(top = paddingValues.calculateTopPadding())
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)

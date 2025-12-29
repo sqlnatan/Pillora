@@ -93,7 +93,6 @@ fun VaccineFormScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }, // Correct SnackbarHost usage
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
                 title = { Text(if (vaccineId == null) "Adicionar Lembrete" else "Editar Lembrete") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -104,11 +103,11 @@ fun VaccineFormScreen(
         }
     ) {
             padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Box(modifier = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {

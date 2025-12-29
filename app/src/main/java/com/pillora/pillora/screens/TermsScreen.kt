@@ -50,7 +50,6 @@ fun TermsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
                 title = { Text("Termos de Uso e Privacidade") },
                 navigationIcon = {
                     if (viewOnly) {
@@ -64,8 +63,8 @@ fun TermsScreen(
     ) { padding ->
         Column(
             modifier = Modifier
-                .padding(padding)
-                .padding(16.dp)
+                .padding(top = padding.calculateTopPadding())
+                .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
                 .fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween

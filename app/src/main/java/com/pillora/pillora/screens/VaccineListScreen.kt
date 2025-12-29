@@ -120,7 +120,6 @@ fun VaccineListScreen(navController: NavController) {
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
                 title = {
                     Column(
                         modifier = Modifier.padding(vertical = 4.dp)
@@ -166,7 +165,7 @@ fun VaccineListScreen(navController: NavController) {
             )
         }
     ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+        Box(modifier = Modifier.fillMaxSize().padding(top = paddingValues.calculateTopPadding())) {
             // Usar o estado coletado do Flow
             when (vaccinesState) {
                 is DataResult.Loading -> {

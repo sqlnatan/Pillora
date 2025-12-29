@@ -171,9 +171,19 @@ fun HomeScreen(
         if (showSupportDialog) {
             SupportDialog(onDismiss = { showSupportDialog = false })
         }
-        Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            topBar = {
+
+        // CORREÇÃO: Remover o Scaffold interno e usar apenas Box com padding manual
+        // Isso evita conflito com o padding do AppScaffold
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // CORREÇÃO: TopBar customizada com padding para status bar
                 val statusBarHeightDp: Dp = with(LocalDensity.current) {
                     WindowInsets.statusBars.getTop(this).toDp()
                 }
@@ -183,7 +193,7 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .padding(
                             start = 16.dp,
-                            top = statusBarHeightDp + 4.dp,
+                            top = statusBarHeightDp + 8.dp,
                             bottom = 8.dp,
                             end = 16.dp
                         ),
@@ -226,18 +236,13 @@ fun HomeScreen(
                         )
                     }
                 }
-            }
-        ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            ) {
+
+                // CORREÇÃO: Conteúdo com padding horizontal e bottom para BottomNavigationBar
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .verticalScroll(rememberScrollState()),
+                        .padding(bottom = 80.dp), // Espaço para a BottomNavigationBar
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     val currentUser = remember { AuthRepository.getCurrentUser() }
@@ -413,11 +418,17 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
                 }
-
-                if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
             }
+
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            }
+
+            // SnackbarHost no topo da tela
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
         }
     }
 }

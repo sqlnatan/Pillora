@@ -188,7 +188,6 @@ fun GracePeriodWarningScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
                 title = {
                     Text(
                         "Aviso Importante",
@@ -206,8 +205,8 @@ fun GracePeriodWarningScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(24.dp)
+                .padding(top = padding.calculateTopPadding())
+                .padding(horizontal = 24.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(24.dp)

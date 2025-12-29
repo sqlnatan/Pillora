@@ -152,7 +152,6 @@ fun ConsultationFormScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
                 title = { Text(if (consultationId == null) "Adicionar Consulta" else "Editar Consulta") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -162,11 +161,11 @@ fun ConsultationFormScreen(
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Box(modifier = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
