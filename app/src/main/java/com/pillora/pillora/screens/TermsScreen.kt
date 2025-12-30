@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -63,10 +64,11 @@ fun TermsScreen(
     ) { padding ->
         Column(
             modifier = Modifier
-                .padding(top = padding.calculateTopPadding())
-                .padding(horizontal = 16.dp)
+                .padding(padding)
+                .padding(16.dp)
+                .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .fillMaxSize(),
+                .navigationBarsPadding(), // CORREÇÃO: Adicionar padding para a barra de navegação do sistema
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
@@ -78,30 +80,120 @@ fun TermsScreen(
 
                 Text(
                     text = """
-                        Ao utilizar este aplicativo, você concorda com os seguintes termos:
+Ao acessar ou utilizar este aplicativo, você declara que leu, compreendeu e concorda com os termos abaixo.
 
-                        1. COLETA DE DADOS
-                        Coletamos dados pessoais apenas para o funcionamento do app, como nome, medicamentos, consultas, vacinas e datas. Todos os dados são armazenados de forma segura no Firebase.
+1. COLETA E USO DE DADOS
 
-                        2. PRIVACIDADE
-                        Nenhum dado sensível é compartilhado com terceiros. Seus dados são protegidos e utilizados exclusivamente para as funcionalidades do aplicativo.
+Coletamos dados pessoais fornecidos pelo próprio usuário, exclusivamente para o funcionamento do aplicativo, como nome, medicamentos, consultas, vacinas, datas, horários e informações relacionadas a dependentes cadastrados.
 
-                        3. RESPONSABILIDADE DO USUÁRIO
-                        É responsabilidade do usuário manter os dados atualizados e corretos. O Pillora não se responsabiliza por informações incorretas inseridas pelo usuário.
+Esses dados são utilizados para possibilitar funcionalidades como lembretes, notificações, organização de informações e geração de relatórios.
 
-                        4. NATUREZA DO SERVIÇO
-                        Este aplicativo oferece lembretes e notificações, mas não substitui o acompanhamento médico profissional. Sempre consulte um médico para orientações sobre sua saúde.
+Os dados são armazenados de forma segura utilizando serviços confiáveis de terceiros, como o Firebase.
 
-                        5. RECURSOS PREMIUM
-                        Usuários Premium têm acesso a recursos extras, como relatórios em PDF, vacinas, receitas médicas e sincronização em nuvem.
+2. PRIVACIDADE E SEGURANÇA
 
-                        6. ATUALIZAÇÕES DOS TERMOS
-                        O uso contínuo do app indica a aceitação destes termos. Quando houver atualizações importantes nos termos, você será notificado e precisará aceitar novamente.
+O Pillora não vende, não aluga e não compartilha dados pessoais sensíveis com terceiros para fins comerciais.
 
-                        7. VERSÃO DOS TERMOS
-                        Versão atual: ${TermsRepository.CURRENT_TERMS_VERSION}
+Utilizamos serviços de terceiros essenciais para o funcionamento e melhoria do aplicativo, incluindo:
 
-                        Agradecemos por confiar no Pillora para ajudar no cuidado com sua saúde 💙
+Firebase (armazenamento e autenticação)
+
+Google Analytics for Firebase (análise de uso e desempenho)
+
+Google AdMob (exibição de anúncios)
+
+Esses serviços podem coletar dados de uso de forma agregada ou anônima, conforme suas próprias políticas de privacidade.
+
+3. DADOS DE TERCEIROS E DEPENDENTES
+
+Ao cadastrar informações de terceiros, como dependentes ou familiares, o usuário declara possuir autorização para inserir esses dados e assume total responsabilidade sobre eles.
+
+4. RESPONSABILIDADE DO USUÁRIO
+
+É responsabilidade do usuário:
+
+manter os dados cadastrados corretos e atualizados
+
+conferir informações inseridas no aplicativo
+
+gerenciar notificações e lembretes
+
+O Pillora não se responsabiliza por informações incorretas inseridas pelo usuário nem por falhas decorrentes desses dados.
+
+5. NATUREZA DO SERVIÇO
+
+O Pillora é um aplicativo de organização e lembretes de saúde.
+
+⚠️ O aplicativo não substitui consultas, diagnósticos ou acompanhamento médico profissional.
+Sempre consulte um profissional de saúde qualificado para orientações médicas.
+
+6. ANÚNCIOS
+
+Usuários da versão gratuita do aplicativo podem visualizar anúncios exibidos por parceiros, como o Google AdMob.
+
+Esses anúncios podem utilizar identificadores e dados de uso do dispositivo, conforme as configurações do usuário e as políticas do Google.
+
+7. ASSINATURA PREMIUM
+
+O Pillora oferece uma assinatura Premium que desbloqueia recursos adicionais.
+
+A cobrança é realizada e gerenciada exclusivamente pela Google Play Store.
+
+Valores, períodos e renovação automática são informados no momento da contratação.
+
+O usuário pode cancelar a assinatura a qualquer momento pelas configurações da Play Store.
+
+Após o cancelamento, os benefícios Premium permanecem ativos até o final do período já pago.
+
+Não há reembolso fora das regras definidas pela Google Play.
+
+8. TESTES GRATUITOS
+
+Quando disponíveis, períodos de teste gratuito podem ser oferecidos conforme as regras da Google Play e podem ser alterados ou removidos a qualquer momento.
+
+9. EXCLUSÃO DE DADOS E DIREITOS DO USUÁRIO (LGPD)
+
+O usuário pode solicitar a exclusão de seus dados pessoais a qualquer momento.
+
+Ao receber uma solicitação de exclusão:
+
+todos os dados pessoais armazenados diretamente pelo Pillora serão removidos de nossos sistemas, incluindo informações salvas no Firebase.
+
+Dados coletados por serviços de terceiros, como Google AdMob e Google Analytics, seguem as políticas de privacidade desses serviços e não são controlados diretamente pelo Pillora. A exclusão desses dados deve ser solicitada conforme as diretrizes dos próprios fornecedores.
+
+O Pillora trata os dados pessoais em conformidade com a Lei Geral de Proteção de Dados (LGPD – Lei nº 13.709/2018).
+
+10. ALTERAÇÕES E SUSPENSÃO DO SERVIÇO
+
+O Pillora pode, a qualquer momento:
+
+modificar funcionalidades
+
+adicionar ou remover recursos
+
+suspender ou encerrar serviços
+
+Sempre buscando manter a melhor experiência possível ao usuário.
+
+11. ATUALIZAÇÕES DOS TERMOS
+
+Estes termos podem ser atualizados periodicamente.
+
+Quando houver alterações relevantes, o usuário será informado e poderá ser solicitado a aceitar novamente os termos para continuar utilizando o aplicativo.
+
+12. CONTATO E SUPORTE
+
+Em caso de dúvidas, solicitações ou questões relacionadas à privacidade e aos termos, o usuário pode entrar em contato pelo e-mail:
+
+📧 pillora.app@gmail.com
+
+13. ACEITAÇÃO
+
+Ao utilizar o aplicativo, o usuário declara concordar integralmente com estes Termos de Uso e Política de Privacidade.
+
+Agradecemos por confiar no Pillora para ajudar no cuidado com sua saúde. 💙
+
+Última atualização: 30/12/2025
                     """.trimIndent(),
                     style = MaterialTheme.typography.bodyLarge
                 )

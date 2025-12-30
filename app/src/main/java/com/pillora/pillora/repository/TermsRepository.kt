@@ -14,7 +14,7 @@ object TermsRepository {
     private const val COLLECTION_TERMS = "user_terms_acceptance"
 
     // Versão atual dos termos - incrementar quando atualizar os termos
-    const val CURRENT_TERMS_VERSION = 1
+    const val CURRENT_TERMS_VERSION = 2
 
     /**
      * Verifica se o usuário aceitou a versão atual dos termos

@@ -1,15 +1,21 @@
 package com.pillora.pillora.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
@@ -43,6 +49,7 @@ fun ProfileScreen(navController: NavController) {
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -59,8 +66,8 @@ fun ProfileScreen(navController: NavController) {
     ) { padding ->
         Column(
             modifier = Modifier
-                .padding(top = padding.calculateTopPadding())
-                .padding(horizontal = 16.dp)
+                .padding(padding)
+                .padding(16.dp)
                 .verticalScroll(rememberScrollState())
                 .fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -85,7 +92,18 @@ fun ProfileScreen(navController: NavController) {
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-                    InfoRow(label = "ID de Usuário:", value = currentUser.uid)
+                    // NOVO: InfoRow com botão de copiar para o ID
+                    InfoRowWithCopy(
+                        label = "ID de Usuário:",
+                        value = currentUser.uid,
+                        onCopy = {
+                            copyToClipboard(context, currentUser.uid, "ID de Usuário")
+                            scope.launch {
+                                snackbarHostState.showSnackbar("ID copiado para a área de transferência!")
+                            }
+                        }
+                    )
+
                     InfoRow(label = "Nome de Usuário:", value = currentUser.displayName ?: "Não definido")
                     InfoRow(label = "Email:", value = currentUser.email ?: "Não disponível")
                 }
@@ -195,6 +213,47 @@ fun ProfileScreen(navController: NavController) {
                 )
             }
         )
+    }
+}
+
+// NOVO: Função helper para copiar para área de transferência
+private fun copyToClipboard(context: Context, text: String, label: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val clip = ClipData.newPlainText(label, text)
+    clipboard.setPrimaryClip(clip)
+}
+
+// NOVO: InfoRow com botão de copiar
+@Composable
+fun InfoRowWithCopy(label: String, value: String, onCopy: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        IconButton(
+            onClick = onCopy,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.ContentCopy,
+                contentDescription = "Copiar ID",
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
     }
 }
 
