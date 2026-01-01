@@ -191,9 +191,12 @@ Em caso de dúvidas, solicitações ou questões relacionadas à privacidade e a
 
 Ao utilizar o aplicativo, o usuário declara concordar integralmente com estes Termos de Uso e Política de Privacidade.
 
+14. RESTRIÇÃO DE IDADE
+O Pillora não é destinado a menores de 16 anos. Ao utilizar o aplicativo, o usuário declara ter idade igual ou superior a 16 anos.
+
 Agradecemos por confiar no Pillora para ajudar no cuidado com sua saúde. 💙
 
-Última atualização: 30/12/2025
+Última atualização: 01/01/2026
                     """.trimIndent(),
                     style = MaterialTheme.typography.bodyLarge
                 )

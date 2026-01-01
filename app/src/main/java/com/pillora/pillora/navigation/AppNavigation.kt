@@ -42,6 +42,7 @@ import kotlinx.coroutines.withContext
 import com.pillora.pillora.screens.ReportsScreen // Import ReportsScreen
 import com.pillora.pillora.screens.SubscriptionScreen // Import SubscriptionScreen
 import com.pillora.pillora.screens.WelcomeScreen
+import com.pillora.pillora.screens.AgeVerificationScreen
 
 
 // Define routes for Recipe screens (can be added to Screen sealed class if preferred)
@@ -93,6 +94,8 @@ fun AppNavigation(
     // Determinar a rota inicial de forma assíncrona ou síncrona - APENAS UMA VEZ
     LaunchedEffect(hasInitialized) {
         if (!hasInitialized) {
+            // NOVO: Verificar se já confirmou a idade
+            val hasVerifiedAge = prefs.getBoolean("has_verified_age", false)
             val hasSeenWelcome = prefs.getBoolean("has_seen_welcome", false)
 
             val isAuthenticated = withContext(Dispatchers.IO) {
@@ -121,7 +124,9 @@ fun AppNavigation(
                 true // Se não está autenticado, não precisa verificar termos
             }
 
+            // NOVO: Priorizar verificação de idade antes de tudo
             startRoute = when {
+                !hasVerifiedAge -> "age_verification" // Primeira coisa: verificar idade
                 isAuthenticated && !hasAcceptedTerms -> "terms" // Vai para termos se não aceitou
                 isAuthenticated -> Screen.Home.route
                 !hasSeenWelcome -> Screen.Welcome.route
@@ -157,6 +162,31 @@ fun AppNavigation(
         // Só exibe o NavHost quando a rota inicial for determinada e não precisa de downgrade
         NavHost(navController = navController, startDestination = startRoute!!) {
             // Remover a rota "splash" - A SplashActivity nativa cuida da transição inicial
+
+            // NOVO: Age verification screen (primeira tela no primeiro uso)
+            composable("age_verification") {
+                AgeVerificationScreen(
+                    navController = navController,
+                    onAgeVerified = {
+                        // Salvar que o usuário verificou a idade
+                        prefs.edit()
+                            .putBoolean("has_verified_age", true)
+                            .apply()
+
+                        // Determinar próxima tela baseado no estado
+                        val hasSeenWelcome = prefs.getBoolean("has_seen_welcome", false)
+                        val nextRoute = if (!hasSeenWelcome) {
+                            Screen.Welcome.route
+                        } else {
+                            "auth"
+                        }
+
+                        navController.navigate(nextRoute) {
+                            popUpTo("age_verification") { inclusive = true }
+                        }
+                    }
+                )
+            }
 
             // Terms screen (com parâmetro opcional para modo visualização)
             composable(

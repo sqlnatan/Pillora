@@ -152,6 +152,7 @@ class MainActivity : ComponentActivity() {
                     "profile",
                     "reports",
                     "subscription",
+                    "age_verification",
                     "terms?viewOnly={viewOnly}"
                 )
 
@@ -309,6 +310,7 @@ fun AppScaffold(navController: NavHostController) {
     val noBottomBarRoutes = listOf(
         "welcome",
         "auth",
+        "age_verification",
         "terms?viewOnly={viewOnly}"
     )
 
