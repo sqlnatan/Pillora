@@ -46,6 +46,7 @@ fun ProfileScreen(navController: NavController) {
     var showEmailDialog by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var showNameDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -148,6 +149,21 @@ fun ProfileScreen(navController: NavController) {
             ) {
                 Text("Sair", color = MaterialTheme.colorScheme.onError)
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedButton(
+                onClick = { showDeleteAccountDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text(
+                    "Excluir Conta Permanentemente",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
         }
     }
 
@@ -214,159 +230,270 @@ fun ProfileScreen(navController: NavController) {
             }
         )
     }
-}
 
-// NOVO: Função helper para copiar para área de transferência
-private fun copyToClipboard(context: Context, text: String, label: String) {
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    val clip = ClipData.newPlainText(label, text)
-    clipboard.setPrimaryClip(clip)
-}
+            if (showDeleteAccountDialog) {
+                DeleteAccountDialog(
+                    onDismiss = { showDeleteAccountDialog = false },
+                    onConfirmDelete = {
+                        AuthRepository.deleteAccount(
+                            onSuccess = {
+                                showDeleteAccountDialog = false
+                                navController.navigate("auth") {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            },
+                            onError = { e ->
+                                showDeleteAccountDialog = false
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        "Erro ao excluir conta: ${e.message}\n\nSe o erro persistir, faça logout e login novamente."
+                                    )
+                                }
+                            }
+                        )
+                    }
+                )
+            }
+    }
 
-// NOVO: InfoRow com botão de copiar
-@Composable
-fun InfoRowWithCopy(label: String, value: String, onCopy: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
+    // Função helper para copiar para área de transferência
+    fun copyToClipboard(context: Context, text: String, label: String) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText(label, text)
+        clipboard.setPrimaryClip(clip)
+    }
+
+    // NOVO: InfoRow com botão de copiar
+    @Composable
+    fun InfoRowWithCopy(label: String, value: String, onCopy: () -> Unit) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                )
+                Text(
+                    value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            IconButton(
+                onClick = onCopy,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = "Copiar ID",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+
+    @Composable
+    fun InfoRow(label: String, value: String) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
             Text(
                 label,
                 style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
             )
-            Text(
-                value,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        IconButton(
-            onClick = onCopy,
-            modifier = Modifier.size(40.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.ContentCopy,
-                contentDescription = "Copiar ID",
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Text(value, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
         }
     }
-}
 
-@Composable
-fun InfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+    @Composable
+    fun ChangeEmailDialog(onDismiss: () -> Unit, onEmailUpdate: (String) -> Unit) {
+        var newEmail by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Alterar Email") },
+            text = {
+                Column {
+                    Text("Digite seu novo email.")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = newEmail,
+                        onValueChange = { newEmail = it },
+                        label = { Text("Novo Email") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { onEmailUpdate(newEmail) }, enabled = newEmail.isNotBlank()) {
+                    Text("Confirmar")
+                }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
         )
-        Text(value, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
     }
-}
 
-@Composable
-fun ChangeEmailDialog(onDismiss: () -> Unit, onEmailUpdate: (String) -> Unit) {
-    var newEmail by remember { mutableStateOf("") }
+    @Composable
+    fun ChangePasswordDialog(onDismiss: () -> Unit, onPasswordUpdate: (String) -> Unit) {
+        var newPassword by remember { mutableStateOf("") }
+        var confirmPassword by remember { mutableStateOf("") }
+        val match = newPassword == confirmPassword && newPassword.length >= 6
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Alterar Email") },
-        text = {
-            Column {
-                Text("Digite seu novo email.")
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = newEmail,
-                    onValueChange = { newEmail = it },
-                    label = { Text("Novo Email") },
-                    modifier = Modifier.fillMaxWidth()
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Alterar Senha") },
+            text = {
+                Column {
+                    Text("Digite sua nova senha.")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = { newPassword = it },
+                        label = { Text("Nova Senha") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = { confirmPassword = it },
+                        label = { Text("Confirmar Senha") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        isError = confirmPassword.isNotBlank() && !match,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { onPasswordUpdate(newPassword) }, enabled = match) {
+                    Text("Confirmar")
+                }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        )
+    }
+
+    @Composable
+    fun ChangeNameDialog(
+        currentName: String,
+        onDismiss: () -> Unit,
+        onNameUpdate: (String) -> Unit
+    ) {
+        var newName by remember { mutableStateOf(currentName) }
+
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Alterar Nome") },
+            text = {
+                Column {
+                    Text("Digite o novo nome.")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("Novo Nome") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { onNameUpdate(newName) }, enabled = newName.isNotBlank()) {
+                    Text("Salvar")
+                }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        )
+    }
+
+    @Composable
+    fun DeleteAccountDialog(
+        onDismiss: () -> Unit,
+        onConfirmDelete: () -> Unit
+    ) {
+        var confirmationText by remember { mutableStateOf("") }
+        val isConfirmationValid = confirmationText.uppercase() == "EXCLUIR"
+
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = {
+                Text(
+                    text = "⚠️ Excluir Conta Permanentemente",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.error
                 )
-            }
-        },
-        confirmButton = {
-            Button(onClick = { onEmailUpdate(newEmail) }, enabled = newEmail.isNotBlank()) {
-                Text("Confirmar")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
-    )
-}
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "ATENÇÃO: Esta ação é IRREVERSÍVEL!",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
 
-@Composable
-fun ChangePasswordDialog(onDismiss: () -> Unit, onPasswordUpdate: (String) -> Unit) {
-    var newPassword by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    val match = newPassword == confirmPassword && newPassword.length >= 6
+                    Text(
+                        text = "Ao excluir sua conta, você perderá permanentemente:",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Alterar Senha") },
-        text = {
-            Column {
-                Text("Digite sua nova senha.")
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = newPassword,
-                    onValueChange = { newPassword = it },
-                    label = { Text("Nova Senha") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = confirmPassword,
-                    onValueChange = { confirmPassword = it },
-                    label = { Text("Confirmar Senha") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    isError = confirmPassword.isNotBlank() && !match,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Button(onClick = { onPasswordUpdate(newPassword) }, enabled = match) {
-                Text("Confirmar")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
-    )
-}
+                    Column(
+                        modifier = Modifier.padding(start = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text("• Todos os seus medicamentos cadastrados", style = MaterialTheme.typography.bodySmall)
+                        Text("• Histórico de consultas médicas", style = MaterialTheme.typography.bodySmall)
+                        Text("• Registros de vacinas", style = MaterialTheme.typography.bodySmall)
+                        Text("• Receitas médicas salvas", style = MaterialTheme.typography.bodySmall)
+                        Text("• Todas as configurações e preferências", style = MaterialTheme.typography.bodySmall)
+                    }
 
-@Composable
-fun ChangeNameDialog(
-    currentName: String,
-    onDismiss: () -> Unit,
-    onNameUpdate: (String) -> Unit
-) {
-    var newName by remember { mutableStateOf(currentName) }
+                    Spacer(modifier = Modifier.height(8.dp))
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Alterar Nome") },
-        text = {
-            Column {
-                Text("Digite o novo nome.")
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = newName,
-                    onValueChange = { newName = it },
-                    label = { Text("Novo Nome") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    Text(
+                        text = "Para confirmar, digite EXCLUIR no campo abaixo:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedTextField(
+                        value = confirmationText,
+                        onValueChange = { confirmationText = it },
+                        label = { Text("Digite EXCLUIR") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = confirmationText.isNotBlank() && !isConfirmationValid,
+                        supportingText = {
+                            if (confirmationText.isNotBlank() && !isConfirmationValid) {
+                                Text("Digite exatamente: EXCLUIR", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = onConfirmDelete,
+                    enabled = isConfirmationValid,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Text("Excluir Permanentemente")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text("Cancelar")
+                }
             }
-        },
-        confirmButton = {
-            Button(onClick = { onNameUpdate(newName) }, enabled = newName.isNotBlank()) {
-                Text("Salvar")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
-    )
-}
+        )
+    }

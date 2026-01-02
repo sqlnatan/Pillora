@@ -113,4 +113,27 @@ object AuthRepository {
             ?.addOnSuccessListener { onSuccess() }
             ?.addOnFailureListener { onError(it) }
     }
+
+    // -----------------------
+    // Account Deletion
+    // -----------------------
+
+    /**
+     * Exclui permanentemente a conta do usuário do Firebase Authentication.
+     * ATENÇÃO: Esta operação é IRREVERSÍVEL!
+     *
+     * Nota: Os dados do Firestore (medicamentos, consultas, etc.) devem ser
+     * excluídos separadamente antes de chamar esta função, se necessário.
+     */
+    fun deleteAccount(onSuccess: () -> Unit, onError: (Exception) -> Unit) {
+        auth.currentUser?.delete()
+            ?.addOnSuccessListener {
+                // Fazer logout do Google também, se estiver inicializado
+                if (::googleClient.isInitialized) {
+                    googleClient.signOut()
+                }
+                onSuccess()
+            }
+            ?.addOnFailureListener { onError(it) }
+    }
 }
