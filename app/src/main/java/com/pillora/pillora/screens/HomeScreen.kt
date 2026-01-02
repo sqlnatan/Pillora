@@ -389,7 +389,7 @@ fun HomeScreen(
                                     else -> ""
                                 }
                                 Text(
-                                    text = "Receita para ${recipe.patientName} vence em ${recipe.validityDate} $daysText",
+                                    text = "Receita de Dr.${recipe.doctorName} vence em ${recipe.validityDate} $daysText",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer // Use theme color
                                 )
@@ -732,7 +732,7 @@ fun UpcomingVaccineItem(vaccine: Vaccine) {
             Spacer(modifier = Modifier.height(4.dp))
             Text("Paciente: ${vaccine.patientName}", style = MaterialTheme.typography.bodyMedium)
         }
-        Text("Lembrete: ${dateText ?: "Data inválida"} ${vaccine.reminderTime} $dayLabel")
+        Text("Dia ${dateText ?: "Data inválida"} ${vaccine.reminderTime} $dayLabel")
         if (vaccine.notes.isNotBlank()) Text("Notas: ${vaccine.notes}")
     }
 }
