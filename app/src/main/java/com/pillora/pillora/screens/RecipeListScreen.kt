@@ -133,7 +133,10 @@ fun RecipeListScreen(
                             Text("Nenhuma receita encontrada.")
                         }
                     } else {
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) { // Increased spacing
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = PaddingValues(top = 12.dp, bottom = 12.dp)
+                        ) { // Increased spacing
                             items(state.recipes, key = { it.id ?: UUID.randomUUID().toString() }) { recipe ->
                                 RecipeListItem(
                                     recipe = recipe,

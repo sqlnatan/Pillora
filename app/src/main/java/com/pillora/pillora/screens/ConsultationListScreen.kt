@@ -351,7 +351,7 @@ fun ConsultationListItem(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = "Dr(a). ${consultation.doctorName.ifEmpty { "Não informado" }}",
+                        text = "${consultation.doctorName.ifEmpty { "Não informado" }}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

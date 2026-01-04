@@ -268,7 +268,12 @@ fun HomeScreen(
                         maxCount = if (!isPremium) FreeLimits.MAX_MEDICINES_FREE else null
                     ) {
                         if (medicinesToday.isNotEmpty()) {
-                            medicinesToday.forEach { med ->
+                            medicinesToday
+                                .sortedBy { med ->
+                                    // pega o primeiro horário disponível
+                                    med.horarios?.minOrNull() ?: med.startTime ?: "99:99"
+                                }
+                                .forEach { med ->
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     Text(
                                         text = "${med.name} - ${med.dose} ${med.doseUnit ?: ""} - ${med.horarios?.joinToString() ?: med.startTime ?: "N/A"}",
@@ -353,7 +358,7 @@ fun HomeScreen(
                         if (allRecipes.isNotEmpty()) {
                             // Display a few recent recipes, for example
                             allRecipes.take(3).forEach { recipe -> // Limit to 3 for brevity on home screen
-                                val doctorInfo = "(Dr. ${recipe.doctorName}) - ${recipe.prescriptionDate}"
+                                val doctorInfo = "( ${recipe.doctorName}) - ${recipe.prescriptionDate}"
                                 val displayText = if (recipe.patientName.isNotBlank()) {
                                     "Receita p/ ${recipe.patientName} $doctorInfo"
                                 } else {
@@ -389,7 +394,7 @@ fun HomeScreen(
                                     else -> ""
                                 }
                                 Text(
-                                    text = "Receita de Dr.${recipe.doctorName} vence em ${recipe.validityDate} $daysText",
+                                    text = "Receita de ${recipe.doctorName} vence em ${recipe.validityDate} $daysText",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer // Use theme color
                                 )
@@ -693,7 +698,7 @@ fun UpcomingConsultationItem(consultation: Consultation) {
 
     Column {
         Text(
-            text = "Dr(a). ${consultation.doctorName}",
+            text = "${consultation.doctorName}",
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
