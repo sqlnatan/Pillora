@@ -1,11 +1,9 @@
 package com.pillora.pillora.screens
 
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
+import android.app.Activity
 import android.widget.Toast
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,32 +21,38 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.PilloraApplication
-import com.pillora.pillora.viewmodel.ReportsViewModel
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.ktx.Firebase
+import com.pillora.pillora.viewmodel.SubscriptionViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubscriptionScreen(navController: NavController) {
     val context = LocalContext.current
+    val activity = context as? Activity
     val application = context.applicationContext as PilloraApplication
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    val reportsViewModel: ReportsViewModel = viewModel(
-        factory = ReportsViewModel.provideFactory(
+    val viewModel: SubscriptionViewModel = viewModel(
+        factory = SubscriptionViewModel.provideFactory(
             application = application,
-            userPreferences = application.userPreferences,
-            currentUserId = Firebase.auth.currentUser?.uid
+            billingRepository = application.billingRepository
         )
     )
 
-    val isPremium by reportsViewModel.isPremium.collectAsState(initial = false)
+    val isPremium by viewModel.isPremium.collectAsState()
+    val monthlyProduct by viewModel.monthlyProduct.collectAsState()
+    val yearlyProduct by viewModel.yearlyProduct.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Assinatura") },
@@ -56,142 +60,165 @@ fun SubscriptionScreen(navController: NavController) {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
                     }
+                },
+                actions = {
+                    TextButton(onClick = {
+                        viewModel.refreshPurchases()
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Verificando assinaturas...")
+                        }
+                    }) {
+                        Text("Restaurar")
+                    }
                 }
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = padding.calculateTopPadding())
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Header
-            androidx.compose.foundation.Image(
-                painter = painterResource(id = com.pillora.pillora.R.drawable.app_logo),
-                contentDescription = "Pillora Logo",
-                modifier = Modifier.size(80.dp)
-            )
-
-            Text(
-                text = "Escolha seu plano",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-
-            Text(
-                text = "Comece grátis e evolua quando precisar",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Plano Gratuito
-            PlanCard(
-                title = "Gratuito",
-                subtitle = "Perfeito para começar",
-                price = "R$ 0",
-                period = "/mês",
-                features = listOf(
-                    PlanFeature("Até 5 medicamentos e 2 consultas", Icons.Default.Check),
-                    PlanFeature("Lembretes básicos", Icons.Default.Check),
-                    PlanFeature("Suporte por email", Icons.Default.Check),
-                    PlanFeature("Uso pessoal", Icons.Default.Check),
-                    PlanFeature("Com anúncios", Icons.Default.Close, isNegative = true)
-                ),
-                buttonText = if (isPremium) "Plano Atual: Premium" else "Plano Atual",
-                buttonEnabled = false,
-                onButtonClick = {},
-                isPremiumPlan = false,
-                isCurrentPlan = !isPremium
-            )
-
-            // Plano Premium
-            PlanCard(
-                title = "Premium",
-                subtitle = "Funcionalidades completas",
-                price = "R$ 13,05",
-                period = "/mês",
-                features = listOf(
-                    PlanFeature("Sem limites", Icons.Default.Check),
-                    PlanFeature("Todas as funcionalidades", Icons.Default.Check),
-                    PlanFeature("Suporte prioritário", Icons.Default.Check),
-                    PlanFeature("Relatórios avançados", Icons.Default.Check),
-                    PlanFeature("Backup na nuvem", Icons.Default.Check),
-                    PlanFeature("Sem anúncios", Icons.Default.Check)
-                ),
-                buttonText = if (isPremium) "Plano Atual" else "Assinar Premium",
-                buttonEnabled = !isPremium,
-                onButtonClick = {
-                    openPlayStoreSubscription(context)
-                },
-                isPremiumPlan = true,
-                isCurrentPlan = isPremium
-            )
-
-            // Informações adicionais
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Informações importantes",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    }
+                Spacer(modifier = Modifier.height(8.dp))
 
+                androidx.compose.foundation.Image(
+                    painter = painterResource(id = com.pillora.pillora.R.drawable.app_logo),
+                    contentDescription = "Pillora Logo",
+                    modifier = Modifier.size(80.dp)
+                )
+
+                Text(
+                    text = if (isPremium) "Você é Premium! ⭐" else "Escolha seu plano",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+
+                Text(
+                    text = if (isPremium)
+                        "Aproveite todas as funcionalidades sem limites."
+                    else
+                        "Tenha acesso ilimitado e livre de anúncios.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Plano Gratuito
+                if (!isPremium) {
+                    PlanCard(
+                        title = "Gratuito",
+                        subtitle = "Perfeito para começar",
+                        price = "R$ 0",
+                        period = "/mês",
+                        features = listOf(
+                            PlanFeature("Até 3 medicamentos e 1 consulta", Icons.Default.Check),
+                            PlanFeature("Lembretes básicos", Icons.Default.Check),
+                            PlanFeature("Com anúncios", Icons.Default.Close, isNegative = true)
+                        ),
+                        buttonText = "Plano Atual",
+                        buttonEnabled = false,
+                        onButtonClick = {},
+                        isCurrentPlan = true
+                    )
+                }
+
+                // Plano Mensal
+                monthlyProduct?.let { product ->
+                    val price = product.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.formattedPrice ?: ""
+                    PlanCard(
+                        title = "Mensal",
+                        subtitle = "Flexibilidade total",
+                        price = price,
+                        period = "/mês",
+                        features = listOf(
+                            PlanFeature("Sem limites de itens", Icons.Default.Check),
+                            PlanFeature("Sem anúncios", Icons.Default.Check),
+                            PlanFeature("Backup na nuvem", Icons.Default.Check)
+                        ),
+                        buttonText = if (isPremium) "Plano Ativo" else "Assinar Mensal",
+                        buttonEnabled = !isPremium,
+                        onButtonClick = { activity?.let { application.billingRepository.launchBillingFlow(it, product) } }
+                    )
+                }
+
+                // Plano Anual (COM DESTAQUE)
+                yearlyProduct?.let { product ->
+                    val price = product.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.formattedPrice ?: ""
+                    PlanCard(
+                        title = "Anual",
+                        subtitle = "Melhor custo-benefício",
+                        price = price,
+                        period = "/ano",
+                        features = listOf(
+                            PlanFeature("Tudo do plano mensal", Icons.Default.Check),
+                            PlanFeature("⭐ Mais vantajoso", Icons.Default.Star, iconColor = Color(0xFFFFD700)),
+                            PlanFeature("Economize 2 meses", Icons.Default.Check)
+                        ),
+                        description = "💰 Economize 16% com o plano anual",
+                        buttonText = if (isPremium) "Plano Ativo" else "Assinar Anual",
+                        buttonEnabled = !isPremium,
+                        isHighlighted = true,
+                        onButtonClick = { activity?.let { application.billingRepository.launchBillingFlow(it, product) } }
+                    )
+                }
+
+                // Link de Restauração (UX amigável)
+                if (!isPremium) {
                     Text(
-                        text = "• A assinatura é gerenciada pela Google Play Store\n" +
-                                "• Você pode cancelar a qualquer momento\n" +
-                                "• O pagamento será cobrado na sua conta Google Play\n" +
-                                "• A renovação é automática, mas pode ser desativada",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                        text = "Já é assinante? Restaurar assinatura",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            textDecoration = TextDecoration.Underline,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        modifier = Modifier
+                            .padding(vertical = 8.dp)
+                            .clickable {
+                                viewModel.refreshPurchases()
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Verificando assinaturas...")
+                                }
+                            }
                     )
                 }
-            }
 
-            // Botão de gerenciar assinatura (se for premium)
-            if (isPremium) {
-                OutlinedButton(
-                    onClick = { openPlayStoreManageSubscription(context) },
-                    modifier = Modifier.fillMaxWidth()
+                // Informações Legais
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Gerenciar Assinatura na Play Store")
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Informações sobre a assinatura:", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("• Cobrança recorrente, cancele quando quiser na Play Store.", style = MaterialTheme.typography.bodySmall)
+                        Text("• O pagamento será debitado na sua conta do Google após a confirmação.", style = MaterialTheme.typography.bodySmall)
+                    }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                if (isPremium) {
+                    OutlinedButton(
+                        onClick = { openPlayStoreManageSubscription(context) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Settings, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Gerenciar Assinatura")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
         }
     }
 }
@@ -206,137 +233,100 @@ fun PlanCard(
     buttonText: String,
     buttonEnabled: Boolean,
     onButtonClick: () -> Unit,
-    isPremiumPlan: Boolean,
-    isCurrentPlan: Boolean
+    isCurrentPlan: Boolean = false,
+    isHighlighted: Boolean = false,
+    description: String? = null
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (isPremiumPlan && !isCurrentPlan) {
-                    Modifier.border(
-                        width = 2.dp,
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                } else {
-                    Modifier
-                }
-            ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isPremiumPlan) 8.dp else 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isCurrentPlan)
-                MaterialTheme.colorScheme.primaryContainer
-            else
-                MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Header do plano
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+    val borderColor = if (isHighlighted) MaterialTheme.colorScheme.primary else Color.Transparent
+    val borderWidth = if (isHighlighted) 2.dp else 0.dp
 
-                if (isCurrentPlan) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = "Ativo",
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontWeight = FontWeight.Bold
-                        )
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = if (isHighlighted) 12.dp else 0.dp)
+                .border(borderWidth, borderColor, RoundedCornerShape(16.dp)),
+            elevation = CardDefaults.cardElevation(defaultElevation = if (isHighlighted) 8.dp else 2.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isCurrentPlan) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(text = title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (isCurrentPlan) {
+                        Badge(containerColor = MaterialTheme.colorScheme.primary) {
+                            Text("Ativo", modifier = Modifier.padding(4.dp), color = MaterialTheme.colorScheme.onPrimary)
+                        }
                     }
                 }
-            }
 
-            // Preço
-            Row(
-                verticalAlignment = Alignment.Bottom,
-                modifier = Modifier.padding(vertical = 8.dp)
-            ) {
-                Text(
-                    text = price,
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = period,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-            }
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(text = price, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(text = period, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 4.dp, start = 2.dp))
+                }
 
-            HorizontalDivider()
+                if (description != null) {
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Start
+                    )
+                }
 
-            // Features
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), thickness = 0.5.dp)
+
                 features.forEach { feature ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(
                             imageVector = feature.icon,
                             contentDescription = null,
-                            tint = if (feature.isNegative)
-                                MaterialTheme.colorScheme.error
-                            else
-                                MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
+                            tint = feature.iconColor ?: if (feature.isNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
                         )
-                        Text(
-                            text = feature.text,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (feature.isNegative)
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            else
-                                MaterialTheme.colorScheme.onSurface
-                        )
+                        Text(text = feature.text, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = onButtonClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = buttonEnabled,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(buttonText, fontWeight = FontWeight.Bold)
+                }
             }
+        }
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Botão
-            Button(
-                onClick = onButtonClick,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = buttonEnabled,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isPremiumPlan)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.secondary,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+        if (isHighlighted) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter),
+                color = MaterialTheme.colorScheme.primary,
+                shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
-                    text = buttonText,
-                    modifier = Modifier.padding(vertical = 4.dp)
+                    text = "⭐ MAIS VANTAJOSO",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.ExtraBold
                 )
             }
         }
@@ -346,42 +336,17 @@ fun PlanCard(
 data class PlanFeature(
     val text: String,
     val icon: ImageVector,
-    val isNegative: Boolean = false
+    val isNegative: Boolean = false,
+    val iconColor: Color? = null
 )
 
-// Função para abrir a página de assinatura na Play Store
-fun openPlayStoreSubscription(context: Context) {
+fun openPlayStoreManageSubscription(context: android.content.Context) {
     try {
-        // Tenta abrir a página de assinatura do app na Play Store
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            data = Uri.parse("https://play.google.com/store/account/subscriptions?package=${context.packageName}")
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+            data = android.net.Uri.parse("https://play.google.com/store/account/subscriptions" )
         }
         context.startActivity(intent)
     } catch (e: Exception) {
-        // Se falhar, abre a página do app na Play Store
-        try {
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                data = Uri.parse("market://details?id=${context.packageName}")
-            }
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            // Se ainda falhar, abre no navegador
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                data = Uri.parse("https://play.google.com/store/apps/details?id=${context.packageName}")
-            }
-            context.startActivity(intent)
-        }
-    }
-}
-
-// Função para abrir gerenciamento de assinaturas na Play Store
-fun openPlayStoreManageSubscription(context: Context) {
-    try {
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            data = Uri.parse("https://play.google.com/store/account/subscriptions")
-        }
-        context.startActivity(intent)
-    } catch (e: Exception) {
-        Toast.makeText(context, "Não foi possível abrir as configurações de assinatura", Toast.LENGTH_SHORT).show()
+        android.widget.Toast.makeText(context, "Erro ao abrir Play Store", android.widget.Toast.LENGTH_SHORT).show()
     }
 }
