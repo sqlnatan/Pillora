@@ -17,10 +17,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.NavHostController
 import androidx.navigation.navArgument
 import com.pillora.pillora.PilloraApplication
-import com.pillora.pillora.data.SubscriptionStatus
+import com.pillora.pillora.repository.BillingRepository
 import com.pillora.pillora.screens.AuthScreen
 import com.pillora.pillora.screens.DowngradeSelectionScreen
-import com.pillora.pillora.screens.GracePeriodWarningDialog
+// import com.pillora.pillora.screens.GracePeriodWarningDialog // REMOVIDO: Não é mais necessário
 import com.pillora.pillora.screens.HomeScreen
 import com.pillora.pillora.screens.MedicineFormScreen
 import com.pillora.pillora.screens.MedicineListScreen
@@ -81,15 +81,12 @@ fun AppNavigation(
     val subscriptionViewModel: SubscriptionViewModel = viewModel(
         factory = SubscriptionViewModel.provideFactory(
             application = application,
-            userPreferences = application.userPreferences
+            billingRepository = application.billingRepository
         )
     )
 
-    // Observar estados de assinatura
-    val subscriptionStatus by subscriptionViewModel.subscriptionStatus.collectAsState()
-    val showGracePeriodWarning by subscriptionViewModel.showGracePeriodWarning.collectAsState()
-    val gracePeriodDaysRemaining by subscriptionViewModel.gracePeriodDaysRemaining.collectAsState()
-    val requiresDowngrade by subscriptionViewModel.requiresDowngrade.collectAsState()
+    // ✅ NOVO: Observar flag de downgrade do UserPreferences (gerenciado pelo BillingRepository)
+    val needsDowngradeSelection by application.userPreferences.needsDowngradeSelection.collectAsState(initial = false)
 
     // Determinar a rota inicial de forma assíncrona ou síncrona - APENAS UMA VEZ
     LaunchedEffect(hasInitialized) {
@@ -102,10 +99,7 @@ fun AppNavigation(
                 AuthRepository.isUserAuthenticated()
             }
 
-            // Verificar status da assinatura após autenticação
-            if (isAuthenticated) {
-                subscriptionViewModel.checkSubscriptionStatus()
-            }
+            // Verificação de status premium agora é feita automaticamente pelo BillingRepository
 
             // CORREÇÃO: Verificar termos de uso AQUI, apenas uma vez na inicialização
             // Se o usuário está autenticado mas não aceitou os termos, vai para a tela de termos
@@ -137,25 +131,12 @@ fun AppNavigation(
         }
     }
 
-    // Mostrar dialog de aviso de período de carência
-    if (showGracePeriodWarning && gracePeriodDaysRemaining > 0) {
-        GracePeriodWarningDialog(
-            daysRemaining = gracePeriodDaysRemaining,
-            onDismiss = {
-                subscriptionViewModel.dismissGracePeriodWarning()
-            },
-            onRenewSubscription = {
-                subscriptionViewModel.dismissGracePeriodWarning()
-                navController.navigate(Screen.Subscription.route)
-            }
-        )
-    }
-
-    // Se downgrade é obrigatório, mostrar tela de seleção
-    if (requiresDowngrade) {
+    // ✅ NOVO: Se precisa fazer downgrade, mostrar tela de seleção
+    if (needsDowngradeSelection) {
         DowngradeSelectionScreen(
             onDowngradeComplete = {
-                subscriptionViewModel.completeDowngrade()
+                // Marcar downgrade como completo
+                application.userPreferences.setDowngradeCompleted()
             }
         )
     } else if (startRoute != null) {
@@ -334,16 +315,6 @@ fun AppNavigation(
             // Subscription Screen
             composable(Screen.Subscription.route) {
                 SubscriptionScreen(navController = navController)
-            }
-
-            // Downgrade Selection Screen (pode ser acessada manualmente também)
-            composable(Screen.DowngradeSelection.route) {
-                DowngradeSelectionScreen(
-                    onDowngradeComplete = {
-                        subscriptionViewModel.completeDowngrade()
-                        navController.popBackStack()
-                    }
-                )
             }
         }
 

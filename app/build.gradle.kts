@@ -20,7 +20,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // 🔐 NOVO: Configuração para assinar builds de release
+    // 🔐 Configuração para assinar builds de release
     signingConfigs {
         create("release") {
             storeFile = file("pillora-release-key.jks")
@@ -38,7 +38,7 @@ android {
                 "proguard-rules.pro"
             )
 
-            // 🔐 NOVO: usar a assinatura de release
+            // 🔐 usar a assinatura de release
             signingConfig = signingConfigs.getByName("release")
         }
 
@@ -65,13 +65,13 @@ android {
 
 dependencies {
 
-    implementation(libs.androidx.core.ktx) // Keep only one instance
+    implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.text) // Add explicit dependency for ui-text
+    implementation(libs.androidx.ui.text)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.compose.foundation)
@@ -100,4 +100,5 @@ dependencies {
     implementation(libs.accompanist.permissions)
     implementation(libs.play.services.ads)
     implementation(libs.review.ktx)
+    implementation(libs.billing.ktx)
 }

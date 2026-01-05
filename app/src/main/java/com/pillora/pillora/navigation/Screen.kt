@@ -3,27 +3,17 @@ package com.pillora.pillora.navigation
 enum class Screen(val route: String) {
     Welcome("welcome"),
     Home("home"),
-    // Firestore("firestore"), // Comentado pois não está sendo usado
     Terms("terms"),
     MedicineForm("medicine_form"),
     MedicineList("medicine_list"),
-    Settings("settings"), // Adicionar rota para Configurações
+    Settings("settings"),
     ConsultationList("consultation_list"),
-    ConsultationForm("consultation_form"), // Rota base para o formulário
-    VaccineList("vaccine_list"), // Nova rota para lista de vacinas
-    VaccineForm("vaccine_form"), // Nova rota para formulário de vacinas
+    ConsultationForm("consultation_form"),
+    VaccineList("vaccine_list"),
+    VaccineForm("vaccine_form"),
     Profile("profile"),
     Reports("reports"),
     Subscription("subscription"),
-    DowngradeSelection("downgrade_selection"), // Nova rota para seleção de downgrade
-    GracePeriodWarning("grace_period_warning"); // Nova rota para aviso de período de carência
-
+    DowngradeSelection("downgrade_selection")
 
 }
-
-/* // Comentado pois não está sendo usado
-enum class FrequencyType {
-    TIMES_PER_DAY,
-    EVERY_X_HOURS
-}
-*/

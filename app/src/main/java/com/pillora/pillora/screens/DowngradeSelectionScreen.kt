@@ -375,7 +375,7 @@ fun DowngradeSelectionScreen(
 
                                 // Se não há nada para atualizar, apenas finaliza
                                 if (totalOperations == 0) {
-                                    userPreferences.setDowngradeCompleted(true)
+                                    userPreferences.setDowngradeCompleted()
                                     Toast.makeText(
                                         context,
                                         "Configurações salvas com sucesso!",
@@ -394,7 +394,7 @@ fun DowngradeSelectionScreen(
                                     if (completedOperations.get() == totalOperations) {
                                         scope.launch {
                                             if (allSuccessful.get()) {
-                                                userPreferences.setDowngradeCompleted(true)
+                                                userPreferences.setDowngradeCompleted()
                                                 Toast.makeText(
                                                     context,
                                                     "Configurações salvas com sucesso!",
