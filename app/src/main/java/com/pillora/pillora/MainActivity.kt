@@ -1,13 +1,9 @@
 package com.pillora.pillora
 
-import android.app.AlarmManager
-import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -16,20 +12,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -47,12 +37,10 @@ import com.pillora.pillora.screens.DrawerContent
 import com.pillora.pillora.ui.theme.PilloraTheme
 import com.pillora.pillora.viewmodel.ThemePreference
 import com.pillora.pillora.utils.SupportDialog
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
     private val themePreferenceKey = "theme_preference"
-    private var showExactAlarmPermissionDialog = false
 
     private lateinit var googleSignInLauncher:
             androidx.activity.result.ActivityResultLauncher<Intent>
@@ -102,7 +90,7 @@ class MainActivity : ComponentActivity() {
             var currentThemePreference by remember {
                 mutableStateOf(getInitialThemePreference())
             }
-            var showExactAlarmPermissionDialog by remember { mutableStateOf(false) }
+            // var showExactAlarmPermissionDialog by remember { mutableStateOf(false) }
             var showSupportDialog by remember { mutableStateOf(false) } // NOVO: Estado para o Dialog de Suporte
 
             val context = LocalContext.current
@@ -176,7 +164,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Alarme exato
+                // Alarme exato removido conforme solicitação (Play Store)
+                /*
                 LaunchedEffect(Unit) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         val alarmManager =
@@ -212,6 +201,7 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
+                */
 
                 if (shouldShowDrawer) {
                     ModalNavigationDrawer(
@@ -253,7 +243,7 @@ class MainActivity : ComponentActivity() {
 
                 // NOVO: Exibir o Dialog de Suporte
                 if (showSupportDialog) {
-                    SupportDialog(onDismiss = { showSupportDialog = false })
+                    SupportDialog(onDismiss = { })
                 }
             }
         }
@@ -261,6 +251,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        /*
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager =
                 getSystemService(ALARM_SERVICE) as AlarmManager
@@ -268,6 +259,7 @@ class MainActivity : ComponentActivity() {
                 showExactAlarmPermissionDialog = false
             }
         }
+        */
     }
 
     private fun getInitialThemePreference(): ThemePreference {
@@ -337,33 +329,6 @@ fun AppScaffold(navController: NavHostController) {
 
 
 @Composable
-fun ExactAlarmPermissionDialog(
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Permissão Necessária") },
-        text = {
-            Text(
-                "Para que os lembretes funcionem corretamente, " +
-                        "é necessário permitir alarmes precisos."
-            )
-        },
-        confirmButton = {
-            Button(onClick = onConfirm) {
-                Text("Abrir Configurações")
-            }
-        },
-        dismissButton = {
-            Button(onClick = onDismiss) {
-                Text("Agora não")
-            }
-        }
-    )
-}
-
-@Composable
 fun BottomNavigationBar(
     navController: NavHostController,
     currentRoute: String?
@@ -400,17 +365,3 @@ fun BottomNavigationBar(
     }
 }
 
-@Composable
-fun DrawerItem(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit
-) {
-    NavigationDrawerItem(
-        icon = { Icon(icon, contentDescription = label) },
-        label = { Text(label) },
-        selected = false,
-        onClick = onClick,
-        modifier = Modifier.padding(vertical = 8.dp)
-    )
-}

@@ -72,6 +72,7 @@ class ConsultationViewModel : ViewModel() {
 
     private var currentConsultationId: String? = null
     private var currentConsultationUserId: String? = null
+    private var currentConsultationIsActive: Boolean = true
 
     val consultationListUiState: StateFlow<ConsultationListUiState> = ConsultationRepository.getAllConsultationsFlow()
         .map<List<Consultation>, ConsultationListUiState> { consultations ->
@@ -163,6 +164,7 @@ class ConsultationViewModel : ViewModel() {
                         location.value = consultation.location
                         observations.value = consultation.observations
                         currentConsultationUserId = consultation.userId
+                        currentConsultationIsActive = consultation.isActive
                         isSilencioso.value = consultation.isSilencioso
                         toqueAlarmeUri.value = consultation.toqueAlarmeUri
                     } else {
@@ -198,7 +200,8 @@ class ConsultationViewModel : ViewModel() {
             location = location.value.trim(),
             observations = observations.value.trim(),
             isSilencioso = isSilencioso.value,
-            toqueAlarmeUri = toqueAlarmeUri.value
+            toqueAlarmeUri = toqueAlarmeUri.value,
+            isActive = if (currentConsultationId != null) currentConsultationIsActive else true
         )
 
         if (consultation.specialty.isEmpty() || date.value.isEmpty() || time.value.isEmpty()) {
