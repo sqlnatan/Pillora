@@ -471,11 +471,19 @@ class VaccineViewModel : ViewModel() {
             )
 
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                lembrete.proximaOcorrenciaMillis,
-                pendingIntent
-            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    lembrete.proximaOcorrenciaMillis,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.set(
+                    AlarmManager.RTC_WAKEUP,
+                    lembrete.proximaOcorrenciaMillis,
+                    pendingIntent
+                )
+            }
             Log.d(tag, "Alarme agendado com sucesso para Lembrete ID: ${lembrete.id}")
 
         } catch (e: Exception) {

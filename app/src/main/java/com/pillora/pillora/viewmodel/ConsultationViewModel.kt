@@ -342,13 +342,18 @@ class ConsultationViewModel : ViewModel() {
         val triggerAtMillis = lembrete.proximaOcorrenciaMillis
         if (triggerAtMillis < System.currentTimeMillis()) return
 
-        try {
-            val showIntent = Intent(context, AlarmReceiver::class.java)
-            val showPendingIntent = PendingIntent.getBroadcast(context, lembrete.id.toInt() + 100000, showIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showPendingIntent)
-            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
-        } catch (e: Exception) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                triggerAtMillis,
+                pendingIntent
+            )
+        } else {
+            alarmManager.set(
+                AlarmManager.RTC_WAKEUP,
+                triggerAtMillis,
+                pendingIntent
+            )
         }
     }
 

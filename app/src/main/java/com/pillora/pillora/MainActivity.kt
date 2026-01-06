@@ -90,7 +90,6 @@ class MainActivity : ComponentActivity() {
             var currentThemePreference by remember {
                 mutableStateOf(getInitialThemePreference())
             }
-            // var showExactAlarmPermissionDialog by remember { mutableStateOf(false) }
             var showSupportDialog by remember { mutableStateOf(false) } // NOVO: Estado para o Dialog de Suporte
 
             val context = LocalContext.current
@@ -164,45 +163,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Alarme exato removido conforme solicitação (Play Store)
-                /*
-                LaunchedEffect(Unit) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        val alarmManager =
-                            ContextCompat.getSystemService(
-                                context,
-                                AlarmManager::class.java
-                            )
-                        if (alarmManager?.canScheduleExactAlarms() == false) {
-                            showExactAlarmPermissionDialog = true
-                        }
-                    }
-                }
-
-                if (showExactAlarmPermissionDialog) {
-                    ExactAlarmPermissionDialog(
-                        onDismiss = {
-                            showExactAlarmPermissionDialog = false
-                        },
-                        onConfirm = {
-                            showExactAlarmPermissionDialog = false
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                context.startActivity(
-                                    Intent(
-                                        Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
-                                        Uri.fromParts(
-                                            "package",
-                                            context.packageName,
-                                            null
-                                        )
-                                    )
-                                )
-                            }
-                        }
-                    )
-                }
-                */
-
                 if (shouldShowDrawer) {
                     ModalNavigationDrawer(
                         drawerState = drawerState,
@@ -249,18 +209,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        /*
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val alarmManager =
-                getSystemService(ALARM_SERVICE) as AlarmManager
-            if (alarmManager.canScheduleExactAlarms()) {
-                showExactAlarmPermissionDialog = false
-            }
-        }
-        */
-    }
 
     private fun getInitialThemePreference(): ThemePreference {
         val prefs =
