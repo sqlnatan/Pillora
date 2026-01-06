@@ -217,58 +217,70 @@ fun ConsultationListScreen(
                 }
 
                 is ConsultationListUiState.Success -> {
-                    if (consultations.isEmpty()) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "Nenhuma consulta encontrada.",
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            // Aviso de limite para usuários Free
-                            if (!isPremium && activeConsultationsCount >= FreeLimits.MAX_CONSULTATIONS_FREE && consultations.size > FreeLimits.MAX_CONSULTATIONS_FREE) {
-                                item {
-                                    Card(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = MaterialTheme.colorScheme.errorContainer
-                                        )
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Text(
-                                                text = "⚠️ Limite de ${FreeLimits.MAX_CONSULTATIONS_FREE} consulta ativa atingido. Consultas inativas estão marcadas.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onErrorContainer
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                }
-                            }
-
-                            itemsIndexed(consultations, key = { _, consultation -> consultation.id }) { index, consultation ->
-                                // Exibir anúncio após a primeira consulta (apenas para FREE)
-                                if (index == 1 && !isPremium) {
-                                    NativeAdCard(
-                                        modifier = Modifier.fillMaxWidth()
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // 1. Aviso de limite para usuários Free
+                        if (!isPremium && activeConsultationsCount >= FreeLimits.MAX_CONSULTATIONS_FREE && consultations.size > FreeLimits.MAX_CONSULTATIONS_FREE) {
+                            item {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer
                                     )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            text = "⚠️ Limite de ${FreeLimits.MAX_CONSULTATIONS_FREE} consulta ativa atingido. Consultas inativas estão marcadas.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                    }
                                 }
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
 
+                        // 2. Primeiro item da lista (se existir)
+                        if (consultations.isNotEmpty()) {
+                            item(key = consultations[0].id) {
+                                ConsultationListItem(
+                                    consultation = consultations[0],
+                                    isPremium = isPremium,
+                                    onEditClick = {
+                                        navController.navigate(
+                                            "${Screen.ConsultationForm.route}?id=${consultations[0].id}"
+                                        )
+                                    },
+                                    onDeleteClick = {
+                                        consultationToDelete = consultations[0]
+                                        showDeleteDialog = true
+                                    }
+                                )
+                            }
+                        }
+
+                        // 3. Anúncio (Sempre aparece aqui se for FREE, sendo o 2º item ou o 1º se a lista estiver vazia)
+                        if (!isPremium) {
+                            item(key = "ad_item") {
+                                NativeAdCard(
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+
+                        // 4. Restante dos itens (do índice 1 em diante)
+                        if (consultations.size > 1) {
+                            items(
+                                items = consultations.subList(1, consultations.size),
+                                key = { it.id } // Corrigido: Removido operador Elvis desnecessário
+                            ) { consultation ->
                                 ConsultationListItem(
                                     consultation = consultation,
                                     isPremium = isPremium,
@@ -282,6 +294,21 @@ fun ConsultationListScreen(
                                         showDeleteDialog = true
                                     }
                                 )
+                            }
+                        }
+
+                        // 5. Mensagem de lista vazia (apenas se realmente não houver nada)
+                        if (consultations.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillParentMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Nenhuma consulta encontrada.",
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                }
                             }
                         }
                     }

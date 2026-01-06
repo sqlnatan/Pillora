@@ -141,7 +141,7 @@ fun MedicineListScreen(
                         } ?: run {
                             Toast.makeText(
                                 context,
-                                "Erro: ID do medicamento inválido",
+                                "Erro: ID do medicamento inválido para edição",
                                 Toast.LENGTH_LONG
                             ).show()
                         }
@@ -235,17 +235,6 @@ fun MedicineListScreen(
                     Text(errorMessage ?: "Erro desconhecido")
                     Spacer(modifier = Modifier.height(16.dp))
                 }
-            } else if (medicines.isEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("Nenhum medicamento cadastrado")
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -277,88 +266,182 @@ fun MedicineListScreen(
                         }
                     }
 
-                    itemsIndexed(
-                        medicines,
-                        key = { _, medicine -> medicine.id ?: medicine.hashCode() }
-                    ) { index, medicine ->
-                        // Exibir anúncio após o primeiro medicamento (apenas para FREE)
-                        if (index == 1 && !isPremium) {
+                    // 2. Primeiro medicamento (se existir)
+                    if (medicines.isNotEmpty()) {
+                        item(key = medicines[0].id ?: medicines[0].hashCode()) {
+                            MedicineItem(
+                                medicine = medicines[0],
+                                isPremium = isPremium,
+                                activeMedicinesCount = activeMedicinesCount,
+                                onEditClick = {
+                                    medicines[0].id?.let { id ->
+                                        try {
+                                            navController.navigate(
+                                                Screen.MedicineForm.route + "?id=$id"
+                                            )
+                                        } catch (e: Exception) {
+                                            Toast.makeText(
+                                                context,
+                                                "Erro ao abrir tela de edição: ${e.message}",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    } ?: run {
+                                        Toast.makeText(
+                                            context,
+                                            "Erro: ID do medicamento inválido para edição",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                },
+                                onDeleteClick = {
+                                    medicineToDelete = medicines[0]
+                                    showDeleteDialog = true
+                                },
+                                onAlarmToggle = { isEnabled ->
+                                    // Verificar limite para usuários Free
+                                    if (!isPremium && isEnabled && activeMedicinesCount >= FreeLimits.MAX_MEDICINES_FREE) {
+                                        Toast.makeText(
+                                            context,
+                                            "Limite de ${FreeLimits.MAX_MEDICINES_FREE} medicamentos ativos atingido. Desative um para ativar outro.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        return@MedicineItem
+                                    }
+
+                                    medicines[0].id?.let { id ->
+                                        scope.launch {
+                                            homeViewModel.toggleMedicineAlarms(
+                                                context = context,
+                                                medicineId = id,
+                                                alarmsEnabled = isEnabled,
+                                                onSuccess = {
+                                                    Toast.makeText(
+                                                        context,
+                                                        if (isEnabled) "Alarmes ativados" else "Alarmes desativados",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                },
+                                                onError = { exception ->
+                                                    Toast.makeText(
+                                                        context,
+                                                        "Erro ao atualizar alarmes: ${exception.message}",
+                                                        Toast.LENGTH_LONG
+                                                    ).show()
+                                                }
+                                            )
+                                        }
+                                    } ?: run {
+                                        Toast.makeText(
+                                            context,
+                                            "Erro: ID do medicamento inválido",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    // 3. Anúncio (Sempre aparece aqui se for FREE, sendo o 2º item ou o 1º se a lista estiver vazia)
+                    if (!isPremium) {
+                        item(key = "ad_item_med") {
                             NativeAdCard(
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
+                    }
 
-                        MedicineItem(
-                            medicine = medicine,
-                            isPremium = isPremium,
-                            activeMedicinesCount = activeMedicinesCount,
-                            onEditClick = {
-                                medicine.id?.let { id ->
-                                    try {
-                                        navController.navigate(
-                                            Screen.MedicineForm.route + "?id=$id"
-                                        )
-                                    } catch (e: Exception) {
+                    // 4. Restante dos medicamentos (do índice 1 em diante)
+                    if (medicines.size > 1) {
+                        items(
+                            items = medicines.subList(1, medicines.size),
+                            key = { it.id ?: it.hashCode() }
+                        ) { medicine ->
+                            MedicineItem(
+                                medicine = medicine,
+                                isPremium = isPremium,
+                                activeMedicinesCount = activeMedicinesCount,
+                                onEditClick = {
+                                    medicine.id?.let { id ->
+                                        try {
+                                            navController.navigate(
+                                                Screen.MedicineForm.route + "?id=$id"
+                                            )
+                                        } catch (e: Exception) {
+                                            Toast.makeText(
+                                                context,
+                                                "Erro ao abrir tela de edição: ${e.message}",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    } ?: run {
                                         Toast.makeText(
                                             context,
-                                            "Erro ao abrir tela de edição: ${e.message}",
+                                            "Erro: ID do medicamento inválido para edição",
                                             Toast.LENGTH_LONG
                                         ).show()
                                     }
-                                } ?: run {
-                                    Toast.makeText(
-                                        context,
-                                        "Erro: ID do medicamento inválido para edição",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                }
-                            },
-                            onDeleteClick = {
-                                medicineToDelete = medicine
-                                showDeleteDialog = true
-                            },
-                            onAlarmToggle = { isEnabled ->
-                                // Verificar limite para usuários Free
-                                if (!isPremium && isEnabled && activeMedicinesCount >= FreeLimits.MAX_MEDICINES_FREE) {
-                                    Toast.makeText(
-                                        context,
-                                        "Limite de ${FreeLimits.MAX_MEDICINES_FREE} medicamentos ativos atingido. Desative um para ativar outro.",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                    return@MedicineItem
-                                }
-
-                                medicine.id?.let { id ->
-                                    scope.launch {
-                                        homeViewModel.toggleMedicineAlarms(
-                                            context = context,
-                                            medicineId = id,
-                                            alarmsEnabled = isEnabled,
-                                            onSuccess = {
-                                                Toast.makeText(
-                                                    context,
-                                                    if (isEnabled) "Alarmes ativados" else "Alarmes desativados",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            },
-                                            onError = { exception ->
-                                                Toast.makeText(
-                                                    context,
-                                                    "Erro ao atualizar alarmes: ${exception.message}",
-                                                    Toast.LENGTH_LONG
-                                                ).show()
-                                            }
-                                        )
+                                },
+                                onDeleteClick = {
+                                    medicineToDelete = medicine
+                                    showDeleteDialog = true
+                                },
+                                onAlarmToggle = { isEnabled ->
+                                    // Verificar limite para usuários Free
+                                    if (!isPremium && isEnabled && activeMedicinesCount >= FreeLimits.MAX_MEDICINES_FREE) {
+                                        Toast.makeText(
+                                            context,
+                                            "Limite de ${FreeLimits.MAX_MEDICINES_FREE} medicamentos ativos atingido. Desative um para ativar outro.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        return@MedicineItem
                                     }
-                                } ?: run {
-                                    Toast.makeText(
-                                        context,
-                                        "Erro: ID do medicamento inválido",
-                                        Toast.LENGTH_LONG
-                                    ).show()
+
+                                    medicine.id?.let { id ->
+                                        scope.launch {
+                                            homeViewModel.toggleMedicineAlarms(
+                                                context = context,
+                                                medicineId = id,
+                                                alarmsEnabled = isEnabled,
+                                                onSuccess = {
+                                                    Toast.makeText(
+                                                        context,
+                                                        if (isEnabled) "Alarmes ativados" else "Alarmes desativados",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                },
+                                                onError = { exception ->
+                                                    Toast.makeText(
+                                                        context,
+                                                        "Erro ao atualizar alarmes: ${exception.message}",
+                                                        Toast.LENGTH_LONG
+                                                    ).show()
+                                                }
+                                            )
+                                        }
+                                    } ?: run {
+                                        Toast.makeText(
+                                            context,
+                                            "Erro: ID do medicamento inválido",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
                                 }
+                            )
+                        }
+                    }
+
+                    // 5. Mensagem de lista vazia (apenas se realmente não houver nada)
+                    if (medicines.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier.fillParentMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Nenhum medicamento cadastrado")
                             }
-                        )
+                        }
                     }
                 }
             }
