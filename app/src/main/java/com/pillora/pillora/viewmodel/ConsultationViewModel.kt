@@ -300,9 +300,9 @@ class ConsultationViewModel : ViewModel() {
             .putInt(NotificationWorker.EXTRA_HORA, lembrete.hora)
             .putInt(NotificationWorker.EXTRA_MINUTO, lembrete.minuto)
             .putBoolean(NotificationWorker.EXTRA_IS_CONSULTA, true)
-            //.putBoolean(NotificationWorker.EXTRA_IS_SILENCIOSO, lembrete.isSilencioso)
-            //.putString(NotificationWorker.EXTRA_TOQUE_ALARME_URI, lembrete.toqueAlarmeUri)
-            .build()
+           .putBoolean(NotificationWorker.EXTRA_IS_CONFIRMACAO, true)
+        .build()
+
 
         val delay = lembrete.proximaOcorrenciaMillis - System.currentTimeMillis()
         if (delay <= 0) return

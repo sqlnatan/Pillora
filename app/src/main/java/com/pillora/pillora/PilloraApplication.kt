@@ -3,6 +3,8 @@ package com.pillora.pillora
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.pillora.pillora.data.local.AppDatabase
@@ -40,6 +42,7 @@ class PilloraApplication : Application() {
         const val CHANNEL_LEMBRETES_CONSULTAS_ID = "lembretes_consultas_channel"
         const val CHANNEL_LEMBRETES_VACINAS_ID = "lembretes_vacinas_channel"
         const val CHANNEL_LEMBRETES_RECEITAS_ID = "lembretes_receitas_channel"
+        const val CHANNEL_PRE_EVENTOS_ID = "pre_eventos_channel"
     }
 
     override fun onCreate() {
@@ -96,6 +99,8 @@ class PilloraApplication : Application() {
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Avisos sobre estoque baixo ou fim de tratamento."
+                setSound(null, null)           // 🔥 ESSENCIAL
+                enableVibration(false)
             }
 
             // Canal para Confirmações de Consultas (sem som alto)
@@ -105,7 +110,25 @@ class PilloraApplication : Application() {
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Notificações para confirmar comparecimento em consultas."
+                setSound(null, null)           // 🔥 ESSENCIAL
+                enableVibration(false)
             }
+
+            val canalPreEventos = NotificationChannel(
+                CHANNEL_PRE_EVENTOS_ID,
+                "Lembretes Importantes (Consultas e Vacinas)",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Lembretes antes de consultas e vacinas"
+                setSound(
+                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .build()
+                )
+                enableVibration(true)
+            }
+
 
             // Canal para Confirmações de Vacinas (sem som alto)
             val canalLembretesVacinas = NotificationChannel(
@@ -114,6 +137,8 @@ class PilloraApplication : Application() {
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Notificações para confirmar comparecimento em vacinas."
+                setSound(null, null)           // 🔥 ESSENCIAL
+                enableVibration(false)
             }
 
             // Canal para Lembretes de Receitas (sem som alto)
@@ -123,6 +148,8 @@ class PilloraApplication : Application() {
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Avisos sobre vencimento ou confirmação de compra de receitas."
+                setSound(null, null)           // 🔥 ESSENCIAL
+                enableVibration(false)
             }
 
             val manager = getSystemService(NotificationManager::class.java)
@@ -131,6 +158,7 @@ class PilloraApplication : Application() {
             manager.createNotificationChannel(canalLembretesConsultas)
             manager.createNotificationChannel(canalLembretesVacinas)
             manager.createNotificationChannel(canalLembretesReceitas)
+            manager.createNotificationChannel(canalPreEventos)
         }
     }
 }

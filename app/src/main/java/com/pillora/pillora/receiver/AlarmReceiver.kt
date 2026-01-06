@@ -46,7 +46,7 @@ class AlarmReceiver : BroadcastReceiver() {
         Log.d("AlarmReceiver", "Recebido: horaConsulta=$horaConsulta:$minutoConsulta, horaVacina=$horaVacina, nomeVacina=$nomeVacina")
 
         // Verificar se o tipo de lembrete é válido para alarme (não deveria ser confirmação)
-        if (isConfirmacaoAlarm || tipoLembrete == DateTimeUtils.TIPO_CONFIRMACAO || tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) {
+        if (isConfirmacaoAlarm || tipoLembrete == DateTimeUtils.TIPO_CONFIRMACAO) {
             Log.e("AlarmReceiver", "ERRO! Recebeu alarme para lembrete de confirmação (ID: $lembreteId, Tipo: $tipoLembrete). Isso deveria ser tratado pelo WorkManager. Ignorando.")
             return
         }

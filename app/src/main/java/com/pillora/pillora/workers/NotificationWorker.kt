@@ -200,39 +200,30 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
                 val especialidade = notificationTitle.replace("Consulta:", "", ignoreCase = true).trim()
                 val horarioRealConsultaStr = if (horaConsulta >= 0 && minutoConsulta >= 0) String.format(Locale.getDefault(), "%02d:%02d", horaConsulta, minutoConsulta) else ""
 
-                when (tipoLembrete) {
-                    DateTimeUtils.TIPO_3H_DEPOIS -> {
-                        finalTitle = "Confirmação de Consulta"
-                        finalMessage = if (nome != null) {
-                            "$nome, você foi na consulta com $especialidade?"
-                        } else {
-                            "Você foi na consulta com $especialidade?"
-                        }
-                        channelId = PilloraApplication.CHANNEL_LEMBRETES_CONSULTAS_ID // Canal sem som de alarme
+                if (isConfirmacao) {
+                    finalTitle = "Confirmação de Consulta"
+                    finalMessage = if (nome != null) {
+                        "$nome, você foi na consulta com $especialidade?"
+                    } else {
+                        "Você foi na consulta com $especialidade?"
                     }
-                    DateTimeUtils.TIPO_24H_ANTES, DateTimeUtils.TIPO_2H_ANTES -> {
-                        finalTitle = if (nome != null) {
-                            "$nome, você tem consulta com: $especialidade"
-                        } else {
-                            "Você tem consulta com: $especialidade"
-                        }
-                        finalMessage = if (tipoLembrete == DateTimeUtils.TIPO_24H_ANTES) {
-                            "Amanhã às $horarioRealConsultaStr"
-                        } else {
-                            "Hoje às $horarioRealConsultaStr"
-                        }
-                        channelId = PilloraApplication.CHANNEL_LEMBRETES_MEDICAMENTOS_ID // Canal com som de alarme
+                    channelId = PilloraApplication.CHANNEL_LEMBRETES_CONSULTAS_ID
+                } else {
+                    finalTitle = if (nome != null) {
+                        "$nome, você tem consulta com: $especialidade"
+                    } else {
+                        "Você tem consulta com: $especialidade"
                     }
-                    else -> {
-                        finalTitle = if (nome != null) {
-                            "$nome, você tem consulta com: $especialidade"
-                        } else {
-                            "Você tem consulta com: $especialidade"
-                        }
-                        finalMessage = notificationMessage
-                        channelId = PilloraApplication.CHANNEL_LEMBRETES_MEDICAMENTOS_ID
+
+                    finalMessage = when (tipoLembrete) {
+                        DateTimeUtils.TIPO_24H_ANTES -> "Amanhã às $horarioRealConsultaStr"
+                        DateTimeUtils.TIPO_2H_ANTES -> "Hoje às $horarioRealConsultaStr"
+                        else -> notificationMessage
                     }
+
+                    channelId = PilloraApplication.CHANNEL_PRE_EVENTOS_ID
                 }
+
                 Log.d("NotificationWorker", "Mensagem final para consulta ($tipoLembrete) = $finalMessage, canal: $channelId")
             }
 
@@ -264,7 +255,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
                             notificationMessage
                         }
                     }
-                    channelId = PilloraApplication.CHANNEL_LEMBRETES_MEDICAMENTOS_ID // Canal com som de alarme
+                    channelId = PilloraApplication.CHANNEL_PRE_EVENTOS_ID // Canal com sem de alarme
                     Log.d("NotificationWorker", "Mensagem final para PRÉ-VACINA ($tipoLembrete) = $finalMessage, canal: $channelId")
                 }
             }
@@ -326,7 +317,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             }
 
             // Botões para confirmação de Consulta (APENAS para notificações 3h depois)
-            isConsulta && tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS -> {
+            isConsulta && isConfirmacao -> {
                 Log.d("NotificationWorker", "Adicionando botões para notificação PÓS-CONSULTA")
                 val excluirIntent = Intent(applicationContext, NotificationActionReceiver::class.java).apply {
                     action = ACTION_CONSULTA_COMPARECEU

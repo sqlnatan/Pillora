@@ -354,7 +354,7 @@ class VaccineViewModel : ViewModel() {
                 }
 
                 if (!lembretesProcessadosComSucesso) {
-                    Toast.makeText(context, "Vacina salva, mas houve problemas ao agendar alguns lembretes.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Vacina salva", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 Log.e(tag, "Erro ao processar lembretes para vacina", e)
