@@ -52,9 +52,6 @@ class BillingRepository(
 
     private var billingClient: BillingClient? = null
 
-    // Rastrear estado anterior para detectar downgrade
-    private var wasPremium = false
-
     // FONTE ÚNICA DA VERDADE: Apenas o BillingRepository controla este valor
     private val _isPremium = MutableStateFlow(false)
     val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
@@ -224,14 +221,15 @@ class BillingRepository(
             }
         }
 
-        // DETECTAR DOWNGRADE: Era premium e agora não é mais
-        if (wasPremium && !hasActivePremium) {
+        // ✅ CORREÇÃO: DETECTAR DOWNGRADE PERSISTENTE
+        // Comparamos o status atual do Google Play com o status salvo no cache local (UserPreferences).
+        // Isso resolve o problema de a variável volátil 'wasPremium' ser reiniciada ao abrir o app.
+        val previouslyWasPremium = userPreferences.getPremiumFromPrefs()
+
+        if (previouslyWasPremium && !hasActivePremium) {
             Log.d(TAG, "Downgrade detectado! Marcando necessidade de seleção.")
             userPreferences.setNeedsDowngradeSelection(true)
         }
-
-        // Atualizar estado anterior
-        wasPremium = hasActivePremium
 
         // Atualizar status premium (FONTE ÚNICA DA VERDADE)
         _isPremium.value = hasActivePremium

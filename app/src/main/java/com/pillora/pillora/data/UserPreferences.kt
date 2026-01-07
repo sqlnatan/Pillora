@@ -48,7 +48,11 @@ class UserPreferences(context: Context) {
         return sharedPreferences.getBoolean(KEY_ACCEPTED_TERMS, false)
     }
 
-    private fun getPremiumFromPrefs(): Boolean {
+    /**
+     * Retorna o status premium salvo no cache local.
+     * Público para permitir que o BillingRepository verifique o estado anterior de forma síncrona.
+     */
+    fun getPremiumFromPrefs(): Boolean {
         return sharedPreferences.getBoolean(KEY_IS_PREMIUM, false)
     }
 
