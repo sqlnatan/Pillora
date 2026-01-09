@@ -183,7 +183,7 @@ fun DowngradeSelectionScreen(
                             }
 
                             Text(
-                                text = "O período de carência de 5 dias terminou. Para continuar usando o Pillora gratuitamente, você precisa selecionar quais itens deseja manter ativos.",
+                                text = "Seu plano Premium terminou. Para continuar usando o Pillora no plano gratuito, selecione quais itens deseja manter ativos.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
