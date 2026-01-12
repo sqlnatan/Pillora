@@ -1,7 +1,10 @@
 package com.pillora.pillora.screens
 
 import android.app.Activity
+import android.content.Context
+import android.content.Intent
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,12 +26,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.viewmodel.SubscriptionViewModel
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
+import java.util.Currency
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,7 +96,7 @@ fun SubscriptionScreen(navController: NavController) {
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
 
-                androidx.compose.foundation.Image(
+                Image(
                     painter = painterResource(id = com.pillora.pillora.R.drawable.app_logo),
                     contentDescription = "Pillora Logo",
                     modifier = Modifier.size(80.dp)
@@ -156,6 +162,48 @@ fun SubscriptionScreen(navController: NavController) {
                 // Plano Anual (COM DESTAQUE)
                 yearlyProduct?.let { product ->
                     val price = product.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.formattedPrice ?: ""
+
+                    // Cálculo dinâmico da economia
+                    val monthlyPriceMicros = monthlyProduct?.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.priceAmountMicros ?: 0L
+                    val yearlyPriceMicros = product.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.priceAmountMicros ?: 0L
+                    val currencyCode = product.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.priceCurrencyCode ?: ""
+
+                    val savingsText = if (monthlyPriceMicros > 0 && yearlyPriceMicros > 0) {
+                        val totalMonthlyCost = monthlyPriceMicros * 12
+                        val savingsMicros = totalMonthlyCost - yearlyPriceMicros
+                        if (savingsMicros > 0) {
+                            val savingsAmount = savingsMicros / 1_000_000.0
+                            val formattedSavings = try {
+                                val format = NumberFormat.getCurrencyInstance()
+                                format.currency = Currency.getInstance(currencyCode)
+                                format.format(savingsAmount)
+                            } catch (_: Exception) {
+                                when (currencyCode) {
+                                    "BRL" -> String.format(Locale.getDefault(), "R$ %.2f", savingsAmount)
+                                    "USD" -> String.format(Locale.getDefault(), "$%.2f", savingsAmount)
+                                    else -> String.format(Locale.getDefault(), "%.2f %s", savingsAmount, currencyCode)
+                                }
+                            }
+                            "Economize $formattedSavings"
+                        } else {
+                            "Melhor custo-benefício"
+                        }
+                    } else {
+                        "Melhor custo-benefício"
+                    }
+
+                    val percentageSavings = if (monthlyPriceMicros > 0 && yearlyPriceMicros > 0) {
+                        val totalMonthlyCost = monthlyPriceMicros * 12.0
+                        val percentage = ((totalMonthlyCost - yearlyPriceMicros) / totalMonthlyCost) * 100
+                        if (percentage > 0) {
+                            String.format(Locale.getDefault(), "💰 Economize %d%% com o plano anual", percentage.toInt())
+                        } else {
+                            "💰 Melhor custo-benefício no plano anual"
+                        }
+                    } else {
+                        "💰 Economize com o plano anual"
+                    }
+
                     PlanCard(
                         title = "Anual",
                         subtitle = "Melhor custo-benefício",
@@ -164,9 +212,9 @@ fun SubscriptionScreen(navController: NavController) {
                         features = listOf(
                             PlanFeature("Tudo do plano mensal", Icons.Default.Check),
                             PlanFeature("⭐ Mais vantajoso", Icons.Default.Star, iconColor = Color(0xFFFFD700)),
-                            PlanFeature("Economize 2 meses", Icons.Default.Check)
+                            PlanFeature(savingsText, Icons.Default.Check)
                         ),
-                        description = "💰 Economize 16% com o plano anual",
+                        description = percentageSavings,
                         buttonText = if (isPremium) "Plano Ativo" else "Assinar Anual",
                         buttonEnabled = !isPremium,
                         isHighlighted = true,
@@ -340,13 +388,13 @@ data class PlanFeature(
     val iconColor: Color? = null
 )
 
-fun openPlayStoreManageSubscription(context: android.content.Context) {
+fun openPlayStoreManageSubscription(context: Context) {
     try {
-        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-            data = android.net.Uri.parse("https://play.google.com/store/account/subscriptions" )
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            data = "https://play.google.com/store/account/subscriptions".toUri()
         }
         context.startActivity(intent)
-    } catch (e: Exception) {
-        android.widget.Toast.makeText(context, "Erro ao abrir Play Store", android.widget.Toast.LENGTH_SHORT).show()
+    } catch (_: Exception) {
+        Toast.makeText(context, "Erro ao abrir Play Store", Toast.LENGTH_SHORT).show()
     }
 }
