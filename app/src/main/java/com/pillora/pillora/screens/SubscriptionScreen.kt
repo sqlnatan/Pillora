@@ -189,15 +189,19 @@ fun SubscriptionScreen(navController: NavController) {
                             "Melhor custo-benefício"
                         }
                     } else {
-                        "Economize 16%" // Fallback para o valor aproximado se não conseguir calcular
+                        "Melhor custo-benefício"
                     }
 
                     val percentageSavings = if (monthlyPriceMicros > 0 && yearlyPriceMicros > 0) {
                         val totalMonthlyCost = monthlyPriceMicros * 12.0
                         val percentage = ((totalMonthlyCost - yearlyPriceMicros) / totalMonthlyCost) * 100
-                        String.format(Locale.getDefault(), "💰 Economize %d%% com o plano anual", percentage.toInt())
+                        if (percentage > 0) {
+                            String.format(Locale.getDefault(), "💰 Economize %d%% com o plano anual", percentage.toInt())
+                        } else {
+                            "💰 Melhor custo-benefício no plano anual"
+                        }
                     } else {
-                        "💰 Economize 16% com o plano anual"
+                        "💰 Economize com o plano anual"
                     }
 
                     PlanCard(
