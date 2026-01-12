@@ -29,6 +29,9 @@ import androidx.navigation.NavController
 import com.pillora.pillora.PilloraApplication
 import com.pillora.pillora.viewmodel.SubscriptionViewModel
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
+import java.util.Currency
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -156,6 +159,44 @@ fun SubscriptionScreen(navController: NavController) {
                 // Plano Anual (COM DESTAQUE)
                 yearlyProduct?.let { product ->
                     val price = product.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.formattedPrice ?: ""
+                    
+                    // Cálculo dinâmico da economia
+                    val monthlyPriceMicros = monthlyProduct?.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.priceAmountMicros ?: 0L
+                    val yearlyPriceMicros = product.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.priceAmountMicros ?: 0L
+                    val currencyCode = product.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.priceCurrencyCode ?: ""
+
+                    val savingsText = if (monthlyPriceMicros > 0 && yearlyPriceMicros > 0) {
+                        val totalMonthlyCost = monthlyPriceMicros * 12
+                        val savingsMicros = totalMonthlyCost - yearlyPriceMicros
+                        if (savingsMicros > 0) {
+                            val savingsAmount = savingsMicros / 1_000_000.0
+                            val formattedSavings = try {
+                                val format = NumberFormat.getCurrencyInstance()
+                                format.currency = Currency.getInstance(currencyCode)
+                                format.format(savingsAmount)
+                            } catch (e: Exception) {
+                                when (currencyCode) {
+                                    "BRL" -> String.format("R$ %.2f", savingsAmount)
+                                    "USD" -> String.format("$%.2f", savingsAmount)
+                                    else -> String.format("%.2f %s", savingsAmount, currencyCode)
+                                }
+                            }
+                            "Economize $formattedSavings"
+                        } else {
+                            "Melhor custo-benefício"
+                        }
+                    } else {
+                        "Economize 16%" // Fallback para o valor aproximado se não conseguir calcular
+                    }
+
+                    val percentageSavings = if (monthlyPriceMicros > 0 && yearlyPriceMicros > 0) {
+                        val totalMonthlyCost = monthlyPriceMicros * 12.0
+                        val percentage = ((totalMonthlyCost - yearlyPriceMicros) / totalMonthlyCost) * 100
+                        "💰 Economize ${percentage.toInt()}% com o plano anual"
+                    } else {
+                        "💰 Economize 16% com o plano anual"
+                    }
+
                     PlanCard(
                         title = "Anual",
                         subtitle = "Melhor custo-benefício",
@@ -164,9 +205,9 @@ fun SubscriptionScreen(navController: NavController) {
                         features = listOf(
                             PlanFeature("Tudo do plano mensal", Icons.Default.Check),
                             PlanFeature("⭐ Mais vantajoso", Icons.Default.Star, iconColor = Color(0xFFFFD700)),
-                            PlanFeature("Economize 2 meses", Icons.Default.Check)
+                            PlanFeature(savingsText, Icons.Default.Check)
                         ),
-                        description = "💰 Economize 16% com o plano anual",
+                        description = percentageSavings,
                         buttonText = if (isPremium) "Plano Ativo" else "Assinar Anual",
                         buttonEnabled = !isPremium,
                         isHighlighted = true,
