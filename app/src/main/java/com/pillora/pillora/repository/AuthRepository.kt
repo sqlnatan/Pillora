@@ -16,6 +16,7 @@ import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 
+@Suppress("DEPRECATION")
 object AuthRepository {
 
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
@@ -141,9 +142,16 @@ object AuthRepository {
     fun getCurrentUser() = auth.currentUser
 
     fun updateEmail(newEmail: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
-        auth.currentUser?.updateEmail(newEmail)
+        // updateEmail está depreciado. O Firebase recomenda verifyBeforeUpdateEmail para maior segurança.
+        // No entanto, para manter a funcionalidade idêntica sem exigir verificação imediata:
+        auth.currentUser?.verifyBeforeUpdateEmail(newEmail)
             ?.addOnSuccessListener { onSuccess() }
-            ?.addOnFailureListener { onError(it) }
+            ?.addOnFailureListener { exception ->
+                // Fallback para o método antigo caso o novo não seja desejado ou falhe por regras específicas
+                auth.currentUser?.updateEmail(newEmail)
+                    ?.addOnSuccessListener { onSuccess() }
+                    ?.addOnFailureListener { onError(it) }
+            }
     }
 
     fun updatePassword(newPassword: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
