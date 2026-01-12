@@ -177,7 +177,7 @@ fun SubscriptionScreen(navController: NavController) {
                                 val format = NumberFormat.getCurrencyInstance()
                                 format.currency = Currency.getInstance(currencyCode)
                                 format.format(savingsAmount)
-                            } catch (e: Exception) {
+                            } catch (_: Exception) {
                                 when (currencyCode) {
                                     "BRL" -> String.format(Locale.getDefault(), "R$ %.2f", savingsAmount)
                                     "USD" -> String.format(Locale.getDefault(), "$%.2f", savingsAmount)
@@ -390,7 +390,7 @@ fun openPlayStoreManageSubscription(context: Context) {
             data = "https://play.google.com/store/account/subscriptions".toUri()
         }
         context.startActivity(intent)
-    } catch (ignored: Exception) {
+    } catch (_: Exception) {
         Toast.makeText(context, "Erro ao abrir Play Store", Toast.LENGTH_SHORT).show()
     }
 }
