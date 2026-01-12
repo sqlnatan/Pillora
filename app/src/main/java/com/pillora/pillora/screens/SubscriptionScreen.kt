@@ -1,7 +1,10 @@
 package com.pillora.pillora.screens
 
 import android.app.Activity
+import android.content.Context
+import android.content.Intent
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,7 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pillora.pillora.PilloraApplication
@@ -93,7 +96,7 @@ fun SubscriptionScreen(navController: NavController) {
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
 
-                androidx.compose.foundation.Image(
+                Image(
                     painter = painterResource(id = com.pillora.pillora.R.drawable.app_logo),
                     contentDescription = "Pillora Logo",
                     modifier = Modifier.size(80.dp)
@@ -176,9 +179,9 @@ fun SubscriptionScreen(navController: NavController) {
                                 format.format(savingsAmount)
                             } catch (e: Exception) {
                                 when (currencyCode) {
-                                    "BRL" -> String.format("R$ %.2f", savingsAmount)
-                                    "USD" -> String.format("$%.2f", savingsAmount)
-                                    else -> String.format("%.2f %s", savingsAmount, currencyCode)
+                                    "BRL" -> String.format(Locale.getDefault(), "R$ %.2f", savingsAmount)
+                                    "USD" -> String.format(Locale.getDefault(), "$%.2f", savingsAmount)
+                                    else -> String.format(Locale.getDefault(), "%.2f %s", savingsAmount, currencyCode)
                                 }
                             }
                             "Economize $formattedSavings"
@@ -192,7 +195,7 @@ fun SubscriptionScreen(navController: NavController) {
                     val percentageSavings = if (monthlyPriceMicros > 0 && yearlyPriceMicros > 0) {
                         val totalMonthlyCost = monthlyPriceMicros * 12.0
                         val percentage = ((totalMonthlyCost - yearlyPriceMicros) / totalMonthlyCost) * 100
-                        "💰 Economize ${percentage.toInt()}% com o plano anual"
+                        String.format(Locale.getDefault(), "💰 Economize %d%% com o plano anual", percentage.toInt())
                     } else {
                         "💰 Economize 16% com o plano anual"
                     }
@@ -381,13 +384,13 @@ data class PlanFeature(
     val iconColor: Color? = null
 )
 
-fun openPlayStoreManageSubscription(context: android.content.Context) {
+fun openPlayStoreManageSubscription(context: Context) {
     try {
-        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-            data = android.net.Uri.parse("https://play.google.com/store/account/subscriptions" )
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            data = "https://play.google.com/store/account/subscriptions".toUri()
         }
         context.startActivity(intent)
-    } catch (e: Exception) {
-        android.widget.Toast.makeText(context, "Erro ao abrir Play Store", android.widget.Toast.LENGTH_SHORT).show()
+    } catch (ignored: Exception) {
+        Toast.makeText(context, "Erro ao abrir Play Store", Toast.LENGTH_SHORT).show()
     }
 }
