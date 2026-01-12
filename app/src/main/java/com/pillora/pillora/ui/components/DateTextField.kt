@@ -41,8 +41,8 @@ fun DateTextField(
     val datePickerDialog = DatePickerDialog(
         context,
         { _: DatePicker, selectedYear: Int, selectedMonth: Int, selectedDay: Int ->
-            // Formata a data para DDMMYYYY (8 dígitos)
-            val formattedDate = String.format(Locale.US, "%02d%02d%d", selectedDay, selectedMonth + 1, selectedYear)
+            // Formata a data para DD/MM/YYYY (com barras)
+            val formattedDate = String.format(Locale.US, "%02d/%02d/%d", selectedDay, selectedMonth + 1, selectedYear)
             onDateSelected?.invoke(formattedDate)
         }, year, month, day
     )

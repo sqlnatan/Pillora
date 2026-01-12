@@ -16,11 +16,13 @@ import com.pillora.pillora.repository.MedicineRepository
 import com.pillora.pillora.PilloraApplication // Importação necessária
 import com.pillora.pillora.R
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 import java.text.SimpleDateFormat
 import com.pillora.pillora.receiver.NotificationActionReceiver
 import com.pillora.pillora.utils.DateTimeUtils
+import com.pillora.pillora.utils.AlarmScheduler
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
@@ -105,8 +107,19 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             val lembrete = lembreteDao.getLembreteById(lembreteId)
 
             if (lembrete != null) {
-                val medicineRepository = MedicineRepository // Usar o objeto singleton diretamente
-                val medicine = medicineRepository.getMedicineByIdSync(medicamentoId) // Assumindo que você pode adicionar um método síncrono ou usar o flow.
+                // Buscar o medicamento de forma assíncrona usando suspendCoroutine
+                val medicine = suspendCoroutine { continuation ->
+                    MedicineRepository.getMedicineById(
+                        medicineId = medicamentoId,
+                        onSuccess = { med ->
+                            continuation.resume(med)
+                        },
+                        onError = { error ->
+                            Log.e("NotificationWorker", "Erro ao buscar medicamento $medicamentoId para verificação de expiração", error)
+                            continuation.resume(null)
+                        }
+                    )
+                }
 
                 if (medicine != null && medicine.duration > 0) {
                     val endDateCal = try {
@@ -142,9 +155,61 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
         }
         // Fim da Lógica de cancelamento (Foco principal)
 
-        // O resto do código de notificação segue aqui...
+        // ==========================================
+        // REAGENDAMENTO AUTOMÁTICO DE ALARMES
+        // ==========================================
 
-        // ... (o código restante da função doWork) ...
+        // Reagendar alarme IMEDIATAMENTE após disparar (APENAS para medicamentos)
+        if (!isConsulta && !isVacina && !isReceita) {
+            Log.d("NotificationWorker", "Iniciando reagendamento automático para lembrete $lembreteId")
+
+            try {
+                val lembreteDao = (applicationContext as PilloraApplication).database.lembreteDao()
+                val lembreteAtual = lembreteDao.getLembreteById(lembreteId)
+
+                if (lembreteAtual != null && lembreteAtual.ativo) {
+                    // Buscar o medicamento de forma assíncrona usando suspendCoroutine
+                    val medicine = suspendCoroutine { continuation ->
+                        MedicineRepository.getMedicineById(
+                            medicineId = medicamentoId,
+                            onSuccess = { medicine ->
+                                continuation.resume(medicine)
+                            },
+                            onError = { error ->
+                                Log.e("NotificationWorker", "Erro ao buscar medicamento $medicamentoId", error)
+                                continuation.resume(null)
+                            }
+                        )
+                    }
+
+                    if (medicine != null) {
+                        // Usar o AlarmScheduler para reagendar
+                        val reagendado = AlarmScheduler.rescheduleNextOccurrence(
+                            context = applicationContext,
+                            lembrete = lembreteAtual,
+                            medicine = medicine
+                        )
+
+                        if (reagendado) {
+                            Log.d("NotificationWorker", "Alarme reagendado com sucesso para lembrete $lembreteId")
+                        } else {
+                            Log.d("NotificationWorker", "Alarme não reagendado (tratamento finalizado ou alarmes desabilitados) para lembrete $lembreteId")
+                        }
+                    } else {
+                        Log.w("NotificationWorker", "Medicamento $medicamentoId não encontrado. Não foi possível reagendar.")
+                    }
+                } else {
+                    Log.d("NotificationWorker", "Lembrete $lembreteId não encontrado ou inativo. Não reagendando.")
+                }
+            } catch (e: Exception) {
+                Log.e("NotificationWorker", "Erro ao reagendar alarme para lembrete $lembreteId", e)
+                // Não falhar o worker por causa de erro no reagendamento
+            }
+        }
+
+        // ==========================================
+        // FIM DO REAGENDAMENTO
+        // ==========================================
 
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -297,7 +362,6 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setVibrate(longArrayOf(0, 1000, 500, 1000, 500, 1000)) // Vibração de alarme
                 .setLights(0xFF0000FF.toInt(), 1000, 500)
-                .setFullScreenIntent(pendingIntent, true)
         }
 
         // Adicionar botões de ação APENAS quando necessário

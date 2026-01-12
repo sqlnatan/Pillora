@@ -85,9 +85,10 @@ class HandleNotificationActionWorker(val appContext: Context, workerParams: Work
                             Log.d("HandleActionWorker", "Rastreamento de estoque (trackStock) desativado para o medicamento $medicamentoId. Estoque não atualizado.")
                         }
                     }
-                    // Marcar lembrete como inativo APENAS se ele existir
-                    lembrete?.let { lembreteDao.updateLembrete(it.copy(ativo = false)) }
-                    Log.d("HandleActionWorker", "Lembrete $lembreteId (medicamento) marcado como inativo, se encontrado.")
+                    // NÃO desativar o lembrete para medicamentos recorrentes!
+                    // O reagendamento automático já cuida de agendar o próximo alarme.
+                    // Desativar aqui impediria que o medicamento toque novamente.
+                    Log.d("HandleActionWorker", "Estoque atualizado para medicamento $medicamentoId. Lembrete $lembreteId permanece ativo para próximas ocorrências.")
                 }
 
                 NotificationWorker.ACTION_CONSULTA_COMPARECEU -> {

@@ -7,10 +7,15 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import com.pillora.pillora.model.Lembrete
+import com.pillora.pillora.model.Medicine
 import com.pillora.pillora.receiver.AlarmReceiver
+import com.pillora.pillora.PilloraApplication
+import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import com.pillora.pillora.workers.NotificationWorker
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 object AlarmScheduler {
 
@@ -99,5 +104,129 @@ object AlarmScheduler {
             pendingIntent.cancel()
             Log.d(TAG, "Alarme cancelado para Lembrete ID: $lembreteId")
         }
+    }
+
+    /**
+     * Reagenda um alarme de medicamento para a próxima ocorrência.
+     * Calcula automaticamente baseado no tipo de frequência (vezes_dia ou a_cada_x_horas).
+     *
+     * @param context Contexto da aplicação
+     * @param lembrete Lembrete atual que precisa ser reagendado
+     * @param medicine Medicamento associado (para verificar duração e tipo)
+     * @return true se reagendou com sucesso, false se o tratamento acabou
+     */
+    suspend fun rescheduleNextOccurrence(
+        context: Context,
+        lembrete: Lembrete,
+        medicine: Medicine
+    ): Boolean = withContext(Dispatchers.IO) {
+        Log.d(TAG, "Iniciando reagendamento para lembrete ${lembrete.id}")
+
+        // Verificar se o medicamento tem alarmes habilitados
+        if (!medicine.alarmsEnabled) {
+            Log.d(TAG, "Alarmes desabilitados para medicamento ${medicine.id}. Não reagendando.")
+            return@withContext false
+        }
+
+        val lembreteDao = (context.applicationContext as PilloraApplication).database.lembreteDao()
+
+        // Calcular próxima ocorrência baseado no tipo de frequência
+        val proximaOcorrencia = when (medicine.frequencyType) {
+            "vezes_dia" -> calcularProximaOcorrenciaVezesDia(lembrete)
+            "a_cada_x_horas" -> calcularProximaOcorrenciaIntervalo(lembrete, medicine)
+            else -> {
+                Log.e(TAG, "Tipo de frequência desconhecido: ${medicine.frequencyType}")
+                return@withContext false
+            }
+        }
+
+        if (proximaOcorrencia == null) {
+            Log.d(TAG, "Não há próxima ocorrência para lembrete ${lembrete.id}.")
+            lembreteDao.updateLembrete(lembrete.copy(ativo = false))
+            return@withContext false
+        }
+
+        // Verificar se a próxima ocorrência está dentro do período de tratamento
+        if (medicine.duration > 0) {
+            val endDateCal = try {
+                val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.US)
+                val startDateCal = Calendar.getInstance().apply {
+                    time = sdf.parse(medicine.startDate) ?: throw IllegalArgumentException("Invalid start date")
+                }
+                (startDateCal.clone() as Calendar).apply {
+                    add(Calendar.DAY_OF_YEAR, medicine.duration)
+                    // Ajustar para o fim do último dia
+                    add(Calendar.DAY_OF_YEAR, -1)
+                    set(Calendar.HOUR_OF_DAY, 23)
+                    set(Calendar.MINUTE, 59)
+                    set(Calendar.SECOND, 59)
+                    set(Calendar.MILLISECOND, 999)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Erro ao calcular data de fim: ${e.message}")
+                return@withContext false
+            }
+
+            if (proximaOcorrencia > endDateCal.timeInMillis) {
+                Log.d(TAG, "Próxima ocorrência está após o fim do tratamento. Desativando lembrete ${lembrete.id}.")
+                lembreteDao.updateLembrete(lembrete.copy(ativo = false))
+                return@withContext false
+            }
+        }
+
+        // Atualizar o lembrete com a nova próxima ocorrência
+        val lembreteAtualizado = lembrete.copy(proximaOcorrenciaMillis = proximaOcorrencia)
+        lembreteDao.updateLembrete(lembreteAtualizado)
+
+        // Reagendar o alarme
+        scheduleAlarm(context, lembreteAtualizado)
+
+        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        Log.d(TAG, "Lembrete ${lembrete.id} reagendado para ${sdf.format(proximaOcorrencia)}")
+        return@withContext true
+    }
+
+    /**
+     * Calcula a próxima ocorrência para medicamentos do tipo "vezes_dia".
+     * Exemplo: 3x ao dia às 8h, 13h, 18h → próxima ocorrência é no mesmo horário do dia seguinte
+     */
+    private fun calcularProximaOcorrenciaVezesDia(lembrete: Lembrete): Long {
+        val now = Calendar.getInstance()
+        val proximaOcorrenciaCalendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, lembrete.hora)
+            set(Calendar.MINUTE, lembrete.minuto)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+
+            // Se o horário de hoje já passou, agendar para amanhã
+            if (timeInMillis <= now.timeInMillis) {
+                add(Calendar.DAY_OF_MONTH, 1)
+            }
+        }
+
+        return proximaOcorrenciaCalendar.timeInMillis
+    }
+
+    /**
+     * Calcula a próxima ocorrência para medicamentos do tipo "a_cada_x_horas".
+     * Exemplo: A cada 8 horas → adiciona 8 horas à última ocorrência
+     */
+    private fun calcularProximaOcorrenciaIntervalo(lembrete: Lembrete, medicine: Medicine): Long? {
+        val intervalHours = medicine.intervalHours ?: return null
+        if (intervalHours <= 0) return null
+
+        val now = Calendar.getInstance()
+        val proximaOcorrenciaCalendar = Calendar.getInstance().apply {
+            timeInMillis = lembrete.proximaOcorrenciaMillis
+            // Adicionar o intervalo
+            add(Calendar.HOUR_OF_DAY, intervalHours)
+        }
+
+        // Se ainda estiver no passado (improvável, mas por segurança)
+        while (proximaOcorrenciaCalendar.timeInMillis <= now.timeInMillis) {
+            proximaOcorrenciaCalendar.add(Calendar.HOUR_OF_DAY, intervalHours)
+        }
+
+        return proximaOcorrenciaCalendar.timeInMillis
     }
 }
