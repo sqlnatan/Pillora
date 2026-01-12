@@ -210,8 +210,8 @@ fun SubscriptionScreen(navController: NavController) {
                         price = price,
                         period = "/ano",
                         features = listOf(
-                            PlanFeature("Tudo do plano mensal", Icons.Default.Check),
                             PlanFeature("⭐ Mais vantajoso", Icons.Default.Star, iconColor = Color(0xFFFFD700)),
+                            PlanFeature("Tudo do plano mensal", Icons.Default.Check),
                             PlanFeature(savingsText, Icons.Default.Check)
                         ),
                         description = percentageSavings,
