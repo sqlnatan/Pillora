@@ -668,7 +668,9 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                         },
                         label = "Data de Início (DD/MM/AAAA)",
                         onDateSelected = { newDate ->
-                            startDate = newDate
+                            // CORREÇÃO: Remove as barras da data selecionada pelo DatePicker
+                            // para manter a consistência com a DateMask que espera apenas dígitos.
+                            startDate = newDate.replace("/", "")
                             startDateError = ""
                         },
                         isError = startDateError.isNotEmpty(),

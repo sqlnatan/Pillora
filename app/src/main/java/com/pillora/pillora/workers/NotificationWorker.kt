@@ -349,6 +349,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
+            .setFullScreenIntent(pendingIntent, true)
 
         // Configurar prioridade, vibração e fullScreenIntent
         if (isReceita || (isConsulta && tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) || (isVacina && isConfirmacao)) {
