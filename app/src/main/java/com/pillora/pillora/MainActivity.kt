@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -37,6 +38,7 @@ import com.pillora.pillora.screens.DrawerContent
 import com.pillora.pillora.ui.theme.PilloraTheme
 import com.pillora.pillora.viewmodel.ThemePreference
 import com.pillora.pillora.utils.SupportDialog
+import com.pillora.pillora.utils.PermissionHelper
 
 class MainActivity : ComponentActivity() {
 
@@ -90,7 +92,7 @@ class MainActivity : ComponentActivity() {
             var currentThemePreference by remember {
                 mutableStateOf(getInitialThemePreference())
             }
-            var showSupportDialog by remember { mutableStateOf(false) } // NOVO: Estado para o Dialog de Suporte
+            var showSupportDialog by remember { mutableStateOf(false) }
 
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
@@ -130,6 +132,7 @@ class MainActivity : ComponentActivity() {
                     "medicine_form",
                     "medicine_list",
                     "settings",
+                    "permissions",
                     "consultation_list",
                     "vaccine_list",
                     "recipe_list",
@@ -147,18 +150,37 @@ class MainActivity : ComponentActivity() {
                     currentRoute != null && currentRoute !in noDrawerRoutes
 
 
-                // Notificação Android 13+
+                // ========== GERENCIAMENTO DE PERMISSÕES ==========
+                // Estado para controlar se já solicitou permissões
+                var hasRequestedPermissions by rememberSaveable { mutableStateOf(false) }
+
+                // Permissão de notificações (Android 13+)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    val permissionState =
-                        rememberPermissionState(
-                            android.Manifest.permission.POST_NOTIFICATIONS
-                        )
-                    LaunchedEffect(permissionState.status) {
-                        if (
-                            !permissionState.status.isGranted &&
-                            !permissionState.status.shouldShowRationale
+                    val notificationPermissionState = rememberPermissionState(
+                        android.Manifest.permission.POST_NOTIFICATIONS
+                    )
+
+                    LaunchedEffect(notificationPermissionState.status) {
+                        if (!hasRequestedPermissions &&
+                            !notificationPermissionState.status.isGranted &&
+                            !notificationPermissionState.status.shouldShowRationale
                         ) {
-                            permissionState.launchPermissionRequest()
+                            notificationPermissionState.launchPermissionRequest()
+                            hasRequestedPermissions = true
+                        }
+                    }
+                }
+
+                // Verificar permissão de alarmes exatos (Android 12+)
+                // Esta permissão não pode ser solicitada automaticamente, apenas verificada
+                LaunchedEffect(Unit) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        val hasExactAlarm = PermissionHelper.hasExactAlarmPermission(context)
+                        if (!hasExactAlarm) {
+                            // Log para debug - não solicitar automaticamente
+                            Log.d("MainActivity", "SCHEDULE_EXACT_ALARM não concedida. Usuário pode conceder nas Configurações.")
+                        } else {
+                            Log.d("MainActivity", "SCHEDULE_EXACT_ALARM concedida. Alarmes exatos disponíveis.")
                         }
                     }
                 }
@@ -190,7 +212,7 @@ class MainActivity : ComponentActivity() {
                                     drawerState = drawerState,
                                     authRepository = AuthRepository,
                                     context = context,
-                                    onShowSupportDialog = { showSupportDialog = true } // NOVO: Callback
+                                    onShowSupportDialog = { showSupportDialog = true }
                                 )
                             }
                         }
@@ -201,7 +223,7 @@ class MainActivity : ComponentActivity() {
                     AppScaffold(navController)
                 }
 
-                // NOVO: Exibir o Dialog de Suporte
+                // Exibir o Dialog de Suporte
                 if (showSupportDialog) {
                     SupportDialog(onDismiss = { })
                 }
@@ -312,4 +334,3 @@ fun BottomNavigationBar(
         }
     }
 }
-

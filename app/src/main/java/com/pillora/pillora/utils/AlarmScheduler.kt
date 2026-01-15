@@ -21,6 +21,11 @@ object AlarmScheduler {
 
     private const val TAG = "AlarmScheduler"
 
+    /**
+     * Agenda um alarme para um lembrete.
+     * Para MEDICAMENTOS: usa setExactAndAllowWhileIdle (alarme exato)
+     * Para CONSULTAS, VACINAS, RECEITAS: usa setAndAllowWhileIdle (alarme inexato)
+     */
     fun scheduleAlarm(context: Context, lembrete: Lembrete) {
         if (!lembrete.ativo) {
             Log.d(TAG, "Lembrete ${lembrete.id} está inativo, não agendando.")
@@ -37,8 +42,8 @@ object AlarmScheduler {
             putExtra(NotificationWorker.EXTRA_PROXIMA_OCORRENCIA_MILLIS, lembrete.proximaOcorrenciaMillis)
             putExtra(NotificationWorker.EXTRA_HORA, lembrete.hora)
             putExtra(NotificationWorker.EXTRA_MINUTO, lembrete.minuto)
-            putExtra(NotificationWorker.EXTRA_IS_CONSULTA, false)
-            putExtra(NotificationWorker.EXTRA_IS_VACINA, false)
+            putExtra(NotificationWorker.EXTRA_IS_CONSULTA, lembrete.isConsulta)
+            putExtra(NotificationWorker.EXTRA_IS_VACINA, lembrete.isVacina)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
@@ -68,22 +73,81 @@ object AlarmScheduler {
         }
 
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                // setAndAllowWhileIdle garante que o alarme toque mesmo em economia de bateria (Doze Mode)
-                // É o método recomendado para apps de saúde/medicamentos na Play Store.
-                alarmManager.setAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerAtMillis,
-                    pendingIntent
-                )
+            // Determinar se é medicamento ou não (consulta, vacina, receita)
+            val isMedicamento = !lembrete.isConsulta && !lembrete.isVacina && !lembrete.isReceita
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // Android 12+ (API 31+)
+                if (isMedicamento) {
+                    // Para medicamentos: usar alarme exato
+                    // Verificar se temos permissão para alarmes exatos
+                    if (alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setExactAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP,
+                            triggerAtMillis,
+                            pendingIntent
+                        )
+                        Log.d(TAG, "Alarme EXATO agendado para MEDICAMENTO (Lembrete ID: ${lembrete.id}) em $triggerAtMillis")
+                    } else {
+                        // Fallback: usar alarme inexato se não tiver permissão
+                        Log.w(TAG, "Permissão SCHEDULE_EXACT_ALARM não concedida. Usando alarme inexato para medicamento.")
+                        alarmManager.setAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP,
+                            triggerAtMillis,
+                            pendingIntent
+                        )
+                    }
+                } else {
+                    // Para consultas, vacinas, receitas: usar alarme inexato
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerAtMillis,
+                        pendingIntent
+                    )
+                    val tipo = when {
+                        lembrete.isConsulta -> "CONSULTA"
+                        lembrete.isVacina -> "VACINA"
+                        lembrete.isReceita -> "RECEITA"
+                        else -> "OUTRO"
+                    }
+                    Log.d(TAG, "Alarme INEXATO agendado para $tipo (Lembrete ID: ${lembrete.id}) em $triggerAtMillis")
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // Android 6.0 - 11 (API 23-30)
+                if (isMedicamento) {
+                    // Para medicamentos: usar alarme exato
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerAtMillis,
+                        pendingIntent
+                    )
+                    Log.d(TAG, "Alarme EXATO agendado para MEDICAMENTO (Lembrete ID: ${lembrete.id}) em $triggerAtMillis")
+                } else {
+                    // Para consultas, vacinas, receitas: usar alarme inexato
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerAtMillis,
+                        pendingIntent
+                    )
+                    val tipo = when {
+                        lembrete.isConsulta -> "CONSULTA"
+                        lembrete.isVacina -> "VACINA"
+                        lembrete.isReceita -> "RECEITA"
+                        else -> "OUTRO"
+                    }
+                    Log.d(TAG, "Alarme INEXATO agendado para $tipo (Lembrete ID: ${lembrete.id}) em $triggerAtMillis")
+                }
             } else {
+                // Android < 6.0 (API < 23)
                 alarmManager.set(
                     AlarmManager.RTC_WAKEUP,
                     triggerAtMillis,
                     pendingIntent
                 )
+                Log.d(TAG, "Alarme agendado (API < 23) para Lembrete ID: ${lembrete.id} em $triggerAtMillis")
             }
-            Log.d(TAG, "Alarme agendado com setAndAllowWhileIdle para Lembrete ID: ${lembrete.id} em $triggerAtMillis")
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Erro de permissão ao agendar alarme. Verifique se SCHEDULE_EXACT_ALARM foi concedida.", e)
         } catch (e: Exception) {
             Log.e(TAG, "Erro ao agendar alarme", e)
         }

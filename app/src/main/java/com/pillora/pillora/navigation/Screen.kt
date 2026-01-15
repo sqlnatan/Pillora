@@ -14,6 +14,8 @@ enum class Screen(val route: String) {
     Profile("profile"),
     Reports("reports"),
     Subscription("subscription"),
-    DowngradeSelection("downgrade_selection")
-
+    DowngradeSelection("downgrade_selection"),
+    Permissions("permissions"),
+    RecipeList("recipe_list"),
+    RecipeForm("recipe_form")
 }

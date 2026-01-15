@@ -260,6 +260,7 @@ class ConsultationViewModel : ViewModel() {
             val lembretesInfo = DateTimeUtils.calcularLembretesConsulta(consultaDate, consultaTime)
             lembretesInfo.forEach { lembreteInfo ->
                 val calendar = Calendar.getInstance().apply { timeInMillis = lembreteInfo.timestamp }
+
                 val lembrete = Lembrete(
                     id = 0,
                     medicamentoId = consultationId,
@@ -271,6 +272,7 @@ class ConsultationViewModel : ViewModel() {
                     observacao = "Dr(a). ${consultation.doctorName} em ${consultation.location}. ${if (consultation.observations.isNotEmpty()) "Obs: ${consultation.observations}" else ""}",
                     proximaOcorrenciaMillis = lembreteInfo.timestamp,
                     ativo = true,
+                    isConsulta = true,
                     isSilencioso = consultation.isSilencioso,
                     toqueAlarmeUri = consultation.toqueAlarmeUri
                 )
@@ -300,8 +302,8 @@ class ConsultationViewModel : ViewModel() {
             .putInt(NotificationWorker.EXTRA_HORA, lembrete.hora)
             .putInt(NotificationWorker.EXTRA_MINUTO, lembrete.minuto)
             .putBoolean(NotificationWorker.EXTRA_IS_CONSULTA, true)
-           .putBoolean(NotificationWorker.EXTRA_IS_CONFIRMACAO, true)
-        .build()
+            .putBoolean(NotificationWorker.EXTRA_IS_CONFIRMACAO, true)
+            .build()
 
 
         val delay = lembrete.proximaOcorrenciaMillis - System.currentTimeMillis()
@@ -316,6 +318,10 @@ class ConsultationViewModel : ViewModel() {
         WorkManager.getInstance(context).enqueue(request)
     }
 
+    /**
+     * Agenda alarme para consulta usando setAndAllowWhileIdle (alarme inexato).
+     * Consultas não precisam de alarmes exatos.
+     */
     private fun agendarAlarmeConsulta(context: Context, lembrete: Lembrete) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, AlarmReceiver::class.java).apply {
@@ -328,8 +334,6 @@ class ConsultationViewModel : ViewModel() {
             putExtra(NotificationWorker.EXTRA_HORA, lembrete.hora)
             putExtra(NotificationWorker.EXTRA_MINUTO, lembrete.minuto)
             putExtra(NotificationWorker.EXTRA_IS_CONSULTA, true)
-            //putExtra(NotificationWorker.EXTRA_IS_SILENCIOSO, lembrete.isSilencioso)
-            //putExtra(NotificationWorker.EXTRA_TOQUE_ALARME_URI, lembrete.toqueAlarmeUri)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
@@ -342,18 +346,25 @@ class ConsultationViewModel : ViewModel() {
         val triggerAtMillis = lembrete.proximaOcorrenciaMillis
         if (triggerAtMillis < System.currentTimeMillis()) return
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                triggerAtMillis,
-                pendingIntent
-            )
-        } else {
-            alarmManager.set(
-                AlarmManager.RTC_WAKEUP,
-                triggerAtMillis,
-                pendingIntent
-            )
+        try {
+            // CONSULTAS usam setAndAllowWhileIdle (alarme inexato)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+                Log.d(tag, "Alarme INEXATO agendado para CONSULTA (Lembrete ID: ${lembrete.id})")
+            } else {
+                alarmManager.set(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+                Log.d(tag, "Alarme agendado para CONSULTA (API < 23, Lembrete ID: ${lembrete.id})")
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "Erro ao agendar alarme de consulta", e)
         }
     }
 

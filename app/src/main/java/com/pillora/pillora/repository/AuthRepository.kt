@@ -55,12 +55,17 @@ object AuthRepository {
 
             // Tenta fazer login com a credencial do Google
             auth.signInWithCredential(credential)
-                .addOnSuccessListener { onSuccess() }
+                .addOnSuccessListener { authResult ->
+                    Log.d(TAG, "Login com Google bem-sucedido. UID: ${authResult.user?.uid}")
+                    onSuccess()
+                }
                 .addOnFailureListener { exception ->
                     // Se houver colisão (e-mail já existe com outro provedor)
                     if (exception is FirebaseAuthUserCollisionException) {
                         Log.d(TAG, "Colisão de usuário detectada no Google Sign-In")
-                        linkGoogleWithExistingAccount(credential, onSuccess, onError)
+                        // CORRIGIDO: Não vincular automaticamente, apenas fazer login
+                        // O Firebase permite login com múltiplos provedores no mesmo email
+                        handleCollisionOnGoogleSignIn(account.email ?: "", credential, onSuccess, onError)
                     } else {
                         onError(exception)
                     }
@@ -71,22 +76,82 @@ object AuthRepository {
     }
 
     /**
-     * Vincula a credencial do Google a uma conta de e-mail existente.
+     * CORRIGIDO: Trata colisão de email no login com Google.
+     * Ao invés de vincular (que sobrescreve), apenas faz login.
+     * O Firebase suporta múltiplos provedores para o mesmo email.
      */
-    private fun linkGoogleWithExistingAccount(
+    private fun handleCollisionOnGoogleSignIn(
+        email: String,
+        googleCredential: AuthCredential,
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        // Verificar quais métodos de login estão disponíveis para este email
+        auth.fetchSignInMethodsForEmail(email)
+            .addOnSuccessListener { result ->
+                val signInMethods = result.signInMethods ?: emptyList()
+                Log.d(TAG, "Métodos de login existentes para $email: $signInMethods")
+
+                if (signInMethods.contains(EmailAuthProvider.EMAIL_PASSWORD_SIGN_IN_METHOD)) {
+                    // Conta criada com email/senha existe
+                    // CORRIGIDO: Apenas fazer login com Google sem remover a senha
+                    Log.d(TAG, "Conta com email/senha detectada. Fazendo login com Google sem remover senha.")
+
+                    // Tentar login novamente (às vezes a segunda tentativa funciona)
+                    auth.signInWithCredential(googleCredential)
+                        .addOnSuccessListener {
+                            Log.d(TAG, "Login com Google bem-sucedido após detecção de colisão")
+                            onSuccess()
+                        }
+                        .addOnFailureListener { error ->
+                            Log.e(TAG, "Erro ao fazer login com Google após colisão", error)
+                            onError(Exception("Este email já está em uso. Tente fazer login com email e senha primeiro, depois vincule o Google nas configurações."))
+                        }
+                } else {
+                    // Outro provedor (improvável, mas tratar)
+                    onError(Exception("Este email já está em uso com outro método de login."))
+                }
+            }
+            .addOnFailureListener { error ->
+                Log.e(TAG, "Erro ao verificar métodos de login", error)
+                onError(error)
+            }
+    }
+
+    /**
+     * NOVO: Vincula a credencial do Google a uma conta de email/senha existente.
+     * Deve ser chamado APENAS quando o usuário está logado e quer adicionar Google como método alternativo.
+     * NÃO remove a senha existente.
+     */
+    fun linkGoogleAccount(
         credential: AuthCredential,
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit
     ) {
-        // Para vincular, o Firebase exige que o usuário esteja "logado" ou que usemos fetchSignInMethods
-        // Mas a forma mais moderna é tratar o erro de colisão.
-        // No caso do Google, se o e-mail for o mesmo, o Firebase pode permitir o vínculo automático
-        // se a configuração "One account per email address" estiver ativa no Console.
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
+            onError(Exception("Usuário não está logado. Faça login primeiro."))
+            return
+        }
 
-        // Tentativa de vínculo manual se necessário:
-        auth.currentUser?.linkWithCredential(credential)
-            ?.addOnSuccessListener { onSuccess() }
-            ?.addOnFailureListener { onError(it) }
+        // Verificar se o Google já está vinculado
+        val providers = currentUser.providerData.map { it.providerId }
+        if (providers.contains(GoogleAuthProvider.PROVIDER_ID)) {
+            Log.d(TAG, "Google já está vinculado a esta conta")
+            onSuccess() // Já vinculado, considerar sucesso
+            return
+        }
+
+        // Vincular Google à conta atual (mantém email/senha)
+        currentUser.linkWithCredential(credential)
+            .addOnSuccessListener {
+                Log.d(TAG, "Google vinculado com sucesso à conta existente")
+                onSuccess()
+            }
+            .addOnFailureListener { error ->
+                Log.e(TAG, "Erro ao vincular Google", error)
+                onError(error)
+            }
     }
 
     // -----------------------
@@ -95,26 +160,67 @@ object AuthRepository {
 
     fun signIn(email: String, password: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
         auth.signInWithEmailAndPassword(email, password)
-            .addOnSuccessListener { onSuccess() }
+            .addOnSuccessListener { authResult ->
+                Log.d(TAG, "Login com email/senha bem-sucedido. UID: ${authResult.user?.uid}")
+                onSuccess()
+            }
             .addOnFailureListener { exception ->
-                // Se o erro for que a conta existe mas com outro provedor (Google)
-                // O Firebase geralmente não lança Collision no signIn, mas sim no signUp.
-                // No signIn, ele apenas diz que a senha está errada se você tentar entrar com senha
-                // em uma conta que só tem Google.
-                onError(exception)
+                // CORRIGIDO: Melhor tratamento de erros
+                Log.e(TAG, "Erro ao fazer login com email/senha", exception)
+
+                // Verificar se a conta existe mas com outro provedor
+                auth.fetchSignInMethodsForEmail(email)
+                    .addOnSuccessListener { result ->
+                        val signInMethods = result.signInMethods ?: emptyList()
+
+                        if (signInMethods.isEmpty()) {
+                            // Conta não existe
+                            onError(Exception("Email ou senha incorretos."))
+                        } else if (!signInMethods.contains(EmailAuthProvider.EMAIL_PASSWORD_SIGN_IN_METHOD)) {
+                            // Conta existe mas sem senha (apenas Google)
+                            onError(Exception("Esta conta foi criada com Google. Faça login com Google ou defina uma senha nas configurações."))
+                        } else {
+                            // Senha incorreta
+                            onError(exception)
+                        }
+                    }
+                    .addOnFailureListener {
+                        // Fallback: retornar erro original
+                        onError(exception)
+                    }
             }
     }
 
     fun signUp(email: String, password: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
         auth.createUserWithEmailAndPassword(email, password)
-            .addOnSuccessListener { onSuccess() }
+            .addOnSuccessListener { authResult ->
+                Log.d(TAG, "Conta criada com email/senha. UID: ${authResult.user?.uid}")
+                onSuccess()
+            }
             .addOnFailureListener { exception ->
                 if (exception is FirebaseAuthUserCollisionException) {
-                    // Se o usuário já existe (ex: via Google), tentamos vincular a senha à conta
-                    Log.d(TAG, "Colisão detectada no SignUp. Tentando vincular e-mail/senha.")
-                    // Nota: Para vincular e-mail/senha a uma conta Google existente,
-                    // o usuário precisaria estar logado via Google primeiro.
-                    onError(Exception("Este e-mail já está em uso com outro método de login (Google). Faça login com o Google primeiro."))
+                    // CORRIGIDO: Verificar se a conta tem senha ou apenas Google
+                    Log.d(TAG, "Colisão detectada no SignUp. Verificando provedores...")
+
+                    auth.fetchSignInMethodsForEmail(email)
+                        .addOnSuccessListener { result ->
+                            val signInMethods = result.signInMethods ?: emptyList()
+
+                            if (signInMethods.contains(EmailAuthProvider.EMAIL_PASSWORD_SIGN_IN_METHOD)) {
+                                // Conta com senha já existe
+                                onError(Exception("Este email já está cadastrado. Faça login."))
+                            } else if (signInMethods.contains(GoogleAuthProvider.GOOGLE_SIGN_IN_METHOD)) {
+                                // Conta existe apenas com Google
+                                onError(Exception("Este email já está em uso com login do Google. Faça login com o Google primeiro e depois defina uma senha nas configurações."))
+                            } else {
+                                // Outro provedor
+                                onError(Exception("Este email já está em uso com outro método de login."))
+                            }
+                        }
+                        .addOnFailureListener {
+                            // Fallback: mensagem genérica
+                            onError(Exception("Este email já está em uso."))
+                        }
                 } else {
                     onError(exception)
                 }
@@ -141,6 +247,28 @@ object AuthRepository {
     fun isUserAuthenticated(): Boolean = auth.currentUser != null
     fun getCurrentUser() = auth.currentUser
 
+    /**
+     * NOVO: Retorna lista de provedores vinculados à conta atual.
+     * Útil para mostrar ao usuário quais métodos de login estão ativos.
+     */
+    fun getLinkedProviders(): List<String> {
+        return auth.currentUser?.providerData?.map { it.providerId } ?: emptyList()
+    }
+
+    /**
+     * NOVO: Verifica se a conta tem senha definida.
+     */
+    fun hasPasswordProvider(): Boolean {
+        return getLinkedProviders().contains(EmailAuthProvider.PROVIDER_ID)
+    }
+
+    /**
+     * NOVO: Verifica se a conta tem Google vinculado.
+     */
+    fun hasGoogleProvider(): Boolean {
+        return getLinkedProviders().contains(GoogleAuthProvider.PROVIDER_ID)
+    }
+
     fun updateEmail(newEmail: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
         // updateEmail está depreciado. O Firebase recomenda verifyBeforeUpdateEmail para maior segurança.
         // No entanto, para manter a funcionalidade idêntica sem exigir verificação imediata:
@@ -156,7 +284,10 @@ object AuthRepository {
 
     fun updatePassword(newPassword: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
         auth.currentUser?.updatePassword(newPassword)
-            ?.addOnSuccessListener { onSuccess() }
+            ?.addOnSuccessListener {
+                Log.d(TAG, "Senha atualizada com sucesso")
+                onSuccess()
+            }
             ?.addOnFailureListener { onError(it) }
     }
 

@@ -442,7 +442,10 @@ class VaccineViewModel : ViewModel() {
         }
     }
 
-    // Função para agendar alarme de vacina (24h antes ou 2h antes)
+    /**
+     * Agenda alarme para vacina usando setAndAllowWhileIdle (alarme inexato).
+     * Vacinas não precisam de alarmes exatos.
+     */
     private fun agendarAlarmeVacina(context: Context, lembrete: Lembrete, horaVacina: String) {
         try {
             val agora = System.currentTimeMillis()
@@ -471,20 +474,23 @@ class VaccineViewModel : ViewModel() {
             )
 
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+            // VACINAS usam setAndAllowWhileIdle (alarme inexato)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 alarmManager.setAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     lembrete.proximaOcorrenciaMillis,
                     pendingIntent
                 )
+                Log.d(tag, "Alarme INEXATO agendado para VACINA (Lembrete ID: ${lembrete.id})")
             } else {
                 alarmManager.set(
                     AlarmManager.RTC_WAKEUP,
                     lembrete.proximaOcorrenciaMillis,
                     pendingIntent
                 )
+                Log.d(tag, "Alarme agendado para VACINA (API < 23, Lembrete ID: ${lembrete.id})")
             }
-            Log.d(tag, "Alarme agendado com sucesso para Lembrete ID: ${lembrete.id}")
 
         } catch (e: Exception) {
             Log.e(tag, "Erro ao agendar alarme para Lembrete ID: ${lembrete.id}", e)

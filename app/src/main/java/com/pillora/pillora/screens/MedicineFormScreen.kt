@@ -1163,13 +1163,14 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                                                 }
                                                             }
                                                         } else if (frequencyType.value == "intervalo" || frequencyType.value == "a_cada_x_horas") {
-                                                            // MODIFICADO: Lógica para "a cada X horas" usando DateTimeUtils
+                                                            // CORRIGIDO: Criar apenas o PRIMEIRO lembrete para "a cada X horas"
+                                                            // O reagendamento automático cuidará das próximas ocorrências
                                                             val intervalH = medicine.intervalHours
                                                             val startT = medicine.startTime
                                                             if (intervalH != null && intervalH > 0 && startT != null) {
                                                                 val durationD = if (medicine.duration == -1) -1 else medicine.duration
 
-                                                                // Usar DateTimeUtils para calcular todas as ocorrências futuras
+                                                                // Calcular apenas a PRIMEIRA ocorrência futura
                                                                 val timestamps = DateTimeUtils.calcularProximasOcorrenciasIntervalo(
                                                                     startDateString = medicine.startDate,
                                                                     startTimeString = startT,
@@ -1177,39 +1178,41 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                                                     durationDays = durationD
                                                                 )
 
-                                                                // MODIFICADO: Formatação da dose
-                                                                val doseFormatada = "$dose $doseUnit".trim()
+                                                                // CORRIGIDO: Pegar apenas o primeiro timestamp
+                                                                val primeiroTimestamp = timestamps.firstOrNull()
 
-                                                                // Criar um lembrete individual para cada timestamp
-                                                                timestamps.forEach { timestamp ->
-                                                                    val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
+                                                                if (primeiroTimestamp != null) {
+                                                                    val doseFormatada = "$dose $doseUnit".trim()
+                                                                    val cal = Calendar.getInstance().apply { timeInMillis = primeiroTimestamp }
+
                                                                     val novoLembrete = Lembrete(
                                                                         id = 0,
                                                                         medicamentoId = medicineId,
                                                                         nomeMedicamento = name,
-                                                                        recipientName = medicine.recipientName, // ADICIONADO: Nome da pessoa
+                                                                        recipientName = medicine.recipientName,
                                                                         hora = cal.get(Calendar.HOUR_OF_DAY),
                                                                         minuto = cal.get(Calendar.MINUTE),
-                                                                        dose = doseFormatada, // MODIFICADO: Usa a dose formatada
+                                                                        dose = doseFormatada,
                                                                         observacao = notes,
-                                                                        proximaOcorrenciaMillis = timestamp,
+                                                                        proximaOcorrenciaMillis = primeiroTimestamp,
                                                                         ativo = true
                                                                     )
 
                                                                     try {
                                                                         val idLembreteSalvo = lembreteDao.insertLembrete(novoLembrete)
-                                                                        // Só agendar alarme se alarmsEnabled for true
                                                                         if (medicine.alarmsEnabled) {
                                                                             AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
-                                                                            Log.d("MedicineFormScreen", "Lembrete (a_cada_x_horas) atualizado/agendado para medId: $medicineId, lembreteId: $idLembreteSalvo, timestamp: $timestamp")
+                                                                            Log.d("MedicineFormScreen", "[CORRIGIDO] Lembrete ÚNICO (a_cada_x_horas) atualizado/agendado para medId: $medicineId, lembreteId: $idLembreteSalvo. Reagendamento automático ativo.")
                                                                         } else {
                                                                             Log.d("MedicineFormScreen", "Lembrete (a_cada_x_horas) salvo mas alarme não agendado (alarmsEnabled=false) para medId: $medicineId, lembreteId: $idLembreteSalvo")
                                                                         }
                                                                     } catch (e: Exception) {
                                                                         Log.e("MedicineFormScreen", "Erro ao salvar/agendar lembrete (a_cada_x_horas) para medId: $medicineId", e)
-                                                                        Log.e("PILLORA_DEBUG", "Criando lembrete para 'a cada X horas'. Intervalo: $intervalHours, Data início: $startDate")
                                                                         lembretesProcessadosComSucesso = false
                                                                     }
+                                                                } else {
+                                                                    Log.e("MedicineFormScreen", "Nenhuma ocorrência futura calculada para 'a_cada_x_horas'")
+                                                                    lembretesProcessadosComSucesso = false
                                                                 }
                                                             } else {
                                                                 Log.e("MedicineFormScreen", "Dados inválidos para lembretes 'a_cada_x_horas': intervalH=$intervalH, startT=$startT")
@@ -1314,13 +1317,14 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                                                 }
                                                             }
                                                         } else if (frequencyType.value == "intervalo" || frequencyType.value == "a_cada_x_horas") {
-                                                            // MODIFICADO: Lógica para "a cada X horas" usando DateTimeUtils
+                                                            // CORRIGIDO: Criar apenas o PRIMEIRO lembrete para "a cada X horas"
+                                                            // O reagendamento automático cuidará das próximas ocorrências
                                                             val intervalH = medicine.intervalHours
                                                             val startT = medicine.startTime
                                                             if (intervalH != null && intervalH > 0 && startT != null) {
                                                                 val durationD = if (medicine.duration == -1) -1 else medicine.duration
 
-                                                                // Usar DateTimeUtils para calcular todas as ocorrências futuras
+                                                                // Calcular apenas a PRIMEIRA ocorrência futura
                                                                 val timestamps = DateTimeUtils.calcularProximasOcorrenciasIntervalo(
                                                                     startDateString = medicine.startDate,
                                                                     startTimeString = startT,
@@ -1328,31 +1332,31 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                                                     durationDays = durationD
                                                                 )
 
-                                                                // MODIFICADO: Formatação da dose
-                                                                val doseFormatada = "$dose $doseUnit".trim()
+                                                                // CORRIGIDO: Pegar apenas o primeiro timestamp
+                                                                val primeiroTimestamp = timestamps.firstOrNull()
 
-                                                                // Criar um lembrete individual para cada timestamp
-                                                                timestamps.forEach { timestamp ->
-                                                                    val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
+                                                                if (primeiroTimestamp != null) {
+                                                                    val doseFormatada = "$dose $doseUnit".trim()
+                                                                    val cal = Calendar.getInstance().apply { timeInMillis = primeiroTimestamp }
+
                                                                     val novoLembrete = Lembrete(
                                                                         id = 0,
                                                                         medicamentoId = newMedicineId,
                                                                         nomeMedicamento = name,
-                                                                        recipientName = medicine.recipientName, // ADICIONADO: Nome da pessoa
+                                                                        recipientName = medicine.recipientName,
                                                                         hora = cal.get(Calendar.HOUR_OF_DAY),
                                                                         minuto = cal.get(Calendar.MINUTE),
-                                                                        dose = doseFormatada, // MODIFICADO: Usa a dose formatada
+                                                                        dose = doseFormatada,
                                                                         observacao = notes,
-                                                                        proximaOcorrenciaMillis = timestamp,
+                                                                        proximaOcorrenciaMillis = primeiroTimestamp,
                                                                         ativo = true
                                                                     )
 
                                                                     try {
                                                                         val idLembreteSalvo = lembreteDao.insertLembrete(novoLembrete)
-                                                                        // Só agendar alarme se alarmsEnabled for true
                                                                         if (medicine.alarmsEnabled) {
                                                                             AlarmScheduler.scheduleAlarm(context, novoLembrete.copy(id = idLembreteSalvo))
-                                                                            Log.d("MedicineFormScreen", "Lembrete (a_cada_x_horas) criado/agendado para novo medId: $newMedicineId, lembreteId: $idLembreteSalvo, timestamp: $timestamp")
+                                                                            Log.d("MedicineFormScreen", "[CORRIGIDO] Lembrete ÚNICO (a_cada_x_horas) criado/agendado para novo medId: $newMedicineId, lembreteId: $idLembreteSalvo. Reagendamento automático ativo.")
                                                                         } else {
                                                                             Log.d("MedicineFormScreen", "Lembrete (a_cada_x_horas) salvo mas alarme não agendado (alarmsEnabled=false) para novo medId: $newMedicineId, lembreteId: $idLembreteSalvo")
                                                                         }
@@ -1360,6 +1364,9 @@ fun MedicineFormScreen(navController: NavController, medicineId: String? = null)
                                                                         Log.e("MedicineFormScreen", "Erro ao salvar/agendar lembrete (a_cada_x_horas) para novo medId: $newMedicineId", e)
                                                                         lembretesProcessadosComSucesso = false
                                                                     }
+                                                                } else {
+                                                                    Log.e("MedicineFormScreen", "Nenhuma ocorrência futura calculada para 'a_cada_x_horas'")
+                                                                    lembretesProcessadosComSucesso = false
                                                                 }
                                                             } else {
                                                                 Log.e("MedicineFormScreen", "Dados inválidos para lembretes 'a_cada_x_horas': intervalH=$intervalH, startT=$startT")

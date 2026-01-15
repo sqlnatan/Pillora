@@ -43,6 +43,8 @@ import com.pillora.pillora.screens.ReportsScreen // Import ReportsScreen
 import com.pillora.pillora.screens.SubscriptionScreen // Import SubscriptionScreen
 import com.pillora.pillora.screens.WelcomeScreen
 import com.pillora.pillora.screens.AgeVerificationScreen
+import com.pillora.pillora.screens.PermissionsScreen
+import androidx.core.content.edit
 
 
 // Define routes for Recipe screens (can be added to Screen sealed class if preferred)
@@ -150,9 +152,9 @@ fun AppNavigation(
                     navController = navController,
                     onAgeVerified = {
                         // Salvar que o usuário verificou a idade
-                        prefs.edit()
-                            .putBoolean("has_verified_age", true)
-                            .apply()
+                        prefs.edit {
+                            putBoolean("has_verified_age", true)
+                        }
 
                         // Determinar próxima tela baseado no estado
                         val hasSeenWelcome = prefs.getBoolean("has_seen_welcome", false)
@@ -184,9 +186,9 @@ fun AppNavigation(
             composable("welcome") {
                 WelcomeScreen(
                     onFinish = {
-                        prefs.edit()
-                            .putBoolean("has_seen_welcome", true)
-                            .apply()
+                        prefs.edit {
+                            putBoolean("has_seen_welcome", true)
+                        }
 
                         navController.navigate("auth") {
                             popUpTo(Screen.Welcome.route) { inclusive = true }
@@ -229,6 +231,23 @@ fun AppNavigation(
             // Settings screen (Nova rota adicionada)
             composable(Screen.Settings.route) {
                 SettingsScreen(navController = navController)
+            }
+
+            // Permissions screen (Nova rota para gerenciar permissões)
+            composable(
+                route = Screen.Permissions.route + "?isOnboarding={isOnboarding}",
+                arguments = listOf(
+                    navArgument("isOnboarding") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
+                )
+            ) { backStackEntry ->
+                val isOnboarding = backStackEntry.arguments?.getBoolean("isOnboarding") ?: false
+                PermissionsScreen(
+                    navController = navController,
+                    isOnboarding = isOnboarding
+                )
             }
 
             // Consultation list screen
