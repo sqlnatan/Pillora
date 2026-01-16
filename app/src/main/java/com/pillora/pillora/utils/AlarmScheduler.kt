@@ -53,23 +53,13 @@ object AlarmScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        var triggerAtMillis = lembrete.proximaOcorrenciaMillis
+        val triggerAtMillis = lembrete.proximaOcorrenciaMillis
         val now = System.currentTimeMillis()
 
-        // Ajuste para garantir que o alarme seja no futuro
+        // Verificar se o alarme está no passado (não deveria acontecer, mas é uma segurança)
         if (triggerAtMillis < now) {
-            val calendar = Calendar.getInstance().apply {
-                timeInMillis = triggerAtMillis
-                set(Calendar.HOUR_OF_DAY, lembrete.hora)
-                set(Calendar.MINUTE, lembrete.minuto)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-
-                while (before(Calendar.getInstance().apply { timeInMillis = now })) {
-                    add(Calendar.DAY_OF_MONTH, 1)
-                }
-            }
-            triggerAtMillis = calendar.timeInMillis
+            Log.w(TAG, "AVISO: Tentativa de agendar alarme no passado para lembrete ${lembrete.id}. Timestamp: $triggerAtMillis, Agora: $now. Ignorando agendamento.")
+            return
         }
 
         try {
