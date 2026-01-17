@@ -428,11 +428,12 @@ class RecipeViewModel : ViewModel() {
         // Já está em Dispatchers.IO
         try {
             val agora = System.currentTimeMillis()
-            val atraso = lembrete.proximaOcorrenciaMillis - agora
+            var atraso = lembrete.proximaOcorrenciaMillis - agora
 
+            // Se o atraso for negativo ou muito pequeno, agendar para daqui a 5 segundos
             if (atraso <= 0) {
-                Log.w(tag, "Atraso para notificação de receita é negativo ou zero ($atraso ms), não agendando. Lembrete ID: ${lembrete.id}, Tipo: ${lembrete.dose}")
-                return
+                atraso = 5000 // 5 segundos
+                Log.d(tag, "Atraso era <= 0 para notificação de receita. Ajustando para 5 segundos. Lembrete ID: ${lembrete.id}")
             }
             Log.d(tag, "Agendando WorkManager para Lembrete Receita ID: ${lembrete.id}, Tipo: ${lembrete.dose}, Atraso: $atraso ms")
 

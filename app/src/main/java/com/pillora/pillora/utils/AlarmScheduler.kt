@@ -53,13 +53,22 @@ object AlarmScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val triggerAtMillis = lembrete.proximaOcorrenciaMillis
+        var triggerAtMillis = lembrete.proximaOcorrenciaMillis
         val now = System.currentTimeMillis()
 
-        // Verificar se o alarme está no passado (não deveria acontecer, mas é uma segurança)
+        // Se o alarme está no passado, verificar se é por uma margem pequena (processamento)
         if (triggerAtMillis < now) {
-            Log.w(TAG, "AVISO: Tentativa de agendar alarme no passado para lembrete ${lembrete.id}. Timestamp: $triggerAtMillis, Agora: $now. Ignorando agendamento.")
-            return
+            val diffSeconds = (now - triggerAtMillis) / 1000
+            if (diffSeconds > 60) {
+                // Se passou mais de 1 minuto, realmente está no passado e não deve agendar
+                Log.w(TAG, "AVISO: Alarme muito antigo para lembrete ${lembrete.id}. Passou $diffSeconds segundos. Ignorando agendamento.")
+                return
+            } else {
+                // Se passou menos de 1 minuto, é provavelmente devido ao tempo de processamento
+                // Agendar para daqui a 5 segundos
+                triggerAtMillis = now + 5000
+                Log.d(TAG, "Alarme estava $diffSeconds segundos no passado. Ajustando para daqui a 5 segundos. Lembrete ID: ${lembrete.id}")
+            }
         }
 
         try {

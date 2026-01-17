@@ -120,6 +120,12 @@ class MainActivity : ComponentActivity() {
                 val drawerState =
                     rememberDrawerState(initialValue = DrawerValue.Closed)
 
+                // Processar extras do Intent para navegacao direta
+                val openConsultationEdit = intent?.getBooleanExtra("OPEN_CONSULTATION_EDIT", false) ?: false
+                val consultationId = intent?.getStringExtra("CONSULTATION_ID")
+                val openVaccineEdit = intent?.getBooleanExtra("OPEN_VACCINE_EDIT", false) ?: false
+                val vaccineId = intent?.getStringExtra("VACCINE_ID")
+
                 val currentRoute =
                     navController.currentBackStackEntryAsState().value
                         ?.destination
@@ -217,10 +223,22 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     ) {
-                        AppScaffold(navController)
+                        AppScaffold(
+                            navController = navController,
+                            openConsultationEdit = openConsultationEdit,
+                            consultationId = consultationId,
+                            openVaccineEdit = openVaccineEdit,
+                            vaccineId = vaccineId
+                        )
                     }
                 } else {
-                    AppScaffold(navController)
+                    AppScaffold(
+                        navController = navController,
+                        openConsultationEdit = openConsultationEdit,
+                        consultationId = consultationId,
+                        openVaccineEdit = openVaccineEdit,
+                        vaccineId = vaccineId
+                    )
                 }
 
                 // Exibir o Dialog de Suporte
@@ -262,7 +280,13 @@ private fun shouldUseDarkTheme(
     }
 
 @Composable
-fun AppScaffold(navController: NavHostController) {
+fun AppScaffold(
+    navController: NavHostController,
+    openConsultationEdit: Boolean = false,
+    consultationId: String? = null,
+    openVaccineEdit: Boolean = false,
+    vaccineId: String? = null
+) {
 
     val currentRoute =
         navController.currentBackStackEntryAsState().value
@@ -292,7 +316,13 @@ fun AppScaffold(navController: NavHostController) {
         // CORREÇÃO: Aplicar padding apenas para a BottomNavigationBar
         // O padding top (status bar) será gerenciado por cada tela individualmente
         Box(modifier = Modifier.padding(bottom = padding.calculateBottomPadding())) {
-            AppNavigation(navController)
+            AppNavigation(
+                navController = navController,
+                openConsultationEdit = openConsultationEdit,
+                consultationId = consultationId,
+                openVaccineEdit = openVaccineEdit,
+                vaccineId = vaccineId
+            )
         }
     }
 }

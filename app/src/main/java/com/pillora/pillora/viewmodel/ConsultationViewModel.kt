@@ -306,8 +306,12 @@ class ConsultationViewModel : ViewModel() {
             .build()
 
 
-        val delay = lembrete.proximaOcorrenciaMillis - System.currentTimeMillis()
-        if (delay <= 0) return
+        var delay = lembrete.proximaOcorrenciaMillis - System.currentTimeMillis()
+        // Se o delay for negativo ou muito pequeno, agendar para daqui a 5 segundos
+        if (delay <= 0) {
+            delay = 5000 // 5 segundos
+            Log.d(tag, "Delay era <= 0 para confirmação de consulta. Ajustando para 5 segundos. Lembrete ID: ${lembrete.id}")
+        }
 
         val request = OneTimeWorkRequestBuilder<NotificationWorker>()
             .setInputData(workData)
