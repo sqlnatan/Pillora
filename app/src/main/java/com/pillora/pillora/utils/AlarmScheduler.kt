@@ -212,9 +212,14 @@ object AlarmScheduler {
         // Verificar se a próxima ocorrência está dentro do período de tratamento
         if (medicine.duration > 0) {
             val endDateCal = try {
+                // CORRIGIDO: Aceitar formato com ou sem barras (igual ao DateTimeUtils)
+                var formattedStartDate = medicine.startDate
+                if (!medicine.startDate.contains("/") && medicine.startDate.length == 8 && medicine.startDate.all { it.isDigit() }) {
+                    formattedStartDate = "${medicine.startDate.substring(0, 2)}/${medicine.startDate.substring(2, 4)}/${medicine.startDate.substring(4)}"
+                }
                 val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.US)
                 val startDateCal = Calendar.getInstance().apply {
-                    time = sdf.parse(medicine.startDate) ?: throw IllegalArgumentException("Invalid start date")
+                    time = sdf.parse(formattedStartDate) ?: throw IllegalArgumentException("Invalid start date")
                 }
                 (startDateCal.clone() as Calendar).apply {
                     // Adicionar a duração completa (sem subtrair 1 dia)

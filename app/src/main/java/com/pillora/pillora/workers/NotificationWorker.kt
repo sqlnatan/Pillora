@@ -123,7 +123,14 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
 
                 if (medicine != null && medicine.duration > 0) {
                     val endDateCal = try {
-                        val startDateCal = Calendar.getInstance().apply { time = SimpleDateFormat("dd/MM/yyyy", Locale.US).parse(medicine.startDate) ?: throw IllegalArgumentException("Invalid start date format") }
+                        // CORRIGIDO: Aceitar formato com ou sem barras (igual ao DateTimeUtils)
+                        var formattedStartDate = medicine.startDate
+                        if (!medicine.startDate.contains("/") && medicine.startDate.length == 8 && medicine.startDate.all { it.isDigit() }) {
+                            formattedStartDate = "${medicine.startDate.substring(0, 2)}/${medicine.startDate.substring(2, 4)}/${medicine.startDate.substring(4)}"
+                        }
+                        val startDateCal = Calendar.getInstance().apply {
+                            time = SimpleDateFormat("dd/MM/yyyy", Locale.US).parse(formattedStartDate) ?: throw IllegalArgumentException("Invalid start date format")
+                        }
                         (startDateCal.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, medicine.duration) }
                     } catch (e: Exception) {
                         Log.e("NotificationWorker", "Erro ao calcular data de fim para medicamento ${medicine.id}: ${e.message}")
