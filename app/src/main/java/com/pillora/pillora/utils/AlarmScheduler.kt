@@ -217,9 +217,10 @@ object AlarmScheduler {
                     time = sdf.parse(medicine.startDate) ?: throw IllegalArgumentException("Invalid start date")
                 }
                 (startDateCal.clone() as Calendar).apply {
+                    // Adicionar a duração completa (sem subtrair 1 dia)
+                    // Isso garante que o último horário calculado seja respeitado
                     add(Calendar.DAY_OF_YEAR, medicine.duration)
-                    // Ajustar para o fim do último dia
-                    add(Calendar.DAY_OF_YEAR, -1)
+                    // Ajustar para o fim do dia da data final
                     set(Calendar.HOUR_OF_DAY, 23)
                     set(Calendar.MINUTE, 59)
                     set(Calendar.SECOND, 59)
