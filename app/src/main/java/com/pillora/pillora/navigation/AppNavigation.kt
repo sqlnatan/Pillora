@@ -338,13 +338,20 @@ fun AppNavigation(
         }
 
         // *** CORREÇÃO: Navegar para a tela de edição de consulta OU vacina se necessário ***
-        if (openConsultationEdit && consultationId != null) {
-            LaunchedEffect(key1 = "consultation_$consultationId") { // Use uma chave única
-                navController.navigate("${Screen.ConsultationForm.route}?id=$consultationId")
-            }
-        } else if (openVaccineEdit && vaccineId != null) {
-            LaunchedEffect(key1 = "vaccine_$vaccineId") { // Use uma chave única
-                navController.navigate("${Screen.VaccineForm.route}?id=$vaccineId")
+        // Usar estado local para garantir que a navegação só aconteça uma vez
+        var hasNavigated by rememberSaveable { mutableStateOf(false) }
+
+        if (!hasNavigated) {
+            if (openConsultationEdit && consultationId != null) {
+                LaunchedEffect(key1 = "consultation_$consultationId") {
+                    navController.navigate("${Screen.ConsultationForm.route}?id=$consultationId")
+                    hasNavigated = true
+                }
+            } else if (openVaccineEdit && vaccineId != null) {
+                LaunchedEffect(key1 = "vaccine_$vaccineId") {
+                    navController.navigate("${Screen.VaccineForm.route}?id=$vaccineId")
+                    hasNavigated = true
+                }
             }
         }
 

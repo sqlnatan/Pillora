@@ -70,12 +70,18 @@ object DateTimeUtils {
             val calendar = Calendar.getInstance().apply {
                 timeInMillis = ocorrencias[0]
             }
+            // CORRIGIDO: Calcular data limite a partir da data de início ORIGINAL, não da primeira ocorrência futura
             val dataLimiteCalculo = Calendar.getInstance().apply {
-                time = calendar.time
+                timeInMillis = initialTimestamp  // Usar data de início original
                 if (durationDays == -1) {
                     add(Calendar.DAY_OF_MONTH, 30)
                 } else if (durationDays > 0) {
                     add(Calendar.DAY_OF_MONTH, durationDays)
+                    // Ajustar para o fim do dia da data final
+                    set(Calendar.HOUR_OF_DAY, 23)
+                    set(Calendar.MINUTE, 59)
+                    set(Calendar.SECOND, 59)
+                    set(Calendar.MILLISECOND, 999)
                 } else {
                     // Se durationDays for 0 ou negativo (exceto -1), não calcula futuras
                     return ocorrencias.filter { it >= currentTimestamp } // Retorna apenas a primeira ocorrência futura
