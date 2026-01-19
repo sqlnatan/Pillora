@@ -120,11 +120,20 @@ class MainActivity : ComponentActivity() {
                 val drawerState =
                     rememberDrawerState(initialValue = DrawerValue.Closed)
 
-                // Processar extras do Intent para navegacao direta
-                val openConsultationEdit = intent?.getBooleanExtra("OPEN_CONSULTATION_EDIT", false) ?: false
-                val consultationId = intent?.getStringExtra("CONSULTATION_ID")
-                val openVaccineEdit = intent?.getBooleanExtra("OPEN_VACCINE_EDIT", false) ?: false
-                val vaccineId = intent?.getStringExtra("VACCINE_ID")
+                // Processar extras do Intent para navegacao direta - LER APENAS UMA VEZ
+                // Usar rememberSaveable para persistir os valores e evitar reler do Intent a cada recomposição
+                val openConsultationEdit = rememberSaveable {
+                    mutableStateOf(intent?.getBooleanExtra("OPEN_CONSULTATION_EDIT", false) ?: false)
+                }
+                val consultationId = rememberSaveable {
+                    mutableStateOf(intent?.getStringExtra("CONSULTATION_ID"))
+                }
+                val openVaccineEdit = rememberSaveable {
+                    mutableStateOf(intent?.getBooleanExtra("OPEN_VACCINE_EDIT", false) ?: false)
+                }
+                val vaccineId = rememberSaveable {
+                    mutableStateOf(intent?.getStringExtra("VACCINE_ID"))
+                }
 
                 val currentRoute =
                     navController.currentBackStackEntryAsState().value
@@ -225,19 +234,19 @@ class MainActivity : ComponentActivity() {
                     ) {
                         AppScaffold(
                             navController = navController,
-                            openConsultationEdit = openConsultationEdit,
-                            consultationId = consultationId,
-                            openVaccineEdit = openVaccineEdit,
-                            vaccineId = vaccineId
+                            openConsultationEdit = openConsultationEdit.value,
+                            consultationId = consultationId.value,
+                            openVaccineEdit = openVaccineEdit.value,
+                            vaccineId = vaccineId.value
                         )
                     }
                 } else {
                     AppScaffold(
                         navController = navController,
-                        openConsultationEdit = openConsultationEdit,
-                        consultationId = consultationId,
-                        openVaccineEdit = openVaccineEdit,
-                        vaccineId = vaccineId
+                        openConsultationEdit = openConsultationEdit.value,
+                        consultationId = consultationId.value,
+                        openVaccineEdit = openVaccineEdit.value,
+                        vaccineId = vaccineId.value
                     )
                 }
 
