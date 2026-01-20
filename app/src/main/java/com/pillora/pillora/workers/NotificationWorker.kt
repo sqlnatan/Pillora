@@ -121,6 +121,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
                     )
                 }
 
+                // CORREÇÃO: Só verificar expiração se duration > 0 (não é uso contínuo)
                 if (medicine != null && medicine.duration > 0) {
                     val endDateCal = try {
                         // CORRIGIDO: Aceitar formato com ou sem barras (igual ao DateTimeUtils)
@@ -155,6 +156,9 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
                         // Não exibir notificação e não prosseguir.
                         return Result.success()
                     }
+                } else if (medicine != null && medicine.duration == -1) {
+                    // CORREÇÃO: Uso contínuo - não verificar expiração
+                    Log.d("NotificationWorker", "Medicamento de uso contínuo (duration=-1). Não verificando expiração.")
                 }
             } else {
                 Log.w("NotificationWorker", "Lembrete $lembreteId não encontrado no DB local. Ignorando verificação de expiração.")
@@ -272,7 +276,8 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
                 val especialidade = notificationTitle.replace("Consulta:", "", ignoreCase = true).trim()
                 val horarioRealConsultaStr = if (horaConsulta >= 0 && minutoConsulta >= 0) String.format(Locale.getDefault(), "%02d:%02d", horaConsulta, minutoConsulta) else ""
 
-                if (isConfirmacao) {
+                // CORREÇÃO: Usar isConfirmacao OU verificar tipoLembrete para determinar se é confirmação
+                if (isConfirmacao || tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) {
                     finalTitle = "Confirmação de Consulta"
                     finalMessage = if (nome != null) {
                         "$nome, você foi na consulta com $especialidade?"
@@ -280,6 +285,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
                         "Você foi na consulta com $especialidade?"
                     }
                     channelId = PilloraApplication.CHANNEL_LEMBRETES_CONSULTAS_ID
+                    Log.d("NotificationWorker", "Processando como CONFIRMAÇÃO de consulta")
                 } else {
                     finalTitle = if (nome != null) {
                         "$nome, você tem consulta com: $especialidade"
@@ -358,7 +364,8 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             .setContentIntent(pendingIntent)
 
         // Configurar prioridade, vibração e fullScreenIntent
-        if (isReceita || (isConsulta && tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) || (isVacina && isConfirmacao)) {
+        // CORREÇÃO: Usar isConfirmacao OU tipoLembrete para verificar se é pós-consulta
+        if (isReceita || (isConsulta && (tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS || isConfirmacao)) || (isVacina && isConfirmacao)) {
             Log.d("NotificationWorker", "Configurando notificação como PADRÃO (Receita, pós-consulta ou pós-vacina)")
             builder.setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
@@ -388,7 +395,8 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
             }
 
             // Botões para confirmação de Consulta (APENAS para notificações 3h depois)
-            isConsulta && isConfirmacao -> {
+            // CORREÇÃO: Usar isConfirmacao OU tipoLembrete para verificar
+            isConsulta && (isConfirmacao || tipoLembrete == DateTimeUtils.TIPO_3H_DEPOIS) -> {
                 Log.d("NotificationWorker", "Adicionando botões para notificação PÓS-CONSULTA")
                 val excluirIntent = Intent(applicationContext, NotificationActionReceiver::class.java).apply {
                     action = ACTION_CONSULTA_COMPARECEU

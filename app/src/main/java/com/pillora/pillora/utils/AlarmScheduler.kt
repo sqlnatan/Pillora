@@ -44,6 +44,8 @@ object AlarmScheduler {
             putExtra(NotificationWorker.EXTRA_MINUTO, lembrete.minuto)
             putExtra(NotificationWorker.EXTRA_IS_CONSULTA, lembrete.isConsulta)
             putExtra(NotificationWorker.EXTRA_IS_VACINA, lembrete.isVacina)
+            // CORREÇÃO: Passar o tipo do lembrete (dose contém o tipo para consultas/vacinas)
+            putExtra(NotificationWorker.EXTRA_TIPO_LEMBRETE, lembrete.dose)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
@@ -195,7 +197,7 @@ object AlarmScheduler {
 
         // Calcular próxima ocorrência baseado no tipo de frequência
         val proximaOcorrencia = when (medicine.frequencyType) {
-            "vezes_dia" -> calcularProximaOcorrenciaVezesDia(lembrete)
+            "vezes_dia" -> calcularProximaOcorrenciaVezesDia(lembrete, medicine)
             "a_cada_x_horas" -> calcularProximaOcorrenciaIntervalo(lembrete, medicine)
             else -> {
                 Log.e(TAG, "Tipo de frequência desconhecido: ${medicine.frequencyType}")
@@ -210,6 +212,7 @@ object AlarmScheduler {
         }
 
         // Verificar se a próxima ocorrência está dentro do período de tratamento
+        // CORREÇÃO: Só verificar se duration > 0 (não é uso contínuo)
         if (medicine.duration > 0) {
             val endDateCal = try {
                 // CORRIGIDO: Aceitar formato com ou sem barras (igual ao DateTimeUtils)
@@ -241,6 +244,9 @@ object AlarmScheduler {
                 lembreteDao.updateLembrete(lembrete.copy(ativo = false))
                 return@withContext false
             }
+        } else if (medicine.duration == -1) {
+            // CORREÇÃO: Uso contínuo - sempre reagendar sem verificar data de fim
+            Log.d(TAG, "Medicamento de uso contínuo (duration=-1). Reagendando sem limite de data.")
         }
 
         // Atualizar o lembrete com a nova próxima ocorrência
@@ -258,8 +264,10 @@ object AlarmScheduler {
     /**
      * Calcula a próxima ocorrência para medicamentos do tipo "vezes_dia".
      * Exemplo: 3x ao dia às 8h, 13h, 18h → próxima ocorrência é no mesmo horário do dia seguinte
+     *
+     * CORREÇÃO: Agora recebe o Medicine para verificar se é uso contínuo
      */
-    private fun calcularProximaOcorrenciaVezesDia(lembrete: Lembrete): Long {
+    private fun calcularProximaOcorrenciaVezesDia(lembrete: Lembrete, medicine: Medicine): Long? {
         val now = Calendar.getInstance()
         val proximaOcorrenciaCalendar = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, lembrete.hora)
@@ -272,6 +280,9 @@ object AlarmScheduler {
                 add(Calendar.DAY_OF_MONTH, 1)
             }
         }
+
+        // CORREÇÃO: Para uso contínuo (duration == -1), sempre retornar a próxima ocorrência
+        // Para uso com duração definida, a verificação de data limite é feita em rescheduleNextOccurrence
 
         return proximaOcorrenciaCalendar.timeInMillis
     }

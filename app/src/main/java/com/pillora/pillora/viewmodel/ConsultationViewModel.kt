@@ -257,6 +257,11 @@ class ConsultationViewModel : ViewModel() {
             val consultaTime = dateTimeParts.getOrElse(1) { "" }
             if (consultaDate.isEmpty() || consultaTime.isEmpty()) return@launch
 
+            // CORREÇÃO: Extrair hora e minuto da consulta real para passar ao NotificationWorker
+            val consultaTimeParts = consultaTime.split(":")
+            val horaConsultaReal = consultaTimeParts.getOrElse(0) { "0" }.toIntOrNull() ?: 0
+            val minutoConsultaReal = consultaTimeParts.getOrElse(1) { "0" }.toIntOrNull() ?: 0
+
             val lembretesInfo = DateTimeUtils.calcularLembretesConsulta(consultaDate, consultaTime)
             lembretesInfo.forEach { lembreteInfo ->
                 val calendar = Calendar.getInstance().apply { timeInMillis = lembreteInfo.timestamp }
@@ -273,6 +278,8 @@ class ConsultationViewModel : ViewModel() {
                     proximaOcorrenciaMillis = lembreteInfo.timestamp,
                     ativo = true,
                     isConsulta = true,
+                    // CORREÇÃO: Marcar como confirmação se for o lembrete de 3h depois
+                    isConfirmacao = lembreteInfo.tipo == DateTimeUtils.TIPO_3H_DEPOIS,
                     isSilencioso = consultation.isSilencioso,
                     toqueAlarmeUri = consultation.toqueAlarmeUri
                 )
@@ -281,8 +288,8 @@ class ConsultationViewModel : ViewModel() {
                     val lembreteComId = lembrete.copy(id = lembreteId)
 
                     when (lembreteInfo.tipo) {
-                        DateTimeUtils.TIPO_3H_DEPOIS -> agendarNotificacaoPosConsulta(context, lembreteComId)
-                        DateTimeUtils.TIPO_24H_ANTES, DateTimeUtils.TIPO_2H_ANTES -> agendarAlarmeConsulta(context, lembreteComId)
+                        DateTimeUtils.TIPO_3H_DEPOIS -> agendarNotificacaoPosConsulta(context, lembreteComId, horaConsultaReal, minutoConsultaReal)
+                        DateTimeUtils.TIPO_24H_ANTES, DateTimeUtils.TIPO_2H_ANTES -> agendarAlarmeConsulta(context, lembreteComId, horaConsultaReal, minutoConsultaReal)
                     }
                 } catch (e: Exception) {
                     Log.e(tag, "Erro ao salvar/agendar lembrete", e)
@@ -291,18 +298,27 @@ class ConsultationViewModel : ViewModel() {
         }
     }
 
-    private fun agendarNotificacaoPosConsulta(context: Context, lembrete: Lembrete) {
+    /**
+     * CORREÇÃO: Adicionado parâmetros horaConsultaReal e minutoConsultaReal
+     */
+    private fun agendarNotificacaoPosConsulta(context: Context, lembrete: Lembrete, horaConsultaReal: Int, minutoConsultaReal: Int) {
         val workData = Data.Builder()
             .putLong(NotificationWorker.EXTRA_LEMBRETE_ID, lembrete.id)
             .putString(NotificationWorker.EXTRA_MEDICAMENTO_ID, lembrete.medicamentoId)
+            .putString(NotificationWorker.EXTRA_CONSULTA_ID, lembrete.medicamentoId) // CORREÇÃO: Passar o consultaId
             .putString(NotificationWorker.EXTRA_NOTIFICATION_TITLE, lembrete.nomeMedicamento)
             .putString(NotificationWorker.EXTRA_NOTIFICATION_MESSAGE, lembrete.observacao)
             .putString(NotificationWorker.EXTRA_RECIPIENT_NAME, lembrete.recipientName)
             .putLong(NotificationWorker.EXTRA_PROXIMA_OCORRENCIA_MILLIS, lembrete.proximaOcorrenciaMillis)
             .putInt(NotificationWorker.EXTRA_HORA, lembrete.hora)
             .putInt(NotificationWorker.EXTRA_MINUTO, lembrete.minuto)
+            // CORREÇÃO: Passar a hora e minuto REAL da consulta
+            .putInt(NotificationWorker.EXTRA_HORA_CONSULTA, horaConsultaReal)
+            .putInt(NotificationWorker.EXTRA_MINUTO_CONSULTA, minutoConsultaReal)
             .putBoolean(NotificationWorker.EXTRA_IS_CONSULTA, true)
             .putBoolean(NotificationWorker.EXTRA_IS_CONFIRMACAO, true)
+            // CORREÇÃO: Passar o tipo do lembrete
+            .putString(NotificationWorker.EXTRA_TIPO_LEMBRETE, lembrete.dose)
             .build()
 
 
@@ -320,24 +336,33 @@ class ConsultationViewModel : ViewModel() {
             .build()
 
         WorkManager.getInstance(context).enqueue(request)
+        Log.d(tag, "WorkManager agendado para confirmação de consulta (3h depois). Lembrete ID: ${lembrete.id}, delay: ${delay}ms")
     }
 
     /**
      * Agenda alarme para consulta usando setAndAllowWhileIdle (alarme inexato).
      * Consultas não precisam de alarmes exatos.
+     *
+     * CORREÇÃO: Adicionado parâmetros horaConsultaReal e minutoConsultaReal
      */
-    private fun agendarAlarmeConsulta(context: Context, lembrete: Lembrete) {
+    private fun agendarAlarmeConsulta(context: Context, lembrete: Lembrete, horaConsultaReal: Int, minutoConsultaReal: Int) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             putExtra(NotificationWorker.EXTRA_LEMBRETE_ID, lembrete.id)
             putExtra(NotificationWorker.EXTRA_MEDICAMENTO_ID, lembrete.medicamentoId)
+            putExtra(NotificationWorker.EXTRA_CONSULTA_ID, lembrete.medicamentoId) // CORREÇÃO: Passar o consultaId
             putExtra(NotificationWorker.EXTRA_NOTIFICATION_TITLE, lembrete.nomeMedicamento)
             putExtra(NotificationWorker.EXTRA_NOTIFICATION_MESSAGE, lembrete.observacao)
             putExtra(NotificationWorker.EXTRA_RECIPIENT_NAME, lembrete.recipientName)
             putExtra(NotificationWorker.EXTRA_PROXIMA_OCORRENCIA_MILLIS, lembrete.proximaOcorrenciaMillis)
             putExtra(NotificationWorker.EXTRA_HORA, lembrete.hora)
             putExtra(NotificationWorker.EXTRA_MINUTO, lembrete.minuto)
+            // CORREÇÃO: Passar a hora e minuto REAL da consulta
+            putExtra(NotificationWorker.EXTRA_HORA_CONSULTA, horaConsultaReal)
+            putExtra(NotificationWorker.EXTRA_MINUTO_CONSULTA, minutoConsultaReal)
             putExtra(NotificationWorker.EXTRA_IS_CONSULTA, true)
+            // CORREÇÃO: Passar o tipo do lembrete
+            putExtra(NotificationWorker.EXTRA_TIPO_LEMBRETE, lembrete.dose)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
