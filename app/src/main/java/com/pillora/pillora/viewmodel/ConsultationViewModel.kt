@@ -24,6 +24,9 @@ import com.pillora.pillora.repository.ConsultationRepository
 import com.pillora.pillora.utils.AlarmScheduler
 import com.pillora.pillora.utils.DateTimeUtils
 import com.pillora.pillora.workers.NotificationWorker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -33,6 +36,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -46,6 +50,9 @@ class ConsultationViewModel : ViewModel() {
 
     private val tag = "ConsultationViewModel"
     private val auth = FirebaseAuth.getInstance()
+
+    // CoroutineScope independente que não é cancelado ao sair da tela
+    private val independentScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // Campos do formulário
     val specialty = mutableStateOf("")
@@ -182,13 +189,16 @@ class ConsultationViewModel : ViewModel() {
 
     // --- Save / Update Consultation ---
     fun saveConsultation(context: Context, lembreteDao: LembreteDao) {
+        Log.d(tag, "=== saveConsultation CHAMADO ===")
         val currentUserIdAuth = auth.currentUser?.uid
         if (currentUserIdAuth == null) {
             _error.value = "Usuário não autenticado."
+            Log.e(tag, "Erro: Usuário não autenticado")
             return
         }
         _isLoading.value = true
         _error.value = null
+        Log.d(tag, "currentConsultationId: $currentConsultationId")
 
         val consultation = Consultation(
             id = currentConsultationId ?: "",
@@ -207,17 +217,24 @@ class ConsultationViewModel : ViewModel() {
         if (consultation.specialty.isEmpty() || date.value.isEmpty() || time.value.isEmpty()) {
             _error.value = "Especialidade, Data e Hora são obrigatórios."
             _isLoading.value = false
+            Log.e(tag, "Erro: Campos obrigatórios vazios")
             return
         }
+        Log.d(tag, "Dados da consulta: specialty=${consultation.specialty}, dateTime=${consultation.dateTime}")
 
         viewModelScope.launch {
             try {
                 if (currentConsultationId == null) {
+                    Log.d(tag, "Criando NOVA consulta...")
                     ConsultationRepository.addConsultation(consultation,
                         onSuccess = { newConsultationId ->
-                            agendarLembretesConsulta(context, lembreteDao, newConsultationId, consultation)
-                            _isLoading.value = false
-                            _navigateBack.value = true
+                            Log.d(tag, "Consulta criada com sucesso! ID: $newConsultationId")
+                            Log.d(tag, "Chamando agendarLembretesConsulta...")
+                            independentScope.launch {
+                                agendarLembretesConsulta(context, lembreteDao, newConsultationId, consultation)
+                                _isLoading.value = false
+                                _navigateBack.value = true
+                            }
                         },
                         onFailure = {
                             _error.value = "Erro ao salvar consulta: ${it.message}"
@@ -225,16 +242,22 @@ class ConsultationViewModel : ViewModel() {
                         }
                     )
                 } else {
+                    Log.d(tag, "Atualizando consulta existente: $currentConsultationId")
                     if (consultation.userId != currentUserIdAuth) {
                         _error.value = "Erro de autorização ao preparar atualização."
                         _isLoading.value = false
+                        Log.e(tag, "Erro de autorização")
                         return@launch
                     }
                     ConsultationRepository.updateConsultation(consultation,
                         onSuccess = {
-                            atualizarLembretesConsulta(context, lembreteDao, currentConsultationId!!, consultation)
-                            _isLoading.value = false
-                            _navigateBack.value = true
+                            Log.d(tag, "Consulta atualizada com sucesso!")
+                            Log.d(tag, "Chamando atualizarLembretesConsulta...")
+                            independentScope.launch {
+                                atualizarLembretesConsulta(context, lembreteDao, currentConsultationId!!, consultation)
+                                _isLoading.value = false
+                                _navigateBack.value = true
+                            }
                         },
                         onFailure = {
                             _error.value = "Erro ao atualizar consulta: ${it.message}"
@@ -250,50 +273,78 @@ class ConsultationViewModel : ViewModel() {
     }
 
     // --- Agendamento de Lembretes ---
-    private fun agendarLembretesConsulta(context: Context, lembreteDao: LembreteDao, consultationId: String, consultation: Consultation) {
-        viewModelScope.launch {
-            val dateTimeParts = consultation.dateTime.split(" ")
-            val consultaDate = dateTimeParts.getOrElse(0) { "" }
-            val consultaTime = dateTimeParts.getOrElse(1) { "" }
-            if (consultaDate.isEmpty() || consultaTime.isEmpty()) return@launch
+    private suspend fun agendarLembretesConsulta(context: Context, lembreteDao: LembreteDao, consultationId: String, consultation: Consultation) {
+        Log.d(tag, "=== agendarLembretesConsulta CHAMADO ===")
+        Log.d(tag, "consultationId: $consultationId, dateTime: ${consultation.dateTime}")
+        val dateTimeParts = consultation.dateTime.split(" ")
+        val consultaDate = dateTimeParts.getOrElse(0) { "" }
+        val consultaTime = dateTimeParts.getOrElse(1) { "" }
+        Log.d(tag, "consultaDate: $consultaDate, consultaTime: $consultaTime")
+        if (consultaDate.isEmpty() || consultaTime.isEmpty()) {
+            Log.e(tag, "ERRO: Data ou hora da consulta vazia!")
+            return
+        }
 
-            // CORREÇÃO: Extrair hora e minuto da consulta real para passar ao NotificationWorker
-            val consultaTimeParts = consultaTime.split(":")
-            val horaConsultaReal = consultaTimeParts.getOrElse(0) { "0" }.toIntOrNull() ?: 0
-            val minutoConsultaReal = consultaTimeParts.getOrElse(1) { "0" }.toIntOrNull() ?: 0
+        // CORREÇÃO: Extrair hora e minuto da consulta real para passar ao NotificationWorker
+        val consultaTimeParts = consultaTime.split(":")
+        val horaConsultaReal = consultaTimeParts.getOrElse(0) { "0" }.toIntOrNull() ?: 0
+        val minutoConsultaReal = consultaTimeParts.getOrElse(1) { "0" }.toIntOrNull() ?: 0
 
-            val lembretesInfo = DateTimeUtils.calcularLembretesConsulta(consultaDate, consultaTime)
-            lembretesInfo.forEach { lembreteInfo ->
-                val calendar = Calendar.getInstance().apply { timeInMillis = lembreteInfo.timestamp }
+        val lembretesInfo = DateTimeUtils.calcularLembretesConsulta(consultaDate, consultaTime)
+        Log.d(tag, "DateTimeUtils retornou ${lembretesInfo.size} lembretes")
+        lembretesInfo.forEach { lembreteInfo ->
+            Log.d(tag, "Criando lembrete tipo: ${lembreteInfo.tipo}, timestamp: ${lembreteInfo.timestamp}")
+            val calendar = Calendar.getInstance().apply { timeInMillis = lembreteInfo.timestamp }
 
-                val lembrete = Lembrete(
-                    id = 0,
-                    medicamentoId = consultationId,
-                    nomeMedicamento = "Consulta: ${consultation.specialty}",
-                    recipientName = consultation.patientName,
-                    hora = calendar.get(Calendar.HOUR_OF_DAY),
-                    minuto = calendar.get(Calendar.MINUTE),
-                    dose = lembreteInfo.tipo,
-                    observacao = "Dr(a). ${consultation.doctorName} em ${consultation.location}. ${if (consultation.observations.isNotEmpty()) "Obs: ${consultation.observations}" else ""}",
-                    proximaOcorrenciaMillis = lembreteInfo.timestamp,
-                    ativo = true,
-                    isConsulta = true,
-                    // CORREÇÃO: Marcar como confirmação se for o lembrete de 3h depois
-                    isConfirmacao = lembreteInfo.tipo == DateTimeUtils.TIPO_3H_DEPOIS,
-                    isSilencioso = consultation.isSilencioso,
-                    toqueAlarmeUri = consultation.toqueAlarmeUri
-                )
-                try {
-                    val lembreteId = lembreteDao.insertLembrete(lembrete)
-                    val lembreteComId = lembrete.copy(id = lembreteId)
+            val lembrete = Lembrete(
+                id = 0,
+                medicamentoId = consultationId,
+                nomeMedicamento = "Consulta: ${consultation.specialty}",
+                recipientName = consultation.patientName,
+                hora = calendar.get(Calendar.HOUR_OF_DAY),
+                minuto = calendar.get(Calendar.MINUTE),
+                dose = lembreteInfo.tipo,
+                observacao = "Dr(a). ${consultation.doctorName} em ${consultation.location}. ${if (consultation.observations.isNotEmpty()) "Obs: ${consultation.observations}" else ""}",
+                proximaOcorrenciaMillis = lembreteInfo.timestamp,
+                ativo = true,
+                isConsulta = true,
+                // CORREÇÃO: Marcar como confirmação se for o lembrete de 3h depois
+                isConfirmacao = lembreteInfo.tipo == DateTimeUtils.TIPO_3H_DEPOIS,
+                isSilencioso = consultation.isSilencioso,
+                toqueAlarmeUri = consultation.toqueAlarmeUri
+            )
+            try {
+                Log.d(tag, "Inserindo lembrete no banco...")
+                val lembreteId = lembreteDao.insertLembrete(lembrete)
+                Log.d(tag, "Lembrete salvo no DB com ID: $lembreteId")
+                val lembreteComId = lembrete.copy(id = lembreteId)
 
-                    when (lembreteInfo.tipo) {
-                        DateTimeUtils.TIPO_3H_DEPOIS -> agendarNotificacaoPosConsulta(context, lembreteComId, horaConsultaReal, minutoConsultaReal)
-                        DateTimeUtils.TIPO_24H_ANTES, DateTimeUtils.TIPO_2H_ANTES -> agendarAlarmeConsulta(context, lembreteComId, horaConsultaReal, minutoConsultaReal)
+                when (lembreteInfo.tipo) {
+                    DateTimeUtils.TIPO_3H_DEPOIS -> {
+                        Log.d(tag, "Agendando WorkManager para confirmação (3h depois)...")
+                        try {
+                            agendarNotificacaoPosConsulta(context, lembreteComId, horaConsultaReal, minutoConsultaReal)
+                            Log.d(tag, "WorkManager agendado com sucesso")
+                        } catch (e: Exception) {
+                            Log.e(tag, "Erro ao agendar WorkManager", e)
+                            throw e
+                        }
                     }
-                } catch (e: Exception) {
-                    Log.e(tag, "Erro ao salvar/agendar lembrete", e)
+                    DateTimeUtils.TIPO_24H_ANTES, DateTimeUtils.TIPO_2H_ANTES -> {
+                        Log.d(tag, "Agendando AlarmManager para lembrete (${lembreteInfo.tipo})...")
+                        try {
+                            agendarAlarmeConsulta(context, lembreteComId, horaConsultaReal, minutoConsultaReal)
+                            Log.d(tag, "AlarmManager agendado com sucesso")
+                        } catch (e: Exception) {
+                            Log.e(tag, "Erro ao agendar AlarmManager", e)
+                            throw e
+                        }
+                    }
                 }
+                Log.d(tag, "Lembrete ${lembreteInfo.tipo} criado e agendado com sucesso!")
+            } catch (e: Exception) {
+                Log.e(tag, "Erro ao salvar/agendar lembrete", e)
+                Log.e(tag, "Stack trace: ${e.stackTraceToString()}")
             }
         }
     }
@@ -323,6 +374,11 @@ class ConsultationViewModel : ViewModel() {
 
 
         var delay = lembrete.proximaOcorrenciaMillis - System.currentTimeMillis()
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
+        Log.d(tag, "Agendando WorkManager para confirmação de consulta: Lembrete ID=${lembrete.id}")
+        Log.d(tag, "Timestamp do WorkManager: ${lembrete.proximaOcorrenciaMillis} (${dateFormat.format(Date(lembrete.proximaOcorrenciaMillis))})")
+        Log.d(tag, "Timestamp atual: ${System.currentTimeMillis()} (${dateFormat.format(Date(System.currentTimeMillis()))})")
+        Log.d(tag, "Delay inicial: ${delay / 1000 / 60} minutos")
         // Se o delay for negativo ou muito pequeno, agendar para daqui a 5 segundos
         if (delay <= 0) {
             delay = 5000 // 5 segundos
@@ -373,7 +429,16 @@ class ConsultationViewModel : ViewModel() {
         )
 
         val triggerAtMillis = lembrete.proximaOcorrenciaMillis
-        if (triggerAtMillis < System.currentTimeMillis()) return
+        val now = System.currentTimeMillis()
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
+        Log.d(tag, "Agendando alarme de consulta: Lembrete ID=${lembrete.id}, Tipo=${lembrete.dose}")
+        Log.d(tag, "Timestamp do alarme: $triggerAtMillis (${dateFormat.format(Date(triggerAtMillis))})")
+        Log.d(tag, "Timestamp atual: $now (${dateFormat.format(Date(now))})")
+        Log.d(tag, "Diferença: ${(triggerAtMillis - now) / 1000 / 60} minutos")
+        if (triggerAtMillis < now) {
+            Log.w(tag, "AVISO: Timestamp do alarme está no passado! Alarme NÃO será agendado.")
+            return
+        }
 
         try {
             // CONSULTAS usam setAndAllowWhileIdle (alarme inexato)
@@ -397,15 +462,34 @@ class ConsultationViewModel : ViewModel() {
         }
     }
 
-    private fun atualizarLembretesConsulta(context: Context, lembreteDao: LembreteDao, consultationId: String, consultation: Consultation) {
-        viewModelScope.launch {
+    private suspend fun atualizarLembretesConsulta(context: Context, lembreteDao: LembreteDao, consultationId: String, consultation: Consultation) {
+        Log.d(tag, "=== atualizarLembretesConsulta CHAMADO ===")
+        Log.d(tag, "consultationId: $consultationId")
+        try {
+            Log.d(tag, "Buscando lembretes antigos...")
             val lembretesAntigos = lembreteDao.getLembretesByMedicamentoId(consultationId)
+            Log.d(tag, "Encontrados ${lembretesAntigos.size} lembretes antigos para cancelar")
+
             lembretesAntigos.forEach { lembreteAntigo ->
-                AlarmScheduler.cancelAlarm(context, lembreteAntigo.id)
-                WorkManager.getInstance(context).cancelAllWorkByTag("consulta_${consultationId}_${lembreteAntigo.id}")
+                Log.d(tag, "Cancelando lembrete antigo ID: ${lembreteAntigo.id}")
+                try {
+                    AlarmScheduler.cancelAlarm(context, lembreteAntigo.id)
+                    WorkManager.getInstance(context).cancelAllWorkByTag("consulta_${consultationId}_${lembreteAntigo.id}")
+                    Log.d(tag, "Lembrete ${lembreteAntigo.id} cancelado com sucesso")
+                } catch (e: Exception) {
+                    Log.e(tag, "Erro ao cancelar lembrete ${lembreteAntigo.id}", e)
+                }
             }
+
+            Log.d(tag, "Deletando lembretes antigos do banco...")
             lembreteDao.deleteLembretesByMedicamentoId(consultationId)
+            Log.d(tag, "Lembretes antigos deletados. Criando novos...")
+
             agendarLembretesConsulta(context, lembreteDao, consultationId, consultation)
+            Log.d(tag, "atualizarLembretesConsulta concluído com sucesso")
+        } catch (e: Exception) {
+            Log.e(tag, "ERRO FATAL em atualizarLembretesConsulta", e)
+            Log.e(tag, "Stack trace: ${e.stackTraceToString()}")
         }
     }
 

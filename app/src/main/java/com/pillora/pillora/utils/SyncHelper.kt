@@ -437,11 +437,19 @@ object SyncHelper {
         if (triggerAtMillis < System.currentTimeMillis()) return
 
         try {
-            alarmManager.setAndAllowWhileIdle(
-                android.app.AlarmManager.RTC_WAKEUP,
-                triggerAtMillis,
-                pendingIntent
-            )
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                alarmManager.setAndAllowWhileIdle(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.set(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Erro ao agendar alarme de consulta", e)
         }
@@ -504,11 +512,19 @@ object SyncHelper {
         if (triggerAtMillis < System.currentTimeMillis()) return
 
         try {
-            alarmManager.setAndAllowWhileIdle(
-                android.app.AlarmManager.RTC_WAKEUP,
-                triggerAtMillis,
-                pendingIntent
-            )
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                alarmManager.setAndAllowWhileIdle(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.set(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Erro ao agendar alarme de vacina", e)
         }
