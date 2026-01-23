@@ -14,6 +14,7 @@ import com.pillora.pillora.repository.RecipeRepository // Import RecipeRepositor
 import com.pillora.pillora.repository.VaccineRepository // Importar VaccineRepository
 import com.pillora.pillora.data.local.AppDatabase // Adicionado
 import com.pillora.pillora.utils.AlarmScheduler // Adicionado
+import com.pillora.pillora.utils.SyncHelper // *** NOVO: Import do SyncHelper ***
 import kotlinx.coroutines.Dispatchers // Adicionado
 import kotlinx.coroutines.launch // Adicionado
 import kotlinx.coroutines.withContext // Adicionado para mudar contexto de thread
@@ -88,6 +89,11 @@ class HomeViewModel : ViewModel() {
         emit(false) // Emit false on error
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    // *** NOVO: Flags para controlar sincronização (executar apenas uma vez) ***
+    private var hasSyncedMedicines = false
+    private var hasSyncedConsultations = false
+    private var hasSyncedVaccines = false
+    private var hasSyncedRecipes = false
 
     init {
         Log.d(tag, "Initializing HomeViewModel and starting data collection.")
@@ -97,7 +103,7 @@ class HomeViewModel : ViewModel() {
         observeRecipes() // <<< ADDED: Start observing recipes
     }
 
-    // --- Funções de observação (Medicamentos, Consultas, Receitas) - SEM ALTERAÇÕES ---
+    // *** MODIFICADO: Adicionar sincronização de alarmes ***
     private fun observeMedicines() {
         medicinesFlow
             .onEach { medicines ->
@@ -105,6 +111,16 @@ class HomeViewModel : ViewModel() {
                 _isLoadingMedicines.value = false // Mark medicines as loaded
                 _totalMedicinesCount.value = medicines.size // Atualiza contador total
                 processMedicines(medicines)
+
+                // *** NOVO: Sincronizar alarmes na primeira vez ***
+                if (!hasSyncedMedicines && medicines.isNotEmpty()) {
+                    hasSyncedMedicines = true
+                    viewModelScope.launch {
+                        Log.d(tag, "Iniciando sincronização de medicamentos...")
+                        val context = com.pillora.pillora.PilloraApplication.instance
+                        SyncHelper.syncMedicines(context, medicines)
+                    }
+                }
             }
             .catch { e ->
                 Log.e(tag, "Error collecting medicines flow", e)
@@ -114,6 +130,7 @@ class HomeViewModel : ViewModel() {
             .launchIn(viewModelScope) // Collect the flow within the viewModelScope
     }
 
+    // *** MODIFICADO: Adicionar sincronização de alarmes ***
     private fun observeConsultations() {
         consultationsFlow
             .onEach { consultations ->
@@ -121,6 +138,16 @@ class HomeViewModel : ViewModel() {
                 _isLoadingConsultations.value = false // Mark consultations as loaded
                 _totalConsultationsCount.value = consultations.size // Atualiza contador total
                 processConsultations(consultations)
+
+                // *** NOVO: Sincronizar alarmes na primeira vez ***
+                if (!hasSyncedConsultations && consultations.isNotEmpty()) {
+                    hasSyncedConsultations = true
+                    viewModelScope.launch {
+                        Log.d(tag, "Iniciando sincronização de consultas...")
+                        val context = com.pillora.pillora.PilloraApplication.instance
+                        SyncHelper.syncConsultations(context, consultations)
+                    }
+                }
             }
             .catch { e ->
                 Log.e(tag, "Error collecting consultations flow", e)
@@ -130,6 +157,7 @@ class HomeViewModel : ViewModel() {
             .launchIn(viewModelScope) // Collect the flow within the viewModelScope
     }
 
+    // *** MODIFICADO: Adicionar sincronização de alarmes ***
     private fun observeRecipes() {
         recipesFlow
             .onEach { recipes ->
@@ -137,6 +165,16 @@ class HomeViewModel : ViewModel() {
                 _isLoadingRecipes.value = false // Mark recipes as loaded
                 _allRecipes.value = recipes // <<< UPDATED: Populate all recipes list
                 processExpiringRecipes(recipes)
+
+                // *** NOVO: Sincronizar alarmes na primeira vez ***
+                if (!hasSyncedRecipes && recipes.isNotEmpty()) {
+                    hasSyncedRecipes = true
+                    viewModelScope.launch {
+                        Log.d(tag, "Iniciando sincronização de receitas...")
+                        val context = com.pillora.pillora.PilloraApplication.instance
+                        SyncHelper.syncRecipes(context, recipes)
+                    }
+                }
             }
             .catch { e ->
                 Log.e(tag, "Error collecting recipes flow", e)
@@ -147,7 +185,7 @@ class HomeViewModel : ViewModel() {
     }
     // --- FIM Funções de observação (Medicamentos, Consultas, Receitas) ---
 
-    // *** FUNÇÃO ALTERADA PARA TRATAR DataResult - APENAS ESTA FOI MODIFICADA ***
+    // *** MODIFICADO: Adicionar sincronização de alarmes ***
     private fun observeVaccines() {
         vaccinesFlow // Este flow agora emite DataResult<List<Vaccine>>
             .onEach { result -> // O parâmetro agora é 'result' do tipo DataResult
@@ -161,6 +199,16 @@ class HomeViewModel : ViewModel() {
                         Log.d(tag, "Received ${vaccines.size} vaccines from flow (Success). Processing...")
                         _isLoadingVaccines.value = false // Marca como carregado
                         processUpcomingVaccines(vaccines) // Chama o processamento com a lista extraída
+
+                        // *** NOVO: Sincronizar alarmes na primeira vez ***
+                        if (!hasSyncedVaccines && vaccines.isNotEmpty()) {
+                            hasSyncedVaccines = true
+                            viewModelScope.launch {
+                                Log.d(tag, "Iniciando sincronização de vacinas...")
+                                val context = com.pillora.pillora.PilloraApplication.instance
+                                SyncHelper.syncVaccines(context, vaccines)
+                            }
+                        }
                     }
                     is DataResult.Error -> {
                         Log.e(tag, "Error collecting vaccines flow: ${result.message}")
@@ -498,4 +546,3 @@ class HomeViewModel : ViewModel() {
         }
     }
 }
-

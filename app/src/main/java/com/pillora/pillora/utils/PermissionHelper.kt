@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import androidx.core.content.ContextCompat
@@ -17,6 +18,7 @@ import androidx.core.net.toUri
  * Gerencia:
  * - POST_NOTIFICATIONS (Android 13+): Necessária para exibir notificações
  * - SCHEDULE_EXACT_ALARM (Android 12+): Necessária para alarmes exatos de medicamentos
+ * - BATTERY_OPTIMIZATION: Verifica se o app está sem restrições de bateria
  */
 object PermissionHelper {
 
@@ -58,6 +60,25 @@ object PermissionHelper {
         } else {
             // Android < 12 não precisa dessa permissão
             Log.d(TAG, "SCHEDULE_EXACT_ALARM not required (Android < 12)")
+            true
+        }
+    }
+
+    /**
+     * Verifica se o app está com uso de bateria "sem restrição".
+     * Necessário para garantir que os alarmes funcionem corretamente.
+     *
+     * @return true se o app está sem restrições de bateria, false caso contrário
+     */
+    fun isBatteryOptimizationDisabled(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            val isIgnoring = powerManager.isIgnoringBatteryOptimizations(context.packageName)
+            Log.d(TAG, "Battery optimization disabled: $isIgnoring")
+            isIgnoring
+        } else {
+            // Android < 6.0 não tem otimização de bateria
+            Log.d(TAG, "Battery optimization not applicable (Android < 6.0)")
             true
         }
     }
@@ -117,6 +138,32 @@ object PermissionHelper {
     }
 
     /**
+     * Abre as configurações de bateria do aplicativo para o usuário desativar a otimização.
+     * Redireciona para "Informações do app - Bateria".
+     *
+     * Android 6.0+ (API 23+)
+     */
+    fun openBatteryOptimizationSettings(context: Context) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val intent = Intent().apply {
+                    action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                    data = "package:${context.packageName}".toUri()
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+                Log.d(TAG, "Opened battery optimization settings (app details)")
+            } else {
+                Log.w(TAG, "Battery optimization settings not available on Android < 6.0")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error opening battery optimization settings", e)
+            // Fallback: abrir configurações gerais do app
+            openAppSettings(context)
+        }
+    }
+
+    /**
      * Abre as configurações gerais do aplicativo.
      * Fallback quando não é possível abrir configurações específicas.
      */
@@ -167,6 +214,23 @@ object PermissionHelper {
     }
 
     /**
+     * Retorna uma mensagem explicativa sobre por que desativar a otimização de bateria é necessário.
+     */
+    fun getBatteryOptimizationRationale(): String {
+        return """
+            O Pillora precisa estar SEM RESTRIÇÕES de bateria para:
+            
+            • Garantir que os alarmes toquem mesmo com o app em segundo plano
+            • Evitar que o sistema mate o app durante economia de bateria
+            • Funcionar corretamente 24 horas por dia, 7 dias por semana
+            
+            Esta configuração é ESSENCIAL para que os lembretes funcionem corretamente.
+            
+            Vá em: Informações do app > Bateria > Selecione "Sem restrição"
+        """.trimIndent()
+    }
+
+    /**
      * Retorna true se o dispositivo está no Android 12+ e precisa da permissão SCHEDULE_EXACT_ALARM.
      */
     fun needsExactAlarmPermission(): Boolean {
@@ -178,5 +242,12 @@ object PermissionHelper {
      */
     fun needsNotificationPermission(): Boolean {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    }
+
+    /**
+     * Retorna true se o dispositivo está no Android 6.0+ e precisa desativar otimização de bateria.
+     */
+    fun needsBatteryOptimizationCheck(): Boolean {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
     }
 }

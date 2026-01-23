@@ -256,6 +256,76 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
+                    // --- Avisos de Permissões e Bateria (NO TOPO) ---
+                    val hasNotificationPermission = remember { PermissionHelper.hasNotificationPermission(context) }
+                    val hasExactAlarmPermission = remember { PermissionHelper.hasExactAlarmPermission(context) }
+                    val isBatteryOptimizationDisabled = remember { PermissionHelper.isBatteryOptimizationDisabled(context) }
+
+                    if (!hasNotificationPermission || !hasExactAlarmPermission) {
+                        AlertCard(
+                            title = "⚠️ Permissões Necessárias",
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        ) {
+                            if (!hasNotificationPermission) {
+                                Text(
+                                    text = "• Permissão de Notificações não concedida. O app não poderá enviar lembretes!",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+                            if (!hasExactAlarmPermission) {
+                                Text(
+                                    text = "• Permissão de Alarmes Exatos não concedida. Os lembretes podem não tocar no horário correto!",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = { navController.navigate("permissions") },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Text("Conceder Permissões Agora")
+                            }
+                        }
+                    }
+
+                    if (!isBatteryOptimizationDisabled) {
+                        AlertCard(
+                            title = "🔋 Otimização de Bateria Ativa",
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        ) {
+                            Text(
+                                text = "O app está com restrições de bateria. Os alarmes podem não tocar corretamente!",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Para funcionar corretamente, o Pillora precisa estar configurado como \"Sem restrição\" nas configurações de bateria.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = { PermissionHelper.openBatteryOptimizationSettings(context) },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Text("Ir para Configurações de Bateria")
+                            }
+                        }
+                    }
+
                     // --- Medicamentos de Hoje ---
                     // Verifica se usuário Free atingiu o limite de medicamentos
                     val canAddMedicine = isPremium || totalMedicinesCount < FreeLimits.MAX_MEDICINES_FREE
@@ -277,21 +347,21 @@ fun HomeScreen(
                                     med.horarios?.minOrNull() ?: med.startTime ?: "99:99"
                                 }
                                 .forEach { med ->
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    Text(
-                                        text = "${med.name} - ${med.dose} ${med.doseUnit ?: ""} - ${med.horarios?.joinToString() ?: med.startTime ?: "N/A"}",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    if (med.recipientName.isNotBlank()) {
+                                    Column(modifier = Modifier.fillMaxWidth()) {
                                         Text(
-                                            text = "Para: ${med.recipientName}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            text = "${med.name} - ${med.dose} ${med.doseUnit ?: ""} - ${med.horarios?.joinToString() ?: med.startTime ?: "N/A"}",
+                                            style = MaterialTheme.typography.bodyMedium
                                         )
+                                        if (med.recipientName.isNotBlank()) {
+                                            Text(
+                                                text = "Para: ${med.recipientName}",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
                                     }
-                                    Spacer(modifier = Modifier.height(8.dp))
                                 }
-                            }
                         } else {
                             Text("Nenhum medicamento agendado para hoje.")
                         }
@@ -424,44 +494,7 @@ fun HomeScreen(
                         }
                     }
 
-                    // --- Avisos de Permissões ---
-                    val hasNotificationPermission = remember { PermissionHelper.hasNotificationPermission(context) }
-                    val hasExactAlarmPermission = remember { PermissionHelper.hasExactAlarmPermission(context) }
-
-                    if (!hasNotificationPermission || !hasExactAlarmPermission) {
-                        AlertCard(
-                            title = "⚠️ Permissões Necessárias",
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer
-                        ) {
-                            if (!hasNotificationPermission) {
-                                Text(
-                                    text = "• Permissão de Notificações não concedida. O app não poderá enviar lembretes!",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                            }
-                            if (!hasExactAlarmPermission) {
-                                Text(
-                                    text = "• Permissão de Alarmes Exatos não concedida. Os lembretes podem não tocar no horário correto!",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Button(
-                                onClick = { navController.navigate("permissions") },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.error
-                                )
-                            ) {
-                                Text("Conceder Permissões Agora")
-                            }
-                        }
-                    }
+                    // --- Avisos de Permissões e Bateria movidos para o TOPO ---
 
                     // --- Aviso sobre Economia de Energia ---
                     Card(
@@ -768,7 +801,7 @@ fun UpcomingConsultationItem(consultation: Consultation) {
 
     Column {
         Text(
-            text = "${consultation.doctorName}",
+            text = consultation.doctorName,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )

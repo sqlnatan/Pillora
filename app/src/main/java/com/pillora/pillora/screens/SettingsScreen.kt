@@ -73,11 +73,15 @@ fun SettingsScreen(navController: NavController) {
     var hasExactAlarmPermission by remember {
         mutableStateOf(PermissionHelper.hasExactAlarmPermission(context))
     }
+    var isBatteryOptimizationDisabled by remember {
+        mutableStateOf(PermissionHelper.isBatteryOptimizationDisabled(context))
+    }
 
     // Atualizar permissões quando a tela for retomada
     LaunchedEffect(Unit) {
         hasNotificationPermission = PermissionHelper.hasNotificationPermission(context)
         hasExactAlarmPermission = PermissionHelper.hasExactAlarmPermission(context)
+        isBatteryOptimizationDisabled = PermissionHelper.isBatteryOptimizationDisabled(context)
     }
 
     Scaffold(
@@ -136,12 +140,12 @@ fun SettingsScreen(navController: NavController) {
                     PermissionOption(
                         label = "Gerenciar Permissões",
                         icon = Icons.Default.Security,
-                        subtitle = if (hasNotificationPermission && hasExactAlarmPermission) {
+                        subtitle = if (hasNotificationPermission && hasExactAlarmPermission && isBatteryOptimizationDisabled) {
                             "Todas as permissões concedidas"
                         } else {
                             "Algumas permissões estão faltando"
                         },
-                        hasIssue = !hasNotificationPermission || !hasExactAlarmPermission,
+                        hasIssue = !hasNotificationPermission || !hasExactAlarmPermission || !isBatteryOptimizationDisabled,
                         onClick = {
                             navController.navigate(Screen.Permissions.route + "?isOnboarding=false")
                         }
@@ -172,6 +176,20 @@ fun SettingsScreen(navController: NavController) {
                             onClick = {
                                 if (!hasExactAlarmPermission) {
                                     navController.navigate(Screen.Permissions.route + "?isOnboarding=false")
+                                }
+                            }
+                        )
+                    }
+
+                    // Status individual: Otimização de Bateria
+                    if (PermissionHelper.needsBatteryOptimizationCheck()) {
+                        PermissionStatusItem(
+                            label = "Sem Restrição de Bateria",
+                            icon = Icons.Default.BatteryChargingFull,
+                            isGranted = isBatteryOptimizationDisabled,
+                            onClick = {
+                                if (!isBatteryOptimizationDisabled) {
+                                    PermissionHelper.openBatteryOptimizationSettings(context)
                                 }
                             }
                         )

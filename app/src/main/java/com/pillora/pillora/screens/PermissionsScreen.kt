@@ -48,6 +48,9 @@ fun PermissionsScreen(
     var hasExactAlarmPermission by remember {
         mutableStateOf(PermissionHelper.hasExactAlarmPermission(context))
     }
+    var isBatteryOptimizationDisabled by remember {
+        mutableStateOf(PermissionHelper.isBatteryOptimizationDisabled(context))
+    }
 
     // Launcher para solicitar permissão de notificações (Android 13+)
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -60,6 +63,7 @@ fun PermissionsScreen(
     LaunchedEffect(Unit) {
         hasNotificationPermission = PermissionHelper.hasNotificationPermission(context)
         hasExactAlarmPermission = PermissionHelper.hasExactAlarmPermission(context)
+        isBatteryOptimizationDisabled = PermissionHelper.isBatteryOptimizationDisabled(context)
     }
 
     Scaffold(
@@ -143,11 +147,28 @@ fun PermissionsScreen(
                 )
             }
 
+            // Card: Otimização de Bateria
+            if (PermissionHelper.needsBatteryOptimizationCheck()) {
+                PermissionCard(
+                    title = "Sem Restrição de Bateria",
+                    icon = Icons.Default.BatteryChargingFull,
+                    description = PermissionHelper.getBatteryOptimizationRationale(),
+                    isGranted = isBatteryOptimizationDisabled,
+                    onRequestClick = {
+                        PermissionHelper.openBatteryOptimizationSettings(context)
+                    },
+                    onOpenSettingsClick = {
+                        PermissionHelper.openBatteryOptimizationSettings(context)
+                    },
+                    requiresManualGrant = true
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // Botão de ação principal
             if (isOnboarding) {
-                val allGranted = hasNotificationPermission && hasExactAlarmPermission
+                val allGranted = hasNotificationPermission && hasExactAlarmPermission && isBatteryOptimizationDisabled
 
                 Button(
                     onClick = {
@@ -186,6 +207,7 @@ fun PermissionsScreen(
                     onClick = {
                         hasNotificationPermission = PermissionHelper.hasNotificationPermission(context)
                         hasExactAlarmPermission = PermissionHelper.hasExactAlarmPermission(context)
+                        isBatteryOptimizationDisabled = PermissionHelper.isBatteryOptimizationDisabled(context)
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {

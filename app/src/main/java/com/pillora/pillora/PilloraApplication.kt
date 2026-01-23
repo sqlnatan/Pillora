@@ -14,11 +14,13 @@ import com.pillora.pillora.viewmodel.ReportsViewModel
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.pillora.pillora.data.UserPreferences
+import androidx.core.net.toUri
 
 /**
  * Application class do Pillora.
  *
  * ATUALIZADO: Inicializa BillingRepository como fonte única da verdade para Premium.
+ * NOVO: Adiciona instance estática para acesso ao contexto da aplicação.
  */
 class PilloraApplication : Application() {
 
@@ -36,6 +38,10 @@ class PilloraApplication : Application() {
     }
 
     companion object {
+        // *** NOVO: Instance estática para acesso global ***
+        lateinit var instance: PilloraApplication
+            private set
+
         // Canais existentes
         const val CHANNEL_LEMBRETES_MEDICAMENTOS_ID = "lembretes_medicamentos_channel"
         const val CHANNEL_ALERTAS_ESTOQUE_ID = "alertas_estoque_channel"
@@ -47,6 +53,9 @@ class PilloraApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // *** NOVO: Inicializar instance estática ***
+        instance = this
+
         createNotificationChannels()
 
         // 💳 NOVO: Inicializar BillingRepository
@@ -73,13 +82,11 @@ class PilloraApplication : Application() {
                 description =
                     "Notificações com som de alarme para medicamentos ou lembretes prévios de consultas/vacinas."
 
-                val alarmSound = android.net.Uri.parse(
-                    "android.resource://${packageName}/${R.raw.alarme}"
-                )
+                val alarmSound = "android.resource://${packageName}/${R.raw.alarme}".toUri()
 
-                val attributes = android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                val attributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build()
 
                 setSound(alarmSound, attributes)
