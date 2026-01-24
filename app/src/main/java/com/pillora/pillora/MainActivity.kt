@@ -237,7 +237,18 @@ class MainActivity : ComponentActivity() {
                             openConsultationEdit = openConsultationEdit.value,
                             consultationId = consultationId.value,
                             openVaccineEdit = openVaccineEdit.value,
-                            vaccineId = vaccineId.value
+                            vaccineId = vaccineId.value,
+                            onNavigationHandled = {
+                                // Limpar os extras do Intent para evitar navegação repetida
+                                openConsultationEdit.value = false
+                                consultationId.value = null
+                                openVaccineEdit.value = false
+                                vaccineId.value = null
+                                intent?.removeExtra("OPEN_CONSULTATION_EDIT")
+                                intent?.removeExtra("CONSULTATION_ID")
+                                intent?.removeExtra("OPEN_VACCINE_EDIT")
+                                intent?.removeExtra("VACCINE_ID")
+                            }
                         )
                     }
                 } else {
@@ -246,7 +257,18 @@ class MainActivity : ComponentActivity() {
                         openConsultationEdit = openConsultationEdit.value,
                         consultationId = consultationId.value,
                         openVaccineEdit = openVaccineEdit.value,
-                        vaccineId = vaccineId.value
+                        vaccineId = vaccineId.value,
+                        onNavigationHandled = {
+                            // Limpar os extras do Intent para evitar navegação repetida
+                            openConsultationEdit.value = false
+                            consultationId.value = null
+                            openVaccineEdit.value = false
+                            vaccineId.value = null
+                            intent?.removeExtra("OPEN_CONSULTATION_EDIT")
+                            intent?.removeExtra("CONSULTATION_ID")
+                            intent?.removeExtra("OPEN_VACCINE_EDIT")
+                            intent?.removeExtra("VACCINE_ID")
+                        }
                     )
                 }
 
@@ -276,100 +298,102 @@ class MainActivity : ComponentActivity() {
             ThemePreference.DARK.name -> ThemePreference.DARK
             else -> ThemePreference.SYSTEM
         }
-}
 
-@Composable
-private fun shouldUseDarkTheme(
-    preference: ThemePreference
-): Boolean =
-    when (preference) {
-        ThemePreference.LIGHT -> false
-        ThemePreference.DARK -> true
-        else -> androidx.compose.foundation.isSystemInDarkTheme()
-    }
+    @Composable
+    private fun shouldUseDarkTheme(
+        preference: ThemePreference
+    ): Boolean =
+        when (preference) {
+            ThemePreference.LIGHT -> false
+            ThemePreference.DARK -> true
+            else -> androidx.compose.foundation.isSystemInDarkTheme()
+        }
 
-@Composable
-fun AppScaffold(
-    navController: NavHostController,
-    openConsultationEdit: Boolean = false,
-    consultationId: String? = null,
-    openVaccineEdit: Boolean = false,
-    vaccineId: String? = null
-) {
+    @Composable
+    fun AppScaffold(
+        navController: NavHostController,
+        openConsultationEdit: Boolean = false,
+        consultationId: String? = null,
+        openVaccineEdit: Boolean = false,
+        vaccineId: String? = null,
+        onNavigationHandled: () -> Unit = {}
+    ) {
 
-    val currentRoute =
-        navController.currentBackStackEntryAsState().value
-            ?.destination
-            ?.route
+        val currentRoute =
+            navController.currentBackStackEntryAsState().value
+                ?.destination
+                ?.route
 
-    val noBottomBarRoutes = listOf(
-        "welcome",
-        "auth",
-        "age_verification",
-        "terms?viewOnly={viewOnly}"
-    )
+        val noBottomBarRoutes = listOf(
+            "welcome",
+            "auth",
+            "age_verification",
+            "terms?viewOnly={viewOnly}"
+        )
 
-    // CORREÇÃO: Usar contentWindowInsets para controlar onde o Scaffold aplica padding
-    // Isso permite que o conteúdo fique edge-to-edge, mas a BottomNavigationBar respeite os insets
-    Scaffold(
-        contentWindowInsets = WindowInsets(0), // Remove padding automático do conteúdo
-        bottomBar = {
-            if (
-                currentRoute != null &&
-                currentRoute !in noBottomBarRoutes
-            ) {
-                BottomNavigationBar(navController, currentRoute)
+        // CORREÇÃO: Usar contentWindowInsets para controlar onde o Scaffold aplica padding
+        // Isso permite que o conteúdo fique edge-to-edge, mas a BottomNavigationBar respeite os insets
+        Scaffold(
+            contentWindowInsets = WindowInsets(0), // Remove padding automático do conteúdo
+            bottomBar = {
+                if (
+                    currentRoute != null &&
+                    currentRoute !in noBottomBarRoutes
+                ) {
+                    BottomNavigationBar(navController, currentRoute)
+                }
+            }
+        ) { padding ->
+            // CORREÇÃO: Aplicar padding apenas para a BottomNavigationBar
+            // O padding top (status bar) será gerenciado por cada tela individualmente
+            Box(modifier = Modifier.padding(bottom = padding.calculateBottomPadding())) {
+                AppNavigation(
+                    navController = navController,
+                    openConsultationEdit = openConsultationEdit,
+                    consultationId = consultationId,
+                    openVaccineEdit = openVaccineEdit,
+                    vaccineId = vaccineId,
+                    onNavigationHandled = onNavigationHandled
+                )
             }
         }
-    ) { padding ->
-        // CORREÇÃO: Aplicar padding apenas para a BottomNavigationBar
-        // O padding top (status bar) será gerenciado por cada tela individualmente
-        Box(modifier = Modifier.padding(bottom = padding.calculateBottomPadding())) {
-            AppNavigation(
-                navController = navController,
-                openConsultationEdit = openConsultationEdit,
-                consultationId = consultationId,
-                openVaccineEdit = openVaccineEdit,
-                vaccineId = vaccineId
-            )
-        }
     }
-}
 
 
-@Composable
-fun BottomNavigationBar(
-    navController: NavHostController,
-    currentRoute: String?
-) {
-    val bottomNavItemsOrdered = listOf(
-        bottomNavItems.first { it.name == "Início" },
-        bottomNavItems.first { it.name == "Medicação" },
-        bottomNavItems.first { it.name == "Consultas" },
-        bottomNavItems.first { it.name == "Vacinas" },
-        bottomNavItems.first { it.name == "Receitas" }
-    )
+    @Composable
+    fun BottomNavigationBar(
+        navController: NavHostController,
+        currentRoute: String?
+    ) {
+        val bottomNavItemsOrdered = listOf(
+            bottomNavItems.first { it.name == "Início" },
+            bottomNavItems.first { it.name == "Medicação" },
+            bottomNavItems.first { it.name == "Consultas" },
+            bottomNavItems.first { it.name == "Vacinas" },
+            bottomNavItems.first { it.name == "Receitas" }
+        )
 
-    NavigationBar {
-        bottomNavItemsOrdered.forEach { item ->
-            NavigationBarItem(
-                icon = {
-                    Icon(item.icon, contentDescription = item.contentDescription)
-                },
-                label = { Text(item.name) },
-                selected = currentRoute == item.route,
-                onClick = {
-                    if (currentRoute != item.route) {
-                        navController.navigate(item.route) {
-                            popUpTo(
-                                navController.graph.startDestinationId
-                            ) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
+        NavigationBar {
+            bottomNavItemsOrdered.forEach { item ->
+                NavigationBarItem(
+                    icon = {
+                        Icon(item.icon, contentDescription = item.contentDescription)
+                    },
+                    label = { Text(item.name) },
+                    selected = currentRoute == item.route,
+                    onClick = {
+                        if (currentRoute != item.route) {
+                            navController.navigate(item.route) {
+                                popUpTo(
+                                    navController.graph.startDestinationId
+                                ) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
                     }
-                }
-            )
+                )
+            }
         }
     }
 }

@@ -60,7 +60,8 @@ fun AppNavigation(
     consultationId: String? = null,
     // *** CORREÇÃO: Adicionar parâmetros para navegação direta de vacina ***
     openVaccineEdit: Boolean = false,
-    vaccineId: String? = null
+    vaccineId: String? = null,
+    onNavigationHandled: () -> Unit = {}
 ) {
     // val navController = rememberNavController() // REMOVIDO: Recebido como parâmetro
     val context = LocalContext.current
@@ -346,11 +347,13 @@ fun AppNavigation(
                 LaunchedEffect(key1 = "consultation_$consultationId") {
                     navController.navigate("${Screen.ConsultationForm.route}?id=$consultationId")
                     hasNavigated = true
+                    onNavigationHandled()
                 }
             } else if (openVaccineEdit && vaccineId != null) {
                 LaunchedEffect(key1 = "vaccine_$vaccineId") {
                     navController.navigate("${Screen.VaccineForm.route}?id=$vaccineId")
                     hasNavigated = true
+                    onNavigationHandled()
                 }
             }
         }
