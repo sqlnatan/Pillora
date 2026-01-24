@@ -338,8 +338,8 @@ fun AppNavigation(
         }
 
         // *** CORREÇÃO: Navegar para a tela de edição de consulta OU vacina se necessário ***
-        // Usar estado local para garantir que a navegação só aconteça uma vez
-        var hasNavigated by rememberSaveable { mutableStateOf(false) }
+        // Usar remember (não rememberSaveable) para garantir que a navegação só aconteça uma vez por sessão
+        var hasNavigated by remember { mutableStateOf(false) }
 
         if (!hasNavigated) {
             if (openConsultationEdit && consultationId != null) {

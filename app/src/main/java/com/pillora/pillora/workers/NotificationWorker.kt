@@ -408,7 +408,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
 
                 val remarcarIntent = Intent(applicationContext, MainActivity::class.java).apply {
                     action = ACTION_CONSULTA_REMARCAR
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
                     putExtra("OPEN_CONSULTATION_EDIT", true)
                     putExtra("CONSULTATION_ID", consultaId)
                 }
@@ -431,7 +431,7 @@ class NotificationWorker(appContext: Context, workerParams: WorkerParameters) :
 
                 val remarcarIntent = Intent(applicationContext, MainActivity::class.java).apply {
                     action = ACTION_VACINA_REMARCAR
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
                     putExtra("OPEN_VACCINE_EDIT", true)
                     putExtra("VACCINE_ID", vacinaId)
                 }
